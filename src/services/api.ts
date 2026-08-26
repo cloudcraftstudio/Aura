@@ -154,6 +154,22 @@ class ApiService {
     return Boolean(res?.success);
   }
 
+  public async deleteStory(storyId: string, userId: string): Promise<boolean> {
+    const res = await this.request<{ success: boolean }>(`/stories/${storyId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
+    });
+    return Boolean(res?.success);
+  }
+
+  public async deleteStorySlide(storyId: string, slideId: string, userId: string): Promise<UserStory | null> {
+    const res = await this.request<{ story: UserStory | null }>(`/stories/${storyId}/slides/${slideId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
+    });
+    return res?.story || null;
+  }
+
   // --- Conversations & Messages ---
   public async getConversations(userId?: string): Promise<Conversation[] | null> {
     return this.request<Conversation[]>(`/conversations${userId ? `?userId=${userId}` : ''}`);

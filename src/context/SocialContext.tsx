@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { SocialPost, UserStory, PostComment } from '../types';
+import { SocialPost, UserStory, PostComment, StorySlide } from '../types';
 import { INITIAL_POSTS, INITIAL_STORIES } from '../data/mockData';
 import { offlineStorage, STORAGE_KEYS } from '../services/offlineStorage';
 import { notificationService } from '../services/notifications';
@@ -18,6 +18,8 @@ interface SocialContextType {
   deletePost: (postId: string) => Promise<void>;
   toggleSavePost: (postId: string) => Promise<void>;
   addStory: (mediaUrl: string, caption?: string) => Promise<void>;
+  deleteStory: (storyId: string) => Promise<void>;
+  deleteStorySlide: (storyId: string, slideId: string) => Promise<void>;
   markStorySeen: (storyId: string) => Promise<void>;
   getPostById: (postId: string) => SocialPost | undefined;
   refreshFeed: () => Promise<void>;
@@ -128,7 +130,17 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           })
         );
       } else if (type === 'new_story') {
-        setStories((prev) => [payload, ...prev.filter((s) => s.id !== payload.id)]);
+        setStories((prev) => {
+          const existingIdx = prev.findIndex((s) => s.userId === payload.userId || s.id === payload.id);
+          if (existingIdx !== -1) {
+            const updated = [...prev];
+            updated[existingIdx] = payload;
+            return updated;
+          }
+          return [payload, ...prev];
+        });
+      } else if (type === 'delete_story') {
+        setStories((prev) => prev.filter((s) => s.id !== payload.storyId));
       }
     });
     return () => unsub();
@@ -308,29 +320,116 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const addStory = async (mediaUrl: string, caption?: string) => {
     if (!user) return;
-    const newStory: UserStory = {
-      id: 'story_' + Date.now(),
-      userId: user.id,
-      userName: user.name,
-      userAvatar: user.avatarUrl,
+    const now = Date.now();
+    const slideId = 'slide_' + now + '_' + Math.random().toString(36).substr(2, 4);
+    const newSlide: StorySlide = {
+      id: slideId,
       mediaUrl,
       caption,
-      createdAt: Date.now(),
-      seenByUserIds: [user.id],
+      createdAt: now,
     };
 
-    setStories((prev) => [newStory, ...prev]);
-    offlineStorage.broadcastEvent('new_story', newStory);
+    // Optimistic UI update: Check if user already has an active story
+    setStories((prev) => {
+      const existingIndex = prev.findIndex((s) => s.userId === user.id);
+      if (existingIndex !== -1) {
+        const existing = prev[existingIndex];
+        const existingSlides =
+          existing.slides && existing.slides.length > 0
+            ? [...existing.slides]
+            : [
+                {
+                  id: `slide_${existing.id}`,
+                  mediaUrl: existing.mediaUrl,
+                  caption: existing.caption,
+                  createdAt: existing.createdAt,
+                },
+              ];
 
-    await api.createStory(user.id, mediaUrl, caption);
+        const updatedStory: UserStory = {
+          ...existing,
+          mediaUrl,
+          caption,
+          createdAt: now,
+          seenByUserIds: [user.id],
+          slides: [...existingSlides, newSlide],
+        };
+        const updated = [...prev];
+        updated[existingIndex] = updatedStory;
+        return updated;
+      } else {
+        const newStory: UserStory = {
+          id: 'story_' + now,
+          userId: user.id,
+          userName: user.name,
+          userAvatar: user.avatarUrl,
+          mediaUrl,
+          caption,
+          createdAt: now,
+          seenByUserIds: [user.id],
+          slides: [newSlide],
+        };
+        return [newStory, ...prev];
+      }
+    });
+
+    const savedStory = await api.createStory(user.id, mediaUrl, caption);
+    if (savedStory) {
+      setStories((prev) => {
+        const idx = prev.findIndex((s) => s.userId === user.id || s.id === savedStory.id);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = savedStory;
+          return updated;
+        }
+        return [savedStory, ...prev];
+      });
+      offlineStorage.broadcastEvent('new_story', savedStory);
+    }
 
     notificationService.notify({
       type: 'system',
       title: 'Story Added',
-      body: 'Your 24-hour visual story is now saved to the server database!',
+      body: 'Your photo was added to your story reel!',
       avatar: user.avatarUrl,
       playSound: false,
     });
+  };
+
+  const deleteStory = async (storyId: string) => {
+    if (!user) return;
+    setStories((prev) => prev.filter((s) => s.id !== storyId));
+    offlineStorage.broadcastEvent('delete_story', { storyId });
+    await api.deleteStory(storyId, user.id);
+  };
+
+  const deleteStorySlide = async (storyId: string, slideId: string) => {
+    if (!user) return;
+    setStories((prev) => {
+      return prev
+        .map((s) => {
+          if (s.id === storyId) {
+            if (s.slides && s.slides.length > 1) {
+              const updatedSlides = s.slides.filter((sl) => sl.id !== slideId);
+              const last = updatedSlides[updatedSlides.length - 1];
+              return {
+                ...s,
+                mediaUrl: last.mediaUrl,
+                caption: last.caption,
+                slides: updatedSlides,
+              };
+            } else {
+              return null;
+            }
+          }
+          return s;
+        })
+        .filter(Boolean) as UserStory[];
+    });
+    const updated = await api.deleteStorySlide(storyId, slideId, user.id);
+    if (updated) {
+      offlineStorage.broadcastEvent('new_story', updated);
+    }
   };
 
   const markStorySeen = async (storyId: string) => {
@@ -362,6 +461,8 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         deletePost,
         toggleSavePost,
         addStory,
+        deleteStory,
+        deleteStorySlide,
         markStorySeen,
         getPostById,
         refreshFeed,

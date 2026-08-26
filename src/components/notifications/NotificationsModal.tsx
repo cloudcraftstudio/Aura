@@ -16,10 +16,12 @@ import {
   Eye,
   EyeOff,
   Filter,
+  Volume2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications } from '../../context/NotificationContext';
 import { useChat } from '../../context/ChatContext';
+import { usePermissions } from '../../context/PermissionsContext';
 import { Avatar } from '../common/Avatar';
 import { AppNotification } from '../../types';
 import { soundEffects } from '../../services/audio';
@@ -41,6 +43,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
   } = useNotifications();
 
   const { setActiveConversationId, conversations } = useChat();
+  const { notificationStatus, requestNotificationPermission, sendTestNotification } = usePermissions();
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'interactions' | 'chats'>('all');
 
@@ -244,6 +247,45 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
 
         {/* Notifications Scroll List */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 min-h-0">
+          {/* Notification Permission Status Banner if not granted */}
+          {notificationStatus !== 'granted' && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-2.5 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center flex-shrink-0">
+                  <Bell className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white">Browser Notifications Off</p>
+                  <p className="text-[10px] text-slate-300 truncate">Enable to get sound & push alerts for incoming calls</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={requestNotificationPermission}
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-md flex-shrink-0 transition-all active:scale-95"
+              >
+                Allow Alerts
+              </button>
+            </div>
+          )}
+
+          {notificationStatus === 'granted' && (
+            <div className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-[11px] mb-2">
+              <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Push & Chimes Enabled</span>
+              </span>
+              <button
+                type="button"
+                onClick={sendTestNotification}
+                className="text-slate-300 hover:text-white flex items-center gap-1 text-[10px] font-medium"
+              >
+                <Volume2 className="w-3 h-3 text-emerald-400" />
+                <span>Test Alert</span>
+              </button>
+            </div>
+          )}
+
           {filteredNotifications.length === 0 ? (
             <div className="py-12 px-4 text-center flex flex-col items-center justify-center text-slate-400">
               <div className="w-14 h-14 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 text-slate-500">

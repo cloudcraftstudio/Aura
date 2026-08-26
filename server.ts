@@ -278,6 +278,20 @@ async function startServer() {
     res.json({ success });
   });
 
+  app.delete('/api/stories/:id', (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+    const success = db.deleteStory(req.params.id, userId);
+    res.json({ success });
+  });
+
+  app.delete('/api/stories/:id/slides/:slideId', (req, res) => {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+    const updatedStory = db.deleteStorySlide(req.params.id, req.params.slideId, userId);
+    res.json({ story: updatedStory });
+  });
+
   // --- Conversations & Messages API ---
   app.get('/api/conversations', (req, res) => {
     const userId = req.query.userId as string | undefined;
@@ -328,6 +342,98 @@ async function startServer() {
     const reactions = db.addMessageReaction(req.params.conversationId, req.params.messageId, emoji, userId);
     if (!reactions) return res.status(404).json({ error: 'Message not found' });
     res.json(reactions);
+  });
+
+  // --- Calls & WebRTC Signaling API ---
+  app.post('/api/calls', (req, res) => {
+    const { callerId, callerName, callerAvatar, receiverId, receiverName, receiverAvatar, isVideo, roomId } = req.body;
+    if (!callerId || !receiverId || !roomId) {
+      return res.status(400).json({ error: 'callerId, receiverId, and roomId are required' });
+    }
+    const session = db.createOrUpdateCallSession({
+      callerId,
+      callerName,
+      callerAvatar,
+      receiverId,
+      receiverName,
+      receiverAvatar,
+      isVideo: isVideo !== undefined ? isVideo : true,
+      roomId,
+      status: 'calling',
+    });
+    res.status(201).json(session);
+  });
+
+  app.get('/api/calls/pending', (req, res) => {
+    const userId = req.query.userId as string;
+    if (!userId) return res.status(400).json({ error: 'userId query is required' });
+    const pending = db.getPendingCallsForUser(userId);
+    res.json(pending);
+  });
+
+  app.get('/api/calls/:roomId', (req, res) => {
+    const session = db.getCallSessionByRoomId(req.params.roomId);
+    if (!session) return res.status(404).json({ error: 'Call session not found' });
+    res.json(session);
+  });
+
+  app.post('/api/calls/:roomId/status', (req, res) => {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'status is required' });
+    const session = db.updateCallStatus(req.params.roomId, status);
+    if (!session) return res.status(404).json({ error: 'Call session not found' });
+
+    // If call completed, declined or missed, optionally log in direct conversation
+    if (status === 'ended' || status === 'declined') {
+      try {
+        const convs = db.getConversations();
+        const directConv = convs.find(
+          (c) =>
+            !c.isGroup &&
+            c.participantIds.includes(session.callerId) &&
+            c.participantIds.includes(session.receiverId)
+        );
+        if (directConv) {
+          const duration = session.startedAt && session.endedAt ? Math.round((session.endedAt - session.startedAt) / 1000) : 0;
+          db.sendMessage({
+            conversationId: directConv.id,
+            senderId: session.callerId,
+            senderName: session.callerName,
+            senderAvatar: session.callerAvatar,
+            content: status === 'declined'
+              ? `❌ Declined ${session.isVideo ? 'Video' : 'Audio'} Call`
+              : duration > 0
+              ? `📞 ${session.isVideo ? 'Video' : 'Audio'} Call ended (${Math.floor(duration / 60)}m ${duration % 60}s)`
+              : `📞 Missed ${session.isVideo ? 'Video' : 'Audio'} Call`,
+            callLog: {
+              callType: session.isVideo ? 'video' : 'audio',
+              status: status === 'declined' ? 'declined' : duration > 0 ? 'completed' : 'missed',
+              durationSeconds: duration,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('Could not auto-log call into conversation:', err);
+      }
+    }
+
+    res.json(session);
+  });
+
+  app.post('/api/calls/:roomId/signal', (req, res) => {
+    const { senderId, type, data } = req.body;
+    if (!senderId || !type || !data) {
+      return res.status(400).json({ error: 'senderId, type, and data are required' });
+    }
+    const signal = db.addCallSignal(req.params.roomId, senderId, type, data);
+    res.status(201).json(signal);
+  });
+
+  app.get('/api/calls/:roomId/signals', (req, res) => {
+    const excludeSenderId = req.query.excludeSenderId as string | undefined;
+    const since = req.query.since ? parseInt(req.query.since as string, 10) : 0;
+    const signals = db.getCallSignals(req.params.roomId, excludeSenderId, since);
+    res.json(signals);
   });
 
   // --- VITE MIDDLEWARE SETUP ---

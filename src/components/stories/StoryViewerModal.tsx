@@ -11,6 +11,7 @@ import {
   Sparkles,
   Users,
   MessageCircle,
+  Trash2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { UserStory, StorySlide } from '../../types';
@@ -32,7 +33,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   onClose,
   onOpenChat,
 }) => {
-  const { stories, markStorySeen } = useSocial();
+  const { stories, markStorySeen, deleteStorySlide } = useSocial();
   const { user } = useAuth();
   const { sendStoryReply } = useChat();
 
@@ -569,7 +570,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               </div>
 
               {/* Quick direct chat button */}
-              {onOpenChat && (
+              {onOpenChat && user?.id !== currentStory.userId && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -582,6 +583,31 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
                 >
                   <MessageCircle className="w-3.5 h-3.5 text-blue-400" />
                   <span className="hidden sm:inline text-[11px] font-medium">Messages</span>
+                </button>
+              )}
+
+              {/* Author Delete Slide Button */}
+              {user?.id === currentStory.userId && (
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (activeSlide) {
+                      soundEffects.playTap();
+                      await deleteStorySlide(currentStory.id, activeSlide.id);
+                      if (slides.length <= 1) {
+                        onClose();
+                      } else {
+                        setCurrentSlideIndex((prev) => Math.max(0, prev - 1));
+                        setProgress(0);
+                      }
+                    }
+                  }}
+                  className="p-1.5 px-2 rounded-full bg-red-500/20 hover:bg-red-500/40 border border-red-400/30 text-red-300 hover:text-red-100 transition-all flex items-center gap-1 text-xs backdrop-blur-md"
+                  title="Delete this slide from your story"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-[10px] font-medium">Delete</span>
                 </button>
               )}
 

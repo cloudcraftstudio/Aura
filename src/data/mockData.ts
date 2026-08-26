@@ -146,20 +146,29 @@ export const INITIAL_POSTS: SocialPost[] = [
     authorName: 'Elena Rostova',
     authorHandle: 'elenarostova',
     authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
-    content: 'Studio vibes today. Experimenting with modular analog synthesizers and ambient reverbs. New track coming soon 🎧🎵',
-    mediaUrls: [
-      'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=1000&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=1000&auto=format&fit=crop&q=80'
-    ],
-    tags: ['music', 'synth', 'sounddesign', 'creative'],
-    location: 'Berlin, Germany',
+    content: 'Just discovered this incredible 4K cinematic documentary exploring lush landscapes and wildlife in Costa Rica! 🌿🦜 Watch the full video here:\nhttps://www.youtube.com/watch?v=LXb3EKWsInQ\n\nThe soundtrack and color grading are purely mesmerizing.',
+    mediaUrls: [],
+    tags: ['cinematography', 'nature', 'documentary', 'sounddesign'],
+    location: 'Manuel Antonio, Costa Rica',
     likesCount: 245,
     likedByUserIds: ['user_alex', 'user_maya', 'user_liam'],
     commentsCount: 14,
     sharesCount: 18,
     savedByUserIds: ['user_alex'],
     createdAt: Date.now() - 1000 * 60 * 360, // 6 hrs ago
-    comments: []
+    comments: [
+      {
+        id: 'c4',
+        postId: 'post_3',
+        authorId: 'user_alex',
+        authorName: 'Alex Rivera',
+        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+        content: 'The audio depth and color balance in this video are next level!',
+        createdAt: Date.now() - 1000 * 60 * 60,
+        likesCount: 19,
+        likedByUserIds: ['user_elena'],
+      },
+    ]
   }
 ];
 

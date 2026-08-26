@@ -14,6 +14,9 @@ import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { ImageLightboxModal } from '../common/ImageLightboxModal';
+import { RichTextRenderer } from '../common/RichTextRenderer';
+import { extractVideosFromText, isDirectVideoUrl } from '../../utils/mediaUtils';
+import { VideoEmbed } from '../common/VideoEmbed';
 
 interface PostCardProps {
   post: SocialPost;
@@ -104,9 +107,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         )}
       </div>
 
-      {/* Post Text Content */}
+      {/* Post Text Content & Video Embeds */}
       <div className="px-5 pb-3">
-        <p className="text-sm text-slate-100 leading-relaxed whitespace-pre-line">{post.content}</p>
+        <RichTextRenderer content={post.content} className="text-sm text-slate-100" />
 
         {/* Tags / Categories */}
         {post.tags && post.tags.length > 0 && (
@@ -123,55 +126,81 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         )}
       </div>
 
-      {/* Media Photo Responsive Display */}
-      {post.mediaUrls && post.mediaUrls.length > 0 && (
-        <div className="px-5 pb-3.5">
-          {post.mediaUrls.length === 1 ? (
-            <div
-              onClick={() => setSelectedPhotoIndex(0)}
-              className="relative max-h-[580px] w-full rounded-2xl overflow-hidden cursor-pointer border border-white/10 group bg-black/50 flex items-center justify-center"
-            >
-              <img
-                src={post.mediaUrls[0]}
-                alt="Post media"
-                referrerPolicy="no-referrer"
-                className="w-full max-h-[580px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
-              />
-              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-xs font-semibold text-white border border-white/20 shadow-xl">
-                  Click to View Full Size
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div
-              className={`grid gap-2 ${
-                post.mediaUrls.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
-              }`}
-            >
-              {post.mediaUrls.map((url, i) => (
-                <div
-                  key={i}
-                  onClick={() => setSelectedPhotoIndex(i)}
-                  className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer border border-white/10 group bg-black/40"
-                >
-                  <img
-                    src={url}
-                    alt={`Photo ${i + 1}`}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-xs text-white">
-                      View
-                    </span>
-                  </div>
+      {/* Media Photo & Direct Video Responsive Display */}
+      {post.mediaUrls && post.mediaUrls.length > 0 && (() => {
+        // Filter out URLs that are standalone videos to avoid double rendering with text if already embedded
+        const contentVideos = extractVideosFromText(post.content);
+        const contentVideoUrls = new Set(contentVideos.map(v => v.url));
+
+        const videoMedia = post.mediaUrls.filter(url => {
+          const yt = extractVideosFromText(url);
+          return (yt.length > 0 || isDirectVideoUrl(url)) && !contentVideoUrls.has(url);
+        });
+
+        const imageMedia = post.mediaUrls.filter(url => {
+          const yt = extractVideosFromText(url);
+          return yt.length === 0 && !isDirectVideoUrl(url);
+        });
+
+        return (
+          <div className="px-5 pb-3.5 space-y-3">
+            {/* Any standalone video media in mediaUrls */}
+            {videoMedia.map((vUrl, vIdx) => {
+              const extracted = extractVideosFromText(vUrl);
+              const vObj = extracted.length > 0 ? extracted[0] : { type: 'direct' as const, url: vUrl, embedUrl: vUrl };
+              return <VideoEmbed key={vIdx} video={vObj} />;
+            })}
+
+            {/* Photos */}
+            {imageMedia.length === 1 && (
+              <div
+                onClick={() => setSelectedPhotoIndex(0)}
+                className="relative max-h-[580px] w-full rounded-2xl overflow-hidden cursor-pointer border border-white/10 group bg-black/50 flex items-center justify-center"
+              >
+                <img
+                  src={imageMedia[0]}
+                  alt="Post media"
+                  referrerPolicy="no-referrer"
+                  className="w-full max-h-[580px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
+                />
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-xs font-semibold text-white border border-white/20 shadow-xl">
+                    Click to View Full Size
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              </div>
+            )}
+
+            {imageMedia.length > 1 && (
+              <div
+                className={`grid gap-2 ${
+                  imageMedia.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
+                }`}
+              >
+                {imageMedia.map((url, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setSelectedPhotoIndex(i)}
+                    className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer border border-white/10 group bg-black/40"
+                  >
+                    <img
+                      src={url}
+                      alt={`Photo ${i + 1}`}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-xs text-white">
+                        View
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Action Buttons Bar */}
       <div className="px-5 py-3 border-t border-white/5 flex items-center justify-between">
@@ -245,7 +274,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         {formatDistanceToNow(c.createdAt, { addSuffix: true })}
                       </span>
                     </div>
-                    <p className="text-slate-300">{c.content}</p>
+                    <div className="mt-1">
+                      <RichTextRenderer content={c.content} className="text-slate-300" showVideoEmbeds={true} />
+                    </div>
                   </div>
                 </div>
               ))}

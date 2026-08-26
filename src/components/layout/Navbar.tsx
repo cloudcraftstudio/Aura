@@ -13,10 +13,13 @@ import {
   Database,
   Layers,
   Share2,
+  Smartphone,
+  Sliders,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { usePermissions } from '../../context/PermissionsContext';
 import { notificationService } from '../../services/notifications';
 import { Avatar } from '../common/Avatar';
 import { UserStatus } from '../../types';
@@ -39,10 +42,21 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { user, allUsers, loginAsUser, isOnline, openAuthModal, isServerConnected } = useAuth();
   const { conversations } = useChat();
   const { unreadCount, openNotifications } = useNotifications();
+  const {
+    cameraStatus,
+    micStatus,
+    notificationStatus,
+    pwaStatus,
+    isStandalone,
+    openPermissionsModal,
+    openSaveToHomeModal,
+  } = usePermissions();
 
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
 
   const totalUnreadChats = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+  const isAllAllowed = cameraStatus === 'granted' && micStatus === 'granted' && notificationStatus === 'granted';
+  const isAppInstalled = isStandalone || pwaStatus === 'installed';
 
   const handleBellClick = async () => {
     // Also proactively request permission if default
@@ -130,6 +144,34 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Action Suite */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Quick Save to Home / Install App Button */}
+          {!isAppInstalled && (
+            <button
+              id="save-to-home-nav-btn"
+              onClick={openSaveToHomeModal}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-2xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 text-xs font-bold shadow-md transition-all active:scale-95"
+              title="Save Aura to Home Screen"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Save App</span>
+            </button>
+          )}
+
+          {/* Permissions / Device Access Quick Setup Button */}
+          <button
+            id="permissions-setup-nav-btn"
+            onClick={openPermissionsModal}
+            className={`p-2 sm:px-2.5 sm:py-1.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              isAllAllowed
+                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20'
+                : 'bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30 animate-pulse'
+            }`}
+            title="Manage Camera, Mic, Notifications & Device Access"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span className="hidden xl:inline">{isAllAllowed ? 'Device Ready' : 'Permissions'}</span>
+          </button>
+
           {/* Invite & Share Button */}
           {onOpenShare && (
             <button

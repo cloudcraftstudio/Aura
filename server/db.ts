@@ -118,6 +118,32 @@ export interface DBConversation {
   updatedAt: number;
 }
 
+export interface DBCallSession {
+  id: string;
+  callerId: string;
+  callerName: string;
+  callerAvatar: string;
+  receiverId: string;
+  receiverName: string;
+  receiverAvatar: string;
+  isVideo: boolean;
+  status: 'calling' | 'connected' | 'ended' | 'declined';
+  roomId: string;
+  startedAt?: number;
+  endedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface DBCallSignal {
+  id: string;
+  roomId: string;
+  senderId: string;
+  type: 'offer' | 'answer' | 'candidate';
+  data: any;
+  timestamp: number;
+}
+
 export interface DatabaseSchema {
   users: DBUser[];
   posts: DBPost[];
@@ -270,6 +296,47 @@ const SEED_POSTS: DBPost[] = [
     sharesCount: 88,
     savedByUserIds: ['user_maya'],
     createdAt: Date.now() - 1000 * 60 * 180,
+  },
+  {
+    id: 'post_3',
+    authorId: 'user_elena',
+    authorName: 'Elena Rostova',
+    authorHandle: 'elenarostova',
+    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+    content: 'Just discovered this incredible 4K cinematic documentary exploring lush landscapes and wildlife in Costa Rica! 🌿🦜 Watch the full video here:\nhttps://www.youtube.com/watch?v=LXb3EKWsInQ\n\nThe soundtrack and color grading are purely mesmerizing.',
+    mediaUrls: [],
+    tags: ['cinematography', 'nature', 'documentary', 'sounddesign'],
+    location: 'Manuel Antonio, Costa Rica',
+    likesCount: 428,
+    likedByUserIds: ['user_alex', 'user_liam'],
+    commentsCount: 2,
+    comments: [
+      {
+        id: 'c4',
+        postId: 'post_3',
+        authorId: 'user_alex',
+        authorName: 'Alex Rivera',
+        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+        content: 'The audio depth and color balance in this video are next level!',
+        createdAt: Date.now() - 1000 * 60 * 60,
+        likesCount: 19,
+        likedByUserIds: ['user_elena'],
+      },
+      {
+        id: 'c5',
+        postId: 'post_3',
+        authorId: 'user_liam',
+        authorName: 'Liam Vance',
+        authorAvatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80',
+        content: 'Bookmarking this for lighting inspiration on my next film shoot! 🎬',
+        createdAt: Date.now() - 1000 * 60 * 40,
+        likesCount: 11,
+        likedByUserIds: [],
+      },
+    ],
+    sharesCount: 64,
+    savedByUserIds: ['user_alex'],
+    createdAt: Date.now() - 1000 * 60 * 240,
   },
 ];
 
@@ -720,36 +787,159 @@ class JSONDatabase {
   // --- Stories Operations ---
   public getStories(): DBStory[] {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    return this.data.stories.filter((s) => s.createdAt > cutoff);
+    const active = this.data.stories.filter(
+      (s) => s.createdAt > cutoff || (s.slides && s.slides.some((sl) => sl.createdAt > cutoff))
+    );
+
+    // Aggregate/Group stories by userId so that any user with multiple photos/slides gets grouped into 1 user story with segmented progress bars
+    const userStoryMap = new Map<string, DBStory>();
+
+    for (const story of active) {
+      const existing = userStoryMap.get(story.userId);
+      // Ensure this story's slides array is well-formed
+      let currentStorySlides: DBStorySlide[] = [];
+      if (story.slides && story.slides.length > 0) {
+        currentStorySlides = [...story.slides];
+      } else if (story.mediaUrl) {
+        currentStorySlides = [
+          {
+            id: `slide_${story.id}`,
+            mediaUrl: story.mediaUrl,
+            caption: story.caption,
+            createdAt: story.createdAt,
+          },
+        ];
+      }
+
+      if (!existing) {
+        // First entry for this user
+        userStoryMap.set(story.userId, {
+          ...story,
+          slides: currentStorySlides,
+        });
+      } else {
+        // Merge slides into existing user story bundle
+        const existingSlideIds = new Set(existing.slides?.map((s) => s.id) || []);
+        const existingSlideUrls = new Set(existing.slides?.map((s) => s.mediaUrl) || []);
+
+        for (const slide of currentStorySlides) {
+          if (!existingSlideIds.has(slide.id) && !existingSlideUrls.has(slide.mediaUrl)) {
+            existingSlideIds.add(slide.id);
+            existingSlideUrls.add(slide.mediaUrl);
+            existing.slides?.push(slide);
+          }
+        }
+
+        // Sort slides chronologically
+        existing.slides?.sort((a, b) => a.createdAt - b.createdAt);
+
+        // Update latest mediaUrl/caption/createdAt
+        if (story.createdAt >= existing.createdAt) {
+          existing.mediaUrl = story.mediaUrl;
+          existing.caption = story.caption;
+          existing.createdAt = story.createdAt;
+        }
+
+        // Merge seen users
+        const combinedSeen = Array.from(new Set([...existing.seenByUserIds, ...story.seenByUserIds]));
+        existing.seenByUserIds = combinedSeen;
+      }
+    }
+
+    const consolidatedStories = Array.from(userStoryMap.values());
+    this.data.stories = consolidatedStories;
+    this.scheduleSave();
+
+    return consolidatedStories;
   }
 
   public createStory(userId: string, mediaUrl: string, caption?: string): DBStory | null {
     const author = this.getUserById(userId);
     if (!author) return null;
 
-    const slideId = `slide_${Date.now()}`;
-    const story: DBStory = {
-      id: `story_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      userId,
-      userName: author.name,
-      userAvatar: author.avatarUrl,
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const newSlideId = `slide_${now}_${Math.random().toString(36).substr(2, 4)}`;
+    const newSlide: DBStorySlide = {
+      id: newSlideId,
       mediaUrl,
       caption,
-      createdAt: Date.now(),
-      seenByUserIds: [userId],
-      slides: [
-        {
-          id: slideId,
-          mediaUrl,
-          caption,
-          createdAt: Date.now(),
-        },
-      ],
+      createdAt: now,
     };
 
-    this.data.stories.unshift(story);
-    this.scheduleSave();
-    return story;
+    // Check if user already has an active story within 24h
+    const existingStoryIndex = this.data.stories.findIndex(
+      (s) => s.userId === userId && (s.createdAt > cutoff || (s.slides && s.slides.some((sl) => sl.createdAt > cutoff)))
+    );
+
+    if (existingStoryIndex !== -1) {
+      const existingStory = this.data.stories[existingStoryIndex];
+      if (!existingStory.slides || existingStory.slides.length === 0) {
+        existingStory.slides = [
+          {
+            id: `slide_${existingStory.id}`,
+            mediaUrl: existingStory.mediaUrl,
+            caption: existingStory.caption,
+            createdAt: existingStory.createdAt,
+          },
+        ];
+      }
+      // Append the new slide (photo/caption) to the existing story bundle
+      existingStory.slides.push(newSlide);
+      existingStory.mediaUrl = mediaUrl;
+      existingStory.caption = caption;
+      existingStory.createdAt = now;
+      // Reset seenBy except the author so friends see the new slide indicator
+      existingStory.seenByUserIds = [userId];
+
+      this.scheduleSave();
+      return existingStory;
+    } else {
+      const newStory: DBStory = {
+        id: `story_${now}_${Math.random().toString(36).substr(2, 4)}`,
+        userId,
+        userName: author.name,
+        userAvatar: author.avatarUrl,
+        mediaUrl,
+        caption,
+        createdAt: now,
+        seenByUserIds: [userId],
+        slides: [newSlide],
+      };
+
+      this.data.stories.unshift(newStory);
+      this.scheduleSave();
+      return newStory;
+    }
+  }
+
+  public deleteStorySlide(storyId: string, slideId: string, userId: string): DBStory | null {
+    const story = this.data.stories.find((s) => s.id === storyId && s.userId === userId);
+    if (!story) return null;
+
+    if (story.slides && story.slides.length > 1) {
+      story.slides = story.slides.filter((sl) => sl.id !== slideId);
+      const lastSlide = story.slides[story.slides.length - 1];
+      story.mediaUrl = lastSlide.mediaUrl;
+      story.caption = lastSlide.caption;
+      this.scheduleSave();
+      return story;
+    } else {
+      // If only 1 slide was left, remove the entire story
+      this.data.stories = this.data.stories.filter((s) => s.id !== storyId);
+      this.scheduleSave();
+      return null;
+    }
+  }
+
+  public deleteStory(storyId: string, userId: string): boolean {
+    const initialLen = this.data.stories.length;
+    this.data.stories = this.data.stories.filter((s) => !(s.id === storyId && s.userId === userId));
+    if (this.data.stories.length !== initialLen) {
+      this.scheduleSave();
+      return true;
+    }
+    return false;
   }
 
   public markStorySeen(storyId: string, userId: string): boolean {
@@ -871,6 +1061,93 @@ class JSONDatabase {
 
     this.scheduleSave();
     return msg.reactions;
+  }
+
+  // --- Calls & WebRTC Signaling Operations ---
+  private activeCalls: Map<string, DBCallSession> = new Map();
+  private callSignals: DBCallSignal[] = [];
+
+  public createOrUpdateCallSession(sessionData: Partial<DBCallSession> & { callerId: string; receiverId: string; roomId: string }): DBCallSession {
+    const caller = this.getUserById(sessionData.callerId);
+    const receiver = this.getUserById(sessionData.receiverId);
+
+    const existing = this.activeCalls.get(sessionData.roomId);
+    const session: DBCallSession = {
+      id: existing?.id || sessionData.id || `call_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      callerId: sessionData.callerId,
+      callerName: caller?.name || sessionData.callerName || 'Caller',
+      callerAvatar: caller?.avatarUrl || sessionData.callerAvatar || '',
+      receiverId: sessionData.receiverId,
+      receiverName: receiver?.name || sessionData.receiverName || 'Receiver',
+      receiverAvatar: receiver?.avatarUrl || sessionData.receiverAvatar || '',
+      isVideo: sessionData.isVideo !== undefined ? sessionData.isVideo : true,
+      status: sessionData.status || existing?.status || 'calling',
+      roomId: sessionData.roomId,
+      startedAt: sessionData.startedAt || existing?.startedAt,
+      endedAt: sessionData.endedAt || existing?.endedAt,
+      createdAt: existing?.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    this.activeCalls.set(sessionData.roomId, session);
+    return session;
+  }
+
+  public getCallSessionByRoomId(roomId: string): DBCallSession | undefined {
+    return this.activeCalls.get(roomId);
+  }
+
+  public getPendingCallsForUser(userId: string): DBCallSession[] {
+    const now = Date.now();
+    const result: DBCallSession[] = [];
+    for (const [roomId, session] of this.activeCalls.entries()) {
+      // Pending ringing call created in last 45 seconds
+      if (session.receiverId === userId && session.status === 'calling' && now - session.createdAt < 45000) {
+        result.push(session);
+      }
+    }
+    return result;
+  }
+
+  public updateCallStatus(roomId: string, status: 'calling' | 'connected' | 'ended' | 'declined'): DBCallSession | null {
+    const session = this.activeCalls.get(roomId);
+    if (!session) return null;
+
+    session.status = status;
+    session.updatedAt = Date.now();
+    if (status === 'connected' && !session.startedAt) {
+      session.startedAt = Date.now();
+    }
+    if (status === 'ended' || status === 'declined') {
+      session.endedAt = Date.now();
+    }
+
+    this.activeCalls.set(roomId, session);
+    return session;
+  }
+
+  public addCallSignal(roomId: string, senderId: string, type: 'offer' | 'answer' | 'candidate', data: any): DBCallSignal {
+    const signal: DBCallSignal = {
+      id: `sig_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      roomId,
+      senderId,
+      type,
+      data,
+      timestamp: Date.now(),
+    };
+
+    this.callSignals.push(signal);
+    // Keep max 200 signals in memory
+    if (this.callSignals.length > 200) {
+      this.callSignals.splice(0, this.callSignals.length - 200);
+    }
+    return signal;
+  }
+
+  public getCallSignals(roomId: string, excludeSenderId?: string, sinceTimestamp: number = 0): DBCallSignal[] {
+    return this.callSignals.filter(
+      (s) => s.roomId === roomId && (!excludeSenderId || s.senderId !== excludeSenderId) && s.timestamp > sinceTimestamp
+    );
   }
 
   // --- System Operations ---

@@ -4,6 +4,7 @@ import { SocialProvider } from './context/SocialContext';
 import { ChatProvider } from './context/ChatContext';
 import { CallProvider } from './context/CallContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
+import { PermissionsProvider, usePermissions } from './context/PermissionsContext';
 import { Navbar } from './components/layout/Navbar';
 import { BottomNav } from './components/layout/BottomNav';
 import { SocialFeed } from './components/feed/SocialFeed';
@@ -18,6 +19,9 @@ import { MemberProfileModal } from './components/profile/MemberProfileModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { MatrixSplashScreen } from './components/splash/MatrixSplashScreen';
 import { ShareAppModal } from './components/common/ShareAppModal';
+import { PermissionBanner } from './components/permissions/PermissionBanner';
+import { PermissionsModal } from './components/permissions/PermissionsModal';
+import { SaveToHomeModal } from './components/permissions/SaveToHomeModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 function MainApp() {
@@ -114,6 +118,9 @@ function MainApp() {
         onOpenShare={() => handleOpenShareModal('general')}
       />
 
+      {/* Permissions & Save to Home Screen Smart Banner */}
+      <PermissionBanner />
+
       {/* Main Content Area */}
       <main className={`relative z-10 flex-1 flex flex-col min-h-0 ${activeTab === 'chat' ? 'pb-16 md:pb-4 overflow-hidden' : 'pb-20 md:pb-6'}`}>
         {activeTab === 'feed' && <SocialFeed />}
@@ -138,6 +145,12 @@ function MainApp() {
 
       {/* Notifications Center Modal */}
       <NotificationsModal isOpen={isNotificationsOpen} onClose={closeNotifications} />
+
+      {/* App Permissions Setup & Diagnostic Modal */}
+      <PermissionsModal />
+
+      {/* Save to Home Screen & PWA Modal */}
+      <SaveToHomeModal />
 
       {/* User Profile Modal (Self) */}
       {isProfileOpen && (
@@ -182,15 +195,18 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <NotificationProvider>
-          <SocialProvider>
-            <ChatProvider>
-              <CallProvider>
-                <MainApp />
-              </CallProvider>
-            </ChatProvider>
-          </SocialProvider>
+          <PermissionsProvider>
+            <SocialProvider>
+              <ChatProvider>
+                <CallProvider>
+                  <MainApp />
+                </CallProvider>
+              </ChatProvider>
+            </SocialProvider>
+          </PermissionsProvider>
         </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
 }
+

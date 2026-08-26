@@ -2,37 +2,38 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
-  UserPlus,
-  UserCheck,
   MessageSquare,
   Video,
   Phone,
+  UserPlus,
+  UserCheck,
   Share2,
-  Calendar,
   Sparkles,
   ShieldCheck,
+  Radio,
   FileText,
   Activity,
   Heart,
   MessageCircle,
   Clock,
-  Radio,
-  ExternalLink,
+  Maximize2,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { UserProfile, SocialPost } from '../../types';
+import { UserProfile } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { useSocial } from '../../context/SocialContext';
 import { useChat } from '../../context/ChatContext';
 import { useCall } from '../../context/CallContext';
+import { useSocial } from '../../context/SocialContext';
 import { Avatar } from '../common/Avatar';
-import { soundEffects } from '../../services/audio';
+import { formatDistanceToNow } from 'date-fns';
 
 interface MemberProfileModalProps {
-  userId: string | null;
+  userId: string;
   onClose: () => void;
   onOpenSelfEdit?: () => void;
 }
+
+const DEFAULT_COVER_IMAGE =
+  'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80';
 
 export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
   userId,
@@ -40,40 +41,30 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
   onOpenSelfEdit,
 }) => {
   const { user: currentUser, allUsers, followUser } = useAuth();
-  const { posts, likePost } = useSocial();
-  const { startDirectConversation } = useChat();
+  const { startDirectConversation, setActiveConversationId } = useChat();
   const { startCall } = useCall();
+  const { posts, likePost } = useSocial();
 
   const [activeTab, setActiveTab] = useState<'posts' | 'about'>('posts');
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [zoomImage, setZoomImage] = useState<string | null>(null);
 
-  if (!userId) return null;
+  const targetUser = allUsers.find((u) => u.id === userId);
 
-  // Find user data
-  const targetUser: UserProfile | undefined =
-    currentUser && currentUser.id === userId
-      ? currentUser
-      : allUsers.find((u) => u.id === userId || u.handle === userId.replace('@', ''));
-
-  if (!targetUser) {
-    return null;
-  }
+  if (!targetUser) return null;
 
   const isSelf = currentUser?.id === targetUser.id;
-  const isFollowing = currentUser?.followingUserIds?.includes(targetUser.id) ?? false;
+  const isFollowing = currentUser?.followingUserIds?.includes(targetUser.id);
   const isOnline = targetUser.status === 'online';
   const isBusy = targetUser.status === 'busy';
 
-  // Posts created by this user
-  const userPosts: SocialPost[] = posts.filter(
-    (p) => p.authorId === targetUser.id || p.authorName.toLowerCase() === targetUser.name.toLowerCase()
-  );
+  // Filter posts by this user
+  const userPosts = posts.filter((p) => p.authorId === targetUser.id);
 
   const handleToggleFollow = async () => {
-    if (isSelf || isFollowLoading) return;
+    if (isFollowLoading) return;
     setIsFollowLoading(true);
-    soundEffects.playTap();
     try {
       await followUser(targetUser.id);
     } finally {
@@ -82,35 +73,26 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
   };
 
   const handleStartMessage = async () => {
-    soundEffects.playTap();
+    const conv = await startDirectConversation(targetUser);
+    setActiveConversationId(conv.id);
     onClose();
-    await startDirectConversation(targetUser);
-    window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'chat' } }));
   };
 
-  const handleStartCall = async (isVideo: boolean) => {
-    soundEffects.playTap();
+  const handleStartCall = (isVideo: boolean) => {
     onClose();
-    await startCall(targetUser, isVideo);
+    startCall(targetUser, isVideo);
   };
 
   const handleShareProfile = () => {
-    soundEffects.playTap();
-    const shareUrl = `${window.location.origin}?user=${targetUser.handle}`;
-    if (navigator.share) {
-      navigator
-        .share({
-          title: `${targetUser.name} on Aura`,
-          text: `Connect with ${targetUser.name} (@${targetUser.handle}) on Aura Social`,
-          url: shareUrl,
-        })
-        .catch(() => {});
-    } else {
-      navigator.clipboard.writeText(shareUrl);
+    const url = `${window.location.origin}/?user=${targetUser.id}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
     }
   };
+
+  const coverUrl = targetUser.bannerUrl || DEFAULT_COVER_IMAGE;
 
   return (
     <div
@@ -124,27 +106,62 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
         exit={{ opacity: 0, scale: 0.94, y: 15 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-[#0c1024]/95 border border-white/15 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto"
+        className="relative w-full max-w-lg bg-[#0c1024]/95 border border-white/20 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] my-auto"
       >
-        {/* Banner Section */}
-        <div className="relative h-32 sm:h-36 w-full bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-900 overflow-hidden flex-shrink-0">
-          {targetUser.bannerUrl ? (
-            <img
-              src={targetUser.bannerUrl}
-              alt="Banner"
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover opacity-60"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-r from-blue-600/30 via-indigo-600/30 to-purple-600/30" />
+        {/* Full Image Zoom Lightbox Overlay */}
+        <AnimatePresence>
+          {zoomImage && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setZoomImage(null)}
+              className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center p-4 cursor-zoom-out"
+            >
+              <button
+                onClick={() => setZoomImage(null)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <img
+                src={zoomImage}
+                alt="Full View"
+                className="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl border border-white/20"
+              />
+            </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* Banner Section - High Definition & Fully Visible */}
+        <div className="relative h-44 sm:h-52 w-full bg-slate-900 overflow-hidden flex-shrink-0 group">
+          <img
+            src={coverUrl}
+            alt="Cover Banner"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
+            onClick={() => setZoomImage(coverUrl)}
+          />
+
+          {/* Gradient shading for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0c1024] via-transparent to-black/30 pointer-events-none" />
+
+          {/* Banner expand button */}
+          <button
+            type="button"
+            onClick={() => setZoomImage(coverUrl)}
+            className="absolute top-3.5 left-3.5 p-2 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 shadow-lg z-20 transition-all opacity-0 group-hover:opacity-100"
+            title="View Full Cover Image"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
 
           {/* Close Modal Button */}
           <button
             id="close-member-profile-btn"
             type="button"
             onClick={onClose}
-            className="absolute top-3.5 right-3.5 p-2 rounded-full bg-black/50 hover:bg-black/75 text-white transition-all backdrop-blur-md border border-white/20 shadow-lg z-20"
+            className="absolute top-3.5 right-3.5 p-2.5 rounded-full bg-black/60 hover:bg-black/90 text-white transition-all backdrop-blur-md border border-white/20 shadow-xl z-20"
             title="Close"
           >
             <X className="w-4 h-4" />
@@ -152,18 +169,23 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
         </div>
 
         {/* Profile Details Container */}
-        <div className="px-5 sm:px-6 pb-6 pt-0 overflow-y-auto scrollbar-thin">
+        <div className="px-5 sm:px-6 pb-6 pt-0 overflow-y-auto scrollbar-thin flex-1 min-h-0">
           {/* Avatar and Top Actions Bar */}
-          <div className="flex items-end justify-between -mt-12 sm:-mt-14 mb-4">
-            <div className="relative">
-              <div className="p-1 rounded-full bg-[#0c1024] shadow-2xl">
+          <div className="flex items-end justify-between -mt-16 sm:-mt-20 mb-4 relative z-20">
+            <div
+              className="relative cursor-pointer group"
+              onClick={() => setZoomImage(targetUser.avatarUrl)}
+              title="Click to view full photo"
+            >
+              <div className="p-1.5 rounded-full bg-[#0c1024] shadow-2xl ring-4 ring-[#0c1024]">
                 <Avatar
                   src={targetUser.avatarUrl}
                   name={targetUser.name}
-                  size="xl"
-                  className="ring-2 ring-white/20"
+                  size="2xl"
+                  className="group-hover:opacity-90 transition-opacity"
                 />
               </div>
+
               {/* Online indicator */}
               <span
                 className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-[#0c1024] shadow-md ${
@@ -178,7 +200,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {isSelf ? (
                 <button
                   type="button"
@@ -197,7 +219,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                     type="button"
                     onClick={handleToggleFollow}
                     disabled={isFollowLoading}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs font-bold transition-all shadow-md ${
+                    className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-2xl text-xs font-bold transition-all shadow-md ${
                       isFollowing
                         ? 'bg-white/10 hover:bg-red-500/20 hover:text-red-300 text-white border border-white/20'
                         : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/25'
@@ -220,7 +242,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                     id="member-msg-btn"
                     type="button"
                     onClick={handleStartMessage}
-                    className="p-2 rounded-2xl bg-white/10 hover:bg-blue-600 text-white transition-all border border-white/15 shadow-md"
+                    className="p-2 sm:p-2.5 rounded-2xl bg-white/10 hover:bg-blue-600 text-white transition-all border border-white/15 shadow-md"
                     title="Send Message"
                   >
                     <MessageSquare className="w-4 h-4" />
@@ -230,7 +252,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                     id="member-videocall-btn"
                     type="button"
                     onClick={() => handleStartCall(true)}
-                    className="p-2 rounded-2xl bg-emerald-600/30 hover:bg-emerald-500 text-emerald-300 hover:text-white transition-all border border-emerald-500/30 shadow-md"
+                    className="p-2 sm:p-2.5 rounded-2xl bg-emerald-600/30 hover:bg-emerald-500 text-emerald-300 hover:text-white transition-all border border-emerald-500/30 shadow-md"
                     title="Start Video Call"
                   >
                     <Video className="w-4 h-4" />
@@ -240,7 +262,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                     id="member-audiocall-btn"
                     type="button"
                     onClick={() => handleStartCall(false)}
-                    className="p-2 rounded-2xl bg-indigo-600/30 hover:bg-indigo-500 text-indigo-300 hover:text-white transition-all border border-indigo-500/30 shadow-md"
+                    className="p-2 sm:p-2.5 rounded-2xl bg-indigo-600/30 hover:bg-indigo-500 text-indigo-300 hover:text-white transition-all border border-indigo-500/30 shadow-md"
                     title="Start Voice Call"
                   >
                     <Phone className="w-4 h-4" />
@@ -251,7 +273,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
               <button
                 type="button"
                 onClick={handleShareProfile}
-                className="p-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-all border border-white/15"
+                className="p-2 sm:p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-all border border-white/15"
                 title="Share Profile"
               >
                 <Share2 className="w-4 h-4" />
@@ -268,7 +290,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
           {/* User Name & Info */}
           <div className="mb-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg sm:text-xl font-extrabold text-white">{targetUser.name}</h3>
+              <h3 className="text-xl sm:text-2xl font-extrabold text-white">{targetUser.name}</h3>
               {targetUser.isVerified && (
                 <Sparkles className="w-4 h-4 text-blue-400 fill-blue-400/20" />
               )}
@@ -285,13 +307,13 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
 
           {/* Bio */}
           {targetUser.bio && (
-            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed mb-4 whitespace-pre-line bg-white/[0.03] p-3.5 rounded-2xl border border-white/10">
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed mb-4 whitespace-pre-line bg-white/[0.04] p-3.5 rounded-2xl border border-white/10">
               {targetUser.bio}
             </p>
           )}
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 p-3 rounded-2xl bg-white/[0.04] border border-white/10 text-center">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5 p-3.5 rounded-2xl bg-white/[0.04] border border-white/10 text-center">
             <div>
               <p className="text-base sm:text-lg font-extrabold text-white">{userPosts.length}</p>
               <p className="text-[11px] text-slate-400 font-medium">Posts</p>
@@ -363,7 +385,8 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
                           src={post.mediaUrls[0]}
                           alt="Post media"
                           referrerPolicy="no-referrer"
-                          className="w-full h-48 object-cover"
+                          className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform"
+                          onClick={() => setZoomImage(post.mediaUrls[0])}
                         />
                       </div>
                     )}

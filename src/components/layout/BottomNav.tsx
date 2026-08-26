@@ -19,8 +19,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onOpenCreatePost,
   onOpenShare,
 }) => {
-  const { conversations } = useChat();
+  const { conversations, activeConversation } = useChat();
   const { user, openAuthModal } = useAuth();
+
+  // If in chat tab on mobile and viewing an open conversation, hide BottomNav to keep input area fully visible & accessible
+  if (activeTab === 'chat' && activeConversation) {
+    return null;
+  }
 
   const totalUnreadChats = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
 

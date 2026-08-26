@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { X, Image as ImageIcon, Camera, MapPin, Tag, Sparkles, Layers, Check } from 'lucide-react';
+import { X, Image as ImageIcon, Camera, MapPin, Tag, Sparkles, Layers, Check, Video, Youtube } from 'lucide-react';
 import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { compressImage } from '../../utils/imageCompressor';
 import { soundEffects } from '../../services/audio';
+import { extractVideosFromText } from '../../utils/mediaUtils';
+import { VideoEmbed } from '../common/VideoEmbed';
 
 interface CreatePostModalProps {
   onClose: () => void;
@@ -54,6 +56,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const [showVideoInput, setShowVideoInput] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+
+  const detectedVideos = extractVideosFromText(content);
+
+  const handleAddVideoUrl = () => {
+    if (!videoUrlInput.trim()) return;
+    soundEffects.playTap();
+    setContent((prev) => (prev ? `${prev}\n${videoUrlInput.trim()}` : videoUrlInput.trim()));
+    setVideoUrlInput('');
+    setShowVideoInput(false);
+  };
 
   // File upload handler with compression
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,11 +206,71 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
           <textarea
             id="post-caption-input"
             rows={3}
-            placeholder="Share your creative thoughts, photography, or updates..."
+            placeholder="Share your creative thoughts, paste a YouTube/video link, or update your status..."
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="w-full p-3.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-blue-400 resize-none"
           />
+
+          {/* Quick Video Link Input Tray */}
+          {showVideoInput && (
+            <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-400/30 space-y-2 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-blue-300 flex items-center gap-1.5">
+                  <Youtube className="w-4 h-4 text-red-400" />
+                  <span>Paste YouTube, Vimeo, or Video Link:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowVideoInput(false)}
+                  className="text-slate-400 hover:text-white p-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={videoUrlInput}
+                  onChange={(e) => setVideoUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddVideoUrl();
+                    }
+                  }}
+                  className="flex-1 px-3.5 py-2 rounded-xl bg-black/40 border border-white/15 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-400"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddVideoUrl}
+                  disabled={!videoUrlInput.trim()}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold transition-all"
+                >
+                  Insert
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Live Detected Video Preview */}
+          {detectedVideos.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-black/40 border border-blue-500/30 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-blue-300 flex items-center gap-1.5">
+                  <Video className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Video Player Preview ({detectedVideos.length} detected)</span>
+                </span>
+                <span className="text-[10px] text-emerald-400 font-medium">Ready to play</span>
+              </div>
+              <div className="space-y-3">
+                {detectedVideos.map((vid, idx) => (
+                  <VideoEmbed key={idx} video={vid} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Category Selection Toggle / Chips */}
           <div className="space-y-2">
@@ -335,6 +410,23 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               >
                 <Camera className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Camera</span>
+              </button>
+
+              <button
+                type="button"
+                id="add-video-link-btn"
+                onClick={() => {
+                  soundEffects.playTap();
+                  setShowVideoInput((prev) => !prev);
+                }}
+                className={`px-3.5 py-2 rounded-xl border text-xs flex items-center gap-1.5 transition-all ${
+                  showVideoInput
+                    ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                    : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200 hover:text-white'
+                }`}
+              >
+                <Youtube className="w-3.5 h-3.5 text-red-400" />
+                <span>Video Link</span>
               </button>
             </div>
 

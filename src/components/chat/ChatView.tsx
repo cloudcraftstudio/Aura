@@ -29,6 +29,7 @@ import { useCall } from '../../context/CallContext';
 import { ChatMessage, UserProfile, Conversation } from '../../types';
 import { Avatar } from '../common/Avatar';
 import { ImageLightboxModal } from '../common/ImageLightboxModal';
+import { RichTextRenderer } from '../common/RichTextRenderer';
 
 const QUICK_EMOJIS = ['👍', '❤️', '🔥', '😂', '🚀', '✨'];
 
@@ -582,7 +583,13 @@ export const ChatView: React.FC = () => {
                           )}
 
                           {/* Message Text Content */}
-                          {msg.content && <p className="leading-relaxed break-words">{msg.content}</p>}
+                          {msg.content && (
+                            <RichTextRenderer
+                              content={msg.content}
+                              className={isMe ? 'text-white' : 'text-slate-100'}
+                              showVideoEmbeds={true}
+                            />
+                          )}
 
                           {/* Timestamp & Read Status */}
                           <div
@@ -689,7 +696,7 @@ export const ChatView: React.FC = () => {
             {/* Chat Input Toolbar */}
             <form
               onSubmit={handleSendMessage}
-              className="p-2 sm:p-3.5 border-t border-white/10 bg-[#090d22]/95 backdrop-blur-xl flex items-center gap-1.5 sm:gap-2 flex-shrink-0 z-20"
+              className="p-2.5 sm:p-3.5 border-t border-white/10 bg-[#090d22] backdrop-blur-xl flex items-center gap-2 flex-shrink-0 z-20 sticky bottom-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
             >
               <input
                 type="file"
@@ -702,7 +709,7 @@ export const ChatView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all flex-shrink-0"
+                className="p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all flex-shrink-0"
                 title="Attach Photo"
               >
                 <ImageIcon className="w-4 h-4 text-blue-400" />
@@ -711,7 +718,7 @@ export const ChatView: React.FC = () => {
               <button
                 type="button"
                 onClick={isRecordingAudio ? handleSendVoiceNote : () => setIsRecordingAudio(true)}
-                className={`p-2 rounded-xl border transition-all flex-shrink-0 ${
+                className={`p-2.5 rounded-2xl border transition-all flex-shrink-0 ${
                   isRecordingAudio
                     ? 'bg-rose-500/20 border-rose-500/30 text-rose-400 animate-pulse'
                     : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
@@ -722,18 +729,19 @@ export const ChatView: React.FC = () => {
               </button>
 
               {isRecordingAudio ? (
-                <div className="flex-1 min-w-0 px-3 py-2 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
-                  <span className="truncate mr-2">Recording voice... {audioTimer}s</span>
+                <div className="flex-1 min-w-0 px-3.5 py-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs sm:text-sm flex items-center justify-between">
+                  <span className="truncate mr-2 font-medium">Recording voice... {audioTimer}s</span>
                   <button
                     type="button"
                     onClick={handleSendVoiceNote}
-                    className="font-bold text-white bg-rose-500 px-3 py-1 rounded-xl text-[10px] flex-shrink-0"
+                    className="font-bold text-white bg-rose-500 hover:bg-rose-600 px-3 py-1 rounded-xl text-xs flex-shrink-0 shadow-md"
                   >
                     Send
                   </button>
                 </div>
               ) : (
                 <input
+                  id="chat-message-input"
                   type="text"
                   placeholder="Type a message or paste a link..."
                   value={messageInput}
@@ -741,14 +749,16 @@ export const ChatView: React.FC = () => {
                     setMessageInput(e.target.value);
                     setTyping(true);
                   }}
-                  className="flex-1 min-w-0 px-3.5 py-2 sm:py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-400"
+                  className="flex-1 min-w-0 px-4 py-2.5 rounded-2xl bg-white/10 border border-white/15 text-white placeholder:text-slate-400 text-sm sm:text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition-all shadow-inner"
                 />
               )}
 
               <button
+                id="send-message-btn"
                 type="submit"
                 disabled={!messageInput.trim() && !selectedImageAttachment}
-                className="p-2 sm:p-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-40 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-transform active:scale-95 flex items-center justify-center flex-shrink-0"
+                className="p-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-40 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all active:scale-95 flex items-center justify-center flex-shrink-0"
+                title="Send Message"
               >
                 <Send className="w-4 h-4" />
               </button>

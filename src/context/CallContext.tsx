@@ -14,6 +14,7 @@ interface CallContextType {
   isAudioMuted: boolean;
   isVideoMuted: boolean;
   isScreenSharing: boolean;
+  isSpeakerOn: boolean;
   callDuration: number;
   isPipMode: boolean;
   startCall: (targetUser: UserProfile, isVideo?: boolean) => Promise<void>;
@@ -23,6 +24,7 @@ interface CallContextType {
   toggleAudio: () => void;
   toggleVideo: () => void;
   toggleScreenShare: () => Promise<void>;
+  toggleSpeaker: () => void;
   togglePipMode: () => void;
 }
 
@@ -38,11 +40,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
   const [isVideoMuted, setIsVideoMuted] = useState<boolean>(false);
   const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState<boolean>(true);
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isPipMode, setIsPipMode] = useState<boolean>(false);
 
   const webrtcRef = useRef<WebRTCManager | null>(null);
   const durationTimerRef = useRef<any>(null);
+  const callPollIntervalRef = useRef<any>(null);
+  const activeCallPollRef = useRef<any>(null);
 
   // Initialize WebRTC instance
   useEffect(() => {
@@ -57,7 +62,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         handleCallTermination();
       },
       onError: (err) => {
-        console.warn('WebRTC error:', err);
+        console.warn('WebRTC manager error:', err);
       },
     });
 
@@ -68,7 +73,95 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Listen to call events across tabs / signaling
+  // Update user in WebRTC manager
+  useEffect(() => {
+    if (user && webrtcRef.current) {
+      webrtcRef.current.setUserId(user.id);
+    }
+  }, [user]);
+
+  // Periodic polling for incoming calls on server (every 1.5 seconds)
+  useEffect(() => {
+    if (!user) return;
+
+    const checkIncomingCalls = async () => {
+      if (activeCall) return; // Already on a call
+
+      try {
+        const res = await fetch(`/api/calls/pending?userId=${encodeURIComponent(user.id)}`);
+        if (res.ok) {
+          const pendingCalls: CallSession[] = await res.json();
+          if (pendingCalls.length > 0) {
+            const first = pendingCalls[0];
+            if (!incomingCall || incomingCall.roomId !== first.roomId) {
+              setIncomingCall(first);
+              soundEffects.startRingtone();
+              notificationService.notify({
+                type: 'call',
+                title: `Incoming ${first.isVideo ? 'Video' : 'Audio'} Call`,
+                body: `${first.callerName} is calling you...`,
+                avatar: first.callerAvatar,
+                playSound: false,
+              });
+            }
+          } else if (incomingCall) {
+            // Pending call was cancelled or answered elsewhere
+            setIncomingCall(null);
+            soundEffects.stopRingtone();
+          }
+        }
+      } catch (err) {
+        // Network catch
+      }
+    };
+
+    checkIncomingCalls();
+    callPollIntervalRef.current = setInterval(checkIncomingCalls, 1500);
+
+    return () => {
+      if (callPollIntervalRef.current) {
+        clearInterval(callPollIntervalRef.current);
+      }
+    };
+  }, [user, activeCall, incomingCall]);
+
+  // Poll active call status from server so caller immediately transitions when receiver answers
+  useEffect(() => {
+    if (!activeCall) {
+      if (activeCallPollRef.current) {
+        clearInterval(activeCallPollRef.current);
+        activeCallPollRef.current = null;
+      }
+      return;
+    }
+
+    activeCallPollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/calls/${activeCall.roomId}`);
+        if (res.ok) {
+          const serverSession: CallSession = await res.json();
+          if (serverSession.status === 'connected' && activeCall.status === 'calling') {
+            soundEffects.stopRingtone();
+            soundEffects.playCallConnected();
+            setActiveCall(serverSession);
+            startDurationTimer();
+          } else if (serverSession.status === 'ended' || serverSession.status === 'declined') {
+            soundEffects.stopRingtone();
+            soundEffects.playCallEnded();
+            handleCallTermination();
+          }
+        }
+      } catch (err) {}
+    }, 1000);
+
+    return () => {
+      if (activeCallPollRef.current) {
+        clearInterval(activeCallPollRef.current);
+      }
+    };
+  }, [activeCall]);
+
+  // Listen to same-device broadcast events (multi-tab sync)
   useEffect(() => {
     const unsub = offlineStorage.onBroadcastEvent(({ type, payload }) => {
       if (type === 'call_request') {
@@ -76,17 +169,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (user && session.receiverId === user.id && (!activeCall || activeCall.status === 'idle')) {
           setIncomingCall(session);
           soundEffects.startRingtone();
-          notificationService.notify({
-            type: 'call',
-            title: `Incoming ${session.isVideo ? 'Video' : 'Audio'} Call`,
-            body: `${session.callerName} is calling you...`,
-            avatar: session.callerAvatar,
-            playSound: false,
-          });
         }
       } else if (type === 'call_accepted') {
         const session: CallSession = payload;
         if (activeCall && activeCall.roomId === session.roomId && activeCall.callerId === user?.id) {
+          soundEffects.stopRingtone();
           soundEffects.playCallConnected();
           setActiveCall((prev) => (prev ? { ...prev, status: 'connected', startedAt: Date.now() } : null));
           startDurationTimer();
@@ -94,6 +181,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (type === 'call_rejected' || type === 'call_ended') {
         const { roomId } = payload;
         if ((activeCall && activeCall.roomId === roomId) || (incomingCall && incomingCall.roomId === roomId)) {
+          soundEffects.stopRingtone();
           soundEffects.playCallEnded();
           handleCallTermination();
         }
@@ -132,6 +220,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsVideoMuted(false);
   };
 
+  // Start Call to Target User
   const startCall = async (targetUser: UserProfile, isVideo: boolean = true) => {
     if (!user) return;
 
@@ -152,28 +241,29 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveCall(session);
     soundEffects.startRingtone();
 
-    // Acquire local hardware stream
-    if (webrtcRef.current) {
-      await webrtcRef.current.getLocalMedia(isVideo, true);
-      await webrtcRef.current.createPeerConnection(roomId, true);
+    // Post to server backend
+    try {
+      await fetch('/api/calls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(session),
+      });
+    } catch (err) {
+      console.warn('Failed to register call on server:', err);
     }
 
-    // Broadcast call offer
+    // Broadcast across tabs
     offlineStorage.broadcastEvent('call_request', session);
 
-    // Auto-connect after brief ring if demo self-simulation or no second tab responding
-    setTimeout(() => {
-      setActiveCall((current) => {
-        if (current && current.status === 'calling') {
-          soundEffects.playCallConnected();
-          startDurationTimer();
-          return { ...current, status: 'connected', startedAt: Date.now() };
-        }
-        return current;
-      });
-    }, 3500);
+    // Acquire local hardware stream & initiate WebRTC connection
+    if (webrtcRef.current) {
+      webrtcRef.current.setUserId(user.id);
+      await webrtcRef.current.getLocalMedia(isVideo, true);
+      await webrtcRef.current.createPeerConnection(roomId, user.id, true);
+    }
   };
 
+  // Answer Incoming Call
   const answerCall = async (withVideo: boolean = true) => {
     if (!incomingCall || !user) return;
     soundEffects.stopRingtone();
@@ -189,28 +279,59 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIncomingCall(null);
     startDurationTimer();
 
-    if (webrtcRef.current) {
-      await webrtcRef.current.getLocalMedia(withVideo, true);
-      await webrtcRef.current.createPeerConnection(session.roomId, false);
+    // Update status on server
+    try {
+      await fetch(`/api/calls/${session.roomId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'connected' }),
+      });
+    } catch (err) {
+      console.warn('Failed to update call status on server:', err);
     }
 
+    // Broadcast accepted event
     offlineStorage.broadcastEvent('call_accepted', session);
+
+    // Connect WebRTC peer
+    if (webrtcRef.current) {
+      webrtcRef.current.setUserId(user.id);
+      await webrtcRef.current.getLocalMedia(withVideo, true);
+      await webrtcRef.current.createPeerConnection(session.roomId, user.id, false);
+    }
   };
 
+  // Decline Incoming Call
   const declineCall = () => {
     if (!incomingCall) return;
     soundEffects.stopRingtone();
     soundEffects.playCallEnded();
 
-    offlineStorage.broadcastEvent('call_rejected', { roomId: incomingCall.roomId });
+    const roomId = incomingCall.roomId;
     setIncomingCall(null);
+
+    // Update status on server
+    fetch(`/api/calls/${roomId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'declined' }),
+    }).catch(() => {});
+
+    offlineStorage.broadcastEvent('call_rejected', { roomId });
   };
 
+  // End Call
   const endCall = () => {
     soundEffects.stopRingtone();
     soundEffects.playCallEnded();
 
     if (activeCall) {
+      fetch(`/api/calls/${activeCall.roomId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ended' }),
+      }).catch(() => {});
+
       offlineStorage.broadcastEvent('call_ended', { roomId: activeCall.roomId });
     }
 
@@ -242,6 +363,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const toggleSpeaker = () => {
+    const next = !isSpeakerOn;
+    setIsSpeakerOn(next);
+    if (webrtcRef.current) {
+      webrtcRef.current.setSpeakerphone(next);
+    }
+  };
+
   const togglePipMode = () => {
     setIsPipMode((prev) => !prev);
   };
@@ -256,6 +385,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAudioMuted,
         isVideoMuted,
         isScreenSharing,
+        isSpeakerOn,
         callDuration,
         isPipMode,
         startCall,
@@ -265,6 +395,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleAudio,
         toggleVideo,
         toggleScreenShare,
+        toggleSpeaker,
         togglePipMode,
       }}
     >

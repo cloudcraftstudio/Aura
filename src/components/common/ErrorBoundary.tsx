@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Trash2 } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -9,6 +9,7 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  showDetails: boolean;
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
@@ -17,10 +18,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     this.state = {
       hasError: false,
       error: null,
+      showDetails: false,
     };
   }
 
-  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  public static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
@@ -29,6 +31,15 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   private handleReset = () => {
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
+  private handleClearAndReset = () => {
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {}
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };
@@ -51,15 +62,30 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               <p className="text-xs text-slate-400">
                 A component encountered an issue. You can reload the app to resume your session smoothly.
               </p>
+              {this.state.error?.message && (
+                <div className="p-2.5 rounded-xl bg-red-950/40 border border-red-500/30 text-[11px] text-red-300 text-left font-mono break-words overflow-x-auto max-h-28">
+                  {this.state.error.message}
+                </div>
+              )}
             </div>
 
-            <button
-              onClick={this.handleReset}
-              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/25"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Reload App</span>
-            </button>
+            <div className="space-y-2.5">
+              <button
+                onClick={this.handleReset}
+                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/25 active:scale-95"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Reload App</span>
+              </button>
+
+              <button
+                onClick={this.handleClearAndReset}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center justify-center gap-2 transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear Cache & Restart Clean</span>
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -68,3 +94,4 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     return this.props.children;
   }
 }
+

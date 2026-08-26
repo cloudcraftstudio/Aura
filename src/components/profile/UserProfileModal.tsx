@@ -12,8 +12,17 @@ import {
   RefreshCw,
   Share2,
   QrCode,
+  Layers,
+  Video,
+  Mic,
+  Bell,
+  Smartphone,
+  CheckCircle2,
+  Sliders,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../context/PermissionsContext';
 import { UserStatus } from '../../types';
 import { Avatar } from '../common/Avatar';
 import { soundEffects } from '../../services/audio';
@@ -34,56 +43,123 @@ const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
 ];
 
+const COVER_BANNER_PRESETS = [
+  {
+    name: 'Cosmic Aurora',
+    url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Cyber Neon',
+    url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Sunset Horizon',
+    url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Abstract Fluid',
+    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Mountain Mist',
+    url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&auto=format&fit=crop&q=80',
+  },
+  {
+    name: 'Tokyo Night',
+    url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=1200&auto=format&fit=crop&q=80',
+  },
+];
+
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onTriggerMatrixSplash,
   onOpenShare,
 }) => {
   const { user, updateProfile, logout, openAuthModal } = useAuth();
+  const {
+    cameraStatus,
+    micStatus,
+    notificationStatus,
+    pwaStatus,
+    isStandalone,
+    openPermissionsModal,
+    openSaveToHomeModal,
+  } = usePermissions();
 
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [handle, setHandle] = useState(user?.handle || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [bannerUrl, setBannerUrl] = useState(user?.bannerUrl || COVER_BANNER_PRESETS[0].url);
   const [statusMessage, setStatusMessage] = useState(user?.statusMessage || '');
   const [status, setStatus] = useState<UserStatus>(user?.status || 'online');
   const [isSaving, setIsSaving] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingAvatar, setIsDraggingAvatar] = useState(false);
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
   const [isCapturingCamera, setIsCapturingCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const bannerFileInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // File upload handler with compression
-  const processImageFile = async (file: File) => {
+  // File upload handler for Avatar
+  const processAvatarFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
     try {
       const compressed = await compressImage(file, 400, 400, 0.85);
       soundEffects.playTap();
       setAvatarUrl(compressed);
     } catch (e) {
-      console.warn('Image processing error:', e);
+      console.warn('Avatar image processing error:', e);
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File upload handler for Banner
+  const processBannerFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    try {
+      const compressed = await compressImage(file, 1200, 500, 0.85);
+      soundEffects.playTap();
+      setBannerUrl(compressed);
+    } catch (e) {
+      console.warn('Banner image processing error:', e);
+    }
+  };
+
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      processImageFile(file);
+      processAvatarFile(file);
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleBannerFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processBannerFile(file);
+    }
+  };
+
+  const handleAvatarDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    setIsDraggingAvatar(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      processImageFile(file);
+      processAvatarFile(file);
     }
   };
 
-  // Camera capture
+  const handleBannerDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingBanner(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processBannerFile(file);
+    }
+  };
+
+  // Camera capture for selfie avatar
   const startCamera = async () => {
     try {
       setIsCapturingCamera(true);
@@ -107,7 +183,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       canvas.height = videoRef.current.videoHeight || 400;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Crop center square
         const size = Math.min(canvas.width, canvas.height);
         const startX = (canvas.width - size) / 2;
         const startY = (canvas.height - size) / 2;
@@ -139,6 +214,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         bio: bio.trim(),
         handle: handle.trim().replace('@', ''),
         avatarUrl: avatarUrl.trim(),
+        bannerUrl: bannerUrl.trim(),
         statusMessage: statusMessage.trim(),
         status,
       });
@@ -162,13 +238,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <div
       id="user-profile-modal"
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-2xl p-3 sm:p-4 flex min-h-screen items-center justify-center animate-fade-in"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-3 sm:p-4 flex min-h-screen items-center justify-center animate-fade-in"
     >
-      <div className="w-full max-w-lg my-auto rounded-3xl bg-[#090d22]/95 backdrop-blur-3xl border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-white">
+      <div className="w-full max-w-xl my-auto rounded-3xl bg-[#090d22]/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-white">
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5 flex-shrink-0">
           <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-            <User className="w-4 h-4 text-blue-400" /> Account Settings & Profile
+            <User className="w-4 h-4 text-blue-400" /> Account Settings & Profile Card
           </h3>
           <button
             onClick={() => {
@@ -181,39 +257,122 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </button>
         </div>
 
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
-          {/* Server Database Sync Status Banner */}
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <Database className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-                  <span>Server Database Storage</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                </p>
-                <p className="text-[11px] text-slate-300">
-                  Your profile and data persist directly on the server.
-                </p>
-              </div>
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
+          {/* Live Preview Card */}
+          <div className="rounded-2xl overflow-hidden border border-white/15 bg-slate-900/60 shadow-xl relative">
+            <div className="h-28 sm:h-32 w-full relative bg-slate-800">
+              <img
+                src={bannerUrl || COVER_BANNER_PRESETS[0].url}
+                alt="Cover Preview"
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold uppercase">
-              Connected
-            </span>
+            <div className="px-4 pb-3 flex items-end justify-between -mt-10 relative z-10">
+              <div className="flex items-end gap-3">
+                <div className="p-1 rounded-full bg-[#0c1024] ring-2 ring-white/20 shadow-xl">
+                  <Avatar src={avatarUrl || user?.avatarUrl || ''} name={name || user?.name || ''} size="lg" />
+                </div>
+                <div className="mb-1">
+                  <h4 className="text-sm font-bold text-white leading-tight">{name || 'Your Name'}</h4>
+                  <p className="text-[11px] text-slate-300">@{handle || 'handle'}</p>
+                </div>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                Live Card Preview
+              </span>
+            </div>
           </div>
 
           {/* Profile Form */}
           {user ? (
             <form onSubmit={handleSave} className="space-y-5">
+              {/* Cover Banner Customizer */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Profile Cover Image</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400">Shown at the top of your profile</span>
+                </div>
+
+                {/* Banner Upload Actions */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingBanner(true);
+                  }}
+                  onDragLeave={() => setIsDraggingBanner(false)}
+                  onDrop={handleBannerDrop}
+                  className={`p-3 rounded-xl border-2 border-dashed transition-all flex flex-col sm:flex-row items-center justify-between gap-3 ${
+                    isDraggingBanner ? 'border-blue-400 bg-blue-500/20' : 'border-white/15 bg-black/30'
+                  }`}
+                >
+                  <input
+                    ref={bannerFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleBannerFileUpload}
+                    className="hidden"
+                  />
+                  <div className="text-left">
+                    <p className="text-xs font-semibold text-white">Upload Custom Cover Image</p>
+                    <p className="text-[10px] text-slate-400">Drag and drop or select file (JPEG/PNG/WebP)</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => bannerFileInputRef.current?.click()}
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Browse Image</span>
+                  </button>
+                </div>
+
+                {/* Preset Banner Themes */}
+                <div>
+                  <p className="text-[10px] font-medium text-slate-400 mb-2">Or choose a preset cover theme:</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {COVER_BANNER_PRESETS.map((preset, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          soundEffects.playTap();
+                          setBannerUrl(preset.url);
+                        }}
+                        className={`group relative h-12 rounded-xl overflow-hidden border-2 transition-all ${
+                          bannerUrl === preset.url
+                            ? 'border-blue-400 ring-2 ring-blue-500/40 scale-105 shadow-lg'
+                            : 'border-white/10 opacity-70 hover:opacity-100'
+                        }`}
+                        title={preset.name}
+                      >
+                        <img
+                          src={preset.url}
+                          alt={preset.name}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="absolute inset-x-0 bottom-0 py-0.5 bg-black/70 text-[8px] font-medium text-white truncate text-center px-1">
+                          {preset.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Avatar Upload / Selector Section */}
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Profile Avatar</span>
+                    <span>Profile Avatar Photo</span>
                   </label>
-                  <span className="text-[10px] text-slate-400">Upload or choose below</span>
+                  <span className="text-[10px] text-slate-400">Upload, snap, or select</span>
                 </div>
 
                 {/* Camera Live View (if active) */}
@@ -244,13 +403,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <div
                       onDragOver={(e) => {
                         e.preventDefault();
-                        setIsDragging(true);
+                        setIsDraggingAvatar(true);
                       }}
-                      onDragLeave={() => setIsDragging(false)}
-                      onDrop={handleDrop}
+                      onDragLeave={() => setIsDraggingAvatar(false)}
+                      onDrop={handleAvatarDrop}
                       onClick={() => fileInputRef.current?.click()}
                       className={`relative group cursor-pointer rounded-2xl p-1.5 transition-all border-2 ${
-                        isDragging
+                        isDraggingAvatar
                           ? 'border-blue-400 bg-blue-500/20 scale-105'
                           : 'border-white/15 hover:border-blue-400/60 bg-black/40'
                       }`}
@@ -269,7 +428,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
-                        onChange={handleFileUpload}
+                        onChange={handleAvatarFileUpload}
                         className="hidden"
                       />
 
@@ -280,7 +439,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                           className="flex-1 py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                         >
                           <Upload className="w-3.5 h-3.5" />
-                          <span>Upload Image File</span>
+                          <span>Upload Avatar Photo</span>
                         </button>
 
                         <button
@@ -298,7 +457,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         type="text"
                         value={avatarUrl}
                         onChange={(e) => setAvatarUrl(e.target.value)}
-                        placeholder="Or paste image URL or file"
+                        placeholder="Or paste avatar image URL"
                         className="w-full px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-white text-[11px] focus:outline-none focus:border-blue-400 truncate"
                       />
                     </div>
@@ -307,7 +466,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                 {/* Avatar Presets */}
                 <div>
-                  <p className="text-[10px] font-medium text-slate-400 mb-1.5">Or choose a preset style:</p>
+                  <p className="text-[10px] font-medium text-slate-400 mb-1.5">Or choose a preset portrait:</p>
                   <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                     {AVATAR_PRESETS.map((preset, i) => (
                       <button
@@ -433,9 +592,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     value={user.email}
                     className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 text-xs cursor-not-allowed"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Your profile, uploaded stories, and posts remain strictly linked to this email address across all devices.
-                  </p>
                 </div>
               </div>
 
@@ -494,6 +650,67 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </button>
                 </div>
               )}
+
+              {/* Device Permissions & PWA App Card */}
+              <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs font-bold text-white">App Permissions & Device Access</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      stopCamera();
+                      openPermissionsModal();
+                    }}
+                    className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                  >
+                    <span>Manage</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center text-center gap-1">
+                    <Video className="w-4 h-4 text-blue-400" />
+                    <span className="text-[10px] text-slate-300 font-medium">Camera</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${cameraStatus === 'granted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
+                      {cameraStatus === 'granted' ? 'Allowed' : 'Prompt'}
+                    </span>
+                  </div>
+
+                  <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center text-center gap-1">
+                    <Mic className="w-4 h-4 text-indigo-400" />
+                    <span className="text-[10px] text-slate-300 font-medium">Mic</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${micStatus === 'granted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
+                      {micStatus === 'granted' ? 'Allowed' : 'Prompt'}
+                    </span>
+                  </div>
+
+                  <div className="p-2 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center text-center gap-1">
+                    <Bell className="w-4 h-4 text-amber-400" />
+                    <span className="text-[10px] text-slate-300 font-medium">Alerts</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${notificationStatus === 'granted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
+                      {notificationStatus === 'granted' ? 'Allowed' : 'Prompt'}
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => {
+                      stopCamera();
+                      openSaveToHomeModal();
+                    }}
+                    className="p-2 rounded-xl bg-purple-950/30 border border-purple-500/30 flex flex-col items-center justify-center text-center gap-1 cursor-pointer hover:bg-purple-900/40 transition-colors"
+                  >
+                    <Smartphone className="w-4 h-4 text-purple-400" />
+                    <span className="text-[10px] text-purple-200 font-medium">Home App</span>
+                    <span className="text-[9px] font-bold text-purple-300 underline">
+                      {isStandalone || pwaStatus === 'installed' ? 'Installed' : 'Add App'}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               {/* Action Buttons */}
               <div className="flex items-center justify-between pt-3 border-t border-white/10">

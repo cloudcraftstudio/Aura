@@ -1,9 +1,10 @@
-// WebRTC Peer Connection & Media Management Engine
+// WebRTC Peer Connection & Cross-Device Media Engine
 
 export interface WebRTCConfig {
   onLocalStream?: (stream: MediaStream) => void;
   onRemoteStream?: (stream: MediaStream) => void;
   onCallEnded?: () => void;
+  onConnectionState?: (state: RTCPeerConnectionState) => void;
   onError?: (err: Error) => void;
 }
 
@@ -12,6 +13,7 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun.services.mozilla.com' },
   ],
 };
 
@@ -21,18 +23,26 @@ export class WebRTCManager {
   private remoteStream: MediaStream | null = null;
   private screenStream: MediaStream | null = null;
   private config: WebRTCConfig = {};
-  private signalingChannel: BroadcastChannel | null = null;
   private currentRoomId: string | null = null;
+  private currentUserId: string | null = null;
+  private signalingChannel: BroadcastChannel | null = null;
   private isAudioMuted: boolean = false;
   private isVideoMuted: boolean = false;
   private isScreenSharing: boolean = false;
+  private pollingInterval: any = null;
+  private lastSignalTimestamp: number = 0;
+  private pendingCandidates: RTCIceCandidateInit[] = [];
+  private isMakingOffer: boolean = false;
+  private isSpeakerphoneOn: boolean = true;
 
   constructor(config: WebRTCConfig = {}) {
     this.config = config;
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       try {
         this.signalingChannel = new BroadcastChannel('aura_webrtc_signaling');
-        this.signalingChannel.onmessage = this.handleSignalingMessage.bind(this);
+        this.signalingChannel.onmessage = (event) => {
+          this.handleIncomingSignal(event.data);
+        };
       } catch (e) {
         console.warn('BroadcastChannel signaling unavailable', e);
       }
@@ -43,7 +53,11 @@ export class WebRTCManager {
     this.config = { ...this.config, ...config };
   }
 
-  // Get local user media (Camera + Mic)
+  public setUserId(userId: string) {
+    this.currentUserId = userId;
+  }
+
+  // Get local user media (Camera + Mic) with hardware auto-fallback
   public async getLocalMedia(video: boolean = true, audio: boolean = true): Promise<MediaStream> {
     try {
       if (this.localStream) {
@@ -51,12 +65,32 @@ export class WebRTCManager {
       }
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        this.localStream = await navigator.mediaDevices.getUserMedia({
-          video: video ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false,
-          audio: audio ? { echoCancellation: true, noiseSuppression: true, autoGainControl: true } : false,
-        });
+        try {
+          this.localStream = await navigator.mediaDevices.getUserMedia({
+            video: video
+              ? {
+                  width: { ideal: 1280, max: 1920 },
+                  height: { ideal: 720, max: 1080 },
+                  facingMode: 'user',
+                  frameRate: { ideal: 30, max: 60 },
+                }
+              : false,
+            audio: audio
+              ? {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,
+                }
+              : false,
+          });
+        } catch (mediaErr) {
+          console.warn('Specific constraints failed, trying basic getUserMedia:', mediaErr);
+          this.localStream = await navigator.mediaDevices.getUserMedia({
+            video: Boolean(video),
+            audio: Boolean(audio),
+          });
+        }
       } else {
-        // Fallback canvas video stream if hardware media blocked or in restrictive iframe
         this.localStream = this.createSyntheticStream(video);
       }
 
@@ -66,7 +100,7 @@ export class WebRTCManager {
 
       return this.localStream;
     } catch (err: any) {
-      console.warn('getUserMedia error, providing synthetic stream:', err);
+      console.warn('Hardware media unavailable or denied, generating synthetic media stream:', err);
       this.localStream = this.createSyntheticStream(video);
       if (this.config.onLocalStream && this.localStream) {
         this.config.onLocalStream(this.localStream);
@@ -75,7 +109,7 @@ export class WebRTCManager {
     }
   }
 
-  // Create clean animated synthetic fallback stream if device camera is busy/denied
+  // Synthetic fallback stream if camera is blocked or permission denied
   private createSyntheticStream(withVideo: boolean): MediaStream {
     const canvas = document.createElement('canvas');
     canvas.width = 640;
@@ -85,27 +119,33 @@ export class WebRTCManager {
 
     const draw = () => {
       if (!ctx) return;
-      // Ambient gradient
+      // Vibrant mesh gradient background
       const grad = ctx.createLinearGradient(0, 0, 640, 480);
-      grad.addColorStop(0, '#1e1b4b');
-      grad.addColorStop(0.5, '#312e81');
-      grad.addColorStop(1, '#0f172a');
+      grad.addColorStop(0, '#0f172a');
+      grad.addColorStop(0.5, '#1e1b4b');
+      grad.addColorStop(1, '#312e81');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 640, 480);
 
       // Glowing orb
-      const x = 320 + Math.cos(angle) * 80;
-      const y = 240 + Math.sin(angle) * 50;
+      const x = 320 + Math.cos(angle) * 70;
+      const y = 240 + Math.sin(angle) * 40;
       ctx.beginPath();
-      ctx.arc(x, y, 40, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(99, 102, 241, 0.6)';
+      ctx.arc(x, y, 45, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.7)';
+      ctx.shadowColor = '#6366f1';
+      ctx.shadowBlur = 25;
       ctx.fill();
+      ctx.shadowBlur = 0;
 
       // Text label
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px sans-serif';
+      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Aura WebRTC Live Stream', 320, 240);
+      ctx.fillText('Aura WebRTC Live Media', 320, 230);
+      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('High-Definition Peer Stream', 320, 260);
 
       angle += 0.04;
       requestAnimationFrame(draw);
@@ -116,7 +156,8 @@ export class WebRTCManager {
     }
 
     const stream = canvas.captureStream(30);
-    // Add empty audio track
+
+    // Add silent synthetic audio oscillator
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
@@ -124,7 +165,7 @@ export class WebRTCManager {
         const osc = audioCtx.createOscillator();
         const dst = audioCtx.createMediaStreamDestination();
         const gain = audioCtx.createGain();
-        gain.gain.value = 0.001; // Silent
+        gain.gain.value = 0.0001; // Silent baseline
         osc.connect(gain);
         gain.connect(dst);
         osc.start();
@@ -133,13 +174,13 @@ export class WebRTCManager {
     } catch (e) {
       console.warn('Synthetic audio track error:', e);
     }
+
     return stream;
   }
 
   // Toggle Screen Sharing
   public async toggleScreenShare(): Promise<boolean> {
     if (this.isScreenSharing) {
-      // Revert to camera
       if (this.screenStream) {
         this.screenStream.getTracks().forEach((t) => t.stop());
         this.screenStream = null;
@@ -186,7 +227,7 @@ export class WebRTCManager {
     }
   }
 
-  // Toggle Mute Audio
+  // Toggle Audio Mute
   public toggleAudio(): boolean {
     if (this.localStream) {
       this.localStream.getAudioTracks().forEach((track) => {
@@ -198,7 +239,7 @@ export class WebRTCManager {
     return false;
   }
 
-  // Toggle Camera Video
+  // Toggle Video Mute
   public toggleVideo(): boolean {
     if (this.localStream) {
       this.localStream.getVideoTracks().forEach((track) => {
@@ -210,12 +251,29 @@ export class WebRTCManager {
     return false;
   }
 
-  // Initiate peer connection
-  public async createPeerConnection(roomId: string, isInitiator: boolean = false) {
-    this.currentRoomId = roomId;
-    this.peerConnection = new RTCPeerConnection(ICE_SERVERS);
+  // Toggle Speakerphone audio routing
+  public setSpeakerphone(enable: boolean) {
+    this.isSpeakerphoneOn = enable;
+  }
 
+  // Create WebRTC Peer Connection with Server + Broadcast Signaling
+  public async createPeerConnection(roomId: string, userId: string, isInitiator: boolean = false) {
+    this.currentRoomId = roomId;
+    this.currentUserId = userId;
+    this.pendingCandidates = [];
+    this.lastSignalTimestamp = Date.now() - 5000;
+
+    // Reset previous connection if any
+    if (this.peerConnection) {
+      try {
+        this.peerConnection.close();
+      } catch (e) {}
+      this.peerConnection = null;
+    }
+
+    this.peerConnection = new RTCPeerConnection(ICE_SERVERS);
     this.remoteStream = new MediaStream();
+
     if (this.config.onRemoteStream) {
       this.config.onRemoteStream(this.remoteStream);
     }
@@ -229,93 +287,218 @@ export class WebRTCManager {
       });
     }
 
-    // Remote track received
+    // Remote track listener
     this.peerConnection.ontrack = (event) => {
-      event.streams[0].getTracks().forEach((track) => {
-        if (this.remoteStream) {
-          this.remoteStream.addTrack(track);
+      if (event.streams && event.streams[0]) {
+        event.streams[0].getTracks().forEach((track) => {
+          if (this.remoteStream && !this.remoteStream.getTracks().some((t) => t.id === track.id)) {
+            this.remoteStream.addTrack(track);
+          }
+        });
+      } else if (event.track) {
+        if (this.remoteStream && !this.remoteStream.getTracks().some((t) => t.id === event.track.id)) {
+          this.remoteStream.addTrack(event.track);
         }
-      });
+      }
+
       if (this.config.onRemoteStream && this.remoteStream) {
         this.config.onRemoteStream(this.remoteStream);
       }
     };
 
-    // ICE candidates
+    // On ICE Candidate
     this.peerConnection.onicecandidate = (event) => {
-      if (event.candidate && this.signalingChannel) {
-        this.signalingChannel.postMessage({
-          type: 'ice_candidate',
-          roomId: this.currentRoomId,
-          candidate: event.candidate,
-        });
+      if (event.candidate) {
+        this.sendSignal('candidate', event.candidate);
       }
     };
 
+    // Connection state monitor
     this.peerConnection.onconnectionstatechange = () => {
-      if (this.peerConnection?.connectionState === 'disconnected' || this.peerConnection?.connectionState === 'failed') {
-        this.endCall();
+      const state = this.peerConnection?.connectionState;
+      if (state && this.config.onConnectionState) {
+        this.config.onConnectionState(state);
+      }
+      if (state === 'failed') {
+        console.warn('WebRTC connection failed, attempting ICE restart...');
+        if (isInitiator && this.peerConnection) {
+          this.peerConnection.restartIce();
+        }
       }
     };
 
+    // Start Server Signaling Polling
+    this.startSignalingPolling();
+
+    // If initiator, create and send SDP offer
     if (isInitiator) {
-      const offer = await this.peerConnection.createOffer();
-      await this.peerConnection.setLocalDescription(offer);
-      if (this.signalingChannel) {
-        this.signalingChannel.postMessage({
-          type: 'call_offer',
-          roomId: this.currentRoomId,
-          sdp: offer,
+      try {
+        this.isMakingOffer = true;
+        const offer = await this.peerConnection.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
         });
+        await this.peerConnection.setLocalDescription(offer);
+        await this.sendSignal('offer', offer);
+      } catch (err: any) {
+        console.error('Error creating WebRTC offer:', err);
+      } finally {
+        this.isMakingOffer = false;
       }
     }
   }
 
-  private async handleSignalingMessage(event: MessageEvent) {
-    const { type, roomId, sdp, candidate } = event.data || {};
-    if (!roomId || roomId !== this.currentRoomId) return;
+  // Send signaling message via Server API & BroadcastChannel
+  private async sendSignal(type: 'offer' | 'answer' | 'candidate', data: any) {
+    if (!this.currentRoomId || !this.currentUserId) return;
+
+    // Send via local BroadcastChannel
+    if (this.signalingChannel) {
+      try {
+        this.signalingChannel.postMessage({
+          roomId: this.currentRoomId,
+          senderId: this.currentUserId,
+          type,
+          data,
+          timestamp: Date.now(),
+        });
+      } catch (e) {}
+    }
+
+    // Post to Server Signaling Endpoint
+    try {
+      await fetch(`/api/calls/${this.currentRoomId}/signal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: this.currentUserId,
+          type,
+          data,
+        }),
+      });
+    } catch (err) {
+      console.warn('Failed to send call signal to server:', err);
+    }
+  }
+
+  // Start low-latency polling for remote signaling packets
+  private startSignalingPolling() {
+    if (this.pollingInterval) clearInterval(this.pollingInterval);
+
+    this.pollingInterval = setInterval(async () => {
+      if (!this.currentRoomId || !this.peerConnection) return;
+
+      try {
+        const res = await fetch(
+          `/api/calls/${this.currentRoomId}/signals?excludeSenderId=${encodeURIComponent(
+            this.currentUserId || ''
+          )}&since=${this.lastSignalTimestamp}`
+        );
+
+        if (res.ok) {
+          const signals = await res.json();
+          if (Array.isArray(signals) && signals.length > 0) {
+            for (const sig of signals) {
+              if (sig.timestamp > this.lastSignalTimestamp) {
+                this.lastSignalTimestamp = sig.timestamp;
+              }
+              await this.handleIncomingSignal(sig);
+            }
+          }
+        }
+      } catch (err) {
+        // Silent catch for network hiccups
+      }
+    }, 450);
+  }
+
+  // Handle incoming SDP Offer, SDP Answer, or ICE Candidate
+  private async handleIncomingSignal(signal: { roomId: string; senderId: string; type: string; data: any }) {
+    if (!signal || signal.roomId !== this.currentRoomId || signal.senderId === this.currentUserId) {
+      return;
+    }
+
+    if (!this.peerConnection) return;
 
     try {
-      if (type === 'call_offer' && this.peerConnection) {
-        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+      if (signal.type === 'offer') {
+        // If we are also making an offer (glare collision), resolve
+        const offerCollision = this.isMakingOffer || this.peerConnection.signalingState !== 'stable';
+        if (offerCollision) {
+          console.warn('WebRTC offer collision detected');
+          return;
+        }
+
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
+        // Drain pending candidates
+        await this.drainPendingCandidates();
+
         const answer = await this.peerConnection.createAnswer();
         await this.peerConnection.setLocalDescription(answer);
-        if (this.signalingChannel) {
-          this.signalingChannel.postMessage({
-            type: 'call_answer',
-            roomId: this.currentRoomId,
-            sdp: answer,
-          });
+        await this.sendSignal('answer', answer);
+      } else if (signal.type === 'answer') {
+        if (this.peerConnection.signalingState === 'have-local-offer') {
+          await this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.data));
+          // Drain pending candidates
+          await this.drainPendingCandidates();
         }
-      } else if (type === 'call_answer' && this.peerConnection) {
-        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-      } else if (type === 'ice_candidate' && this.peerConnection && candidate) {
-        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      } else if (type === 'call_end') {
-        this.endCall(false);
+      } else if (signal.type === 'candidate' && signal.data) {
+        if (this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type) {
+          try {
+            await this.peerConnection.addIceCandidate(new RTCIceCandidate(signal.data));
+          } catch (e) {
+            console.warn('Failed adding ICE candidate:', e);
+          }
+        } else {
+          this.pendingCandidates.push(signal.data);
+        }
       }
-    } catch (err: any) {
-      console.warn('WebRTC signaling handler error:', err);
+    } catch (err) {
+      console.warn('Error processing WebRTC signal:', err);
+    }
+  }
+
+  private async drainPendingCandidates() {
+    if (!this.peerConnection || !this.peerConnection.remoteDescription) return;
+    while (this.pendingCandidates.length > 0) {
+      const candidate = this.pendingCandidates.shift();
+      if (candidate) {
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn('Failed to add queued candidate:', e);
+        }
+      }
     }
   }
 
   public endCall(broadcast: boolean = true) {
-    if (broadcast && this.signalingChannel && this.currentRoomId) {
-      this.signalingChannel.postMessage({
-        type: 'call_end',
-        roomId: this.currentRoomId,
-      });
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+
+    if (this.currentRoomId) {
+      // Notify server call has ended
+      fetch(`/api/calls/${this.currentRoomId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'ended' }),
+      }).catch(() => {});
     }
 
     this.stopLocalMedia();
 
     if (this.peerConnection) {
-      this.peerConnection.close();
+      try {
+        this.peerConnection.close();
+      } catch (e) {}
       this.peerConnection = null;
     }
 
     this.currentRoomId = null;
     this.isScreenSharing = false;
+    this.pendingCandidates = [];
 
     if (this.config.onCallEnded) {
       this.config.onCallEnded();
