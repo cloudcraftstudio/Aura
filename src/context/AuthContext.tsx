@@ -17,6 +17,8 @@ interface AuthContextType {
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   setUserStatus: (status: UserStatus, statusMessage?: string) => Promise<void>;
   setPassword: (newPassword: string, currentPassword?: string) => Promise<boolean>;
+  followUser: (targetUserId: string) => Promise<boolean>;
+  getUserById: (id: string) => UserProfile | undefined;
   logout: () => void;
   isOnline: boolean;
   isServerConnected: boolean;
@@ -67,23 +69,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   // Fetch all users from server on mount & re-sync active user details
-  useEffect(() => {
-    const fetchUsers = async () => {
-      const serverUsers = await api.getUsers();
-      if (serverUsers && serverUsers.length > 0) {
-        setAllUsers(serverUsers);
-        offlineStorage.save('aura_all_users', serverUsers);
-        setIsServerConnected(true);
+  const fetchUsers = async () => {
+    const serverUsers = await api.getUsers();
+    if (serverUsers && serverUsers.length > 0) {
+      setAllUsers(serverUsers);
+      offlineStorage.save('aura_all_users', serverUsers);
+      setIsServerConnected(true);
 
-        // If user is currently signed in, ensure latest state is synced from server
-        setUser((currentUser) => {
-          if (!currentUser) return null;
-          const fresh = serverUsers.find((u) => u.id === currentUser.id || u.email.toLowerCase() === currentUser.email.toLowerCase());
-          return fresh ? { ...currentUser, ...fresh } : currentUser;
-        });
-      }
-    };
+      // If user is currently signed in, ensure latest state is synced from server
+      setUser((currentUser) => {
+        if (!currentUser) return null;
+        const fresh = serverUsers.find((u) => u.id === currentUser.id || u.email.toLowerCase() === currentUser.email.toLowerCase());
+        return fresh ? { ...currentUser, ...fresh } : currentUser;
+      });
+    }
+  };
+
+  useEffect(() => {
     fetchUsers();
+    const interval = setInterval(fetchUsers, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   // Connection listener
@@ -297,6 +302,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await api.setUserStatus(user.id, status, finalMsg);
   };
 
+  const followUser = async (targetUserId: string): Promise<boolean> => {
+    if (!user || user.id === targetUserId) return false;
+    const currentFollowing = user.followingUserIds || [];
+    const isCurrentlyFollowing = currentFollowing.includes(targetUserId);
+
+    // Optimistic local update
+    const updatedFollowingIds = isCurrentlyFollowing
+      ? currentFollowing.filter((id) => id !== targetUserId)
+      : [...currentFollowing, targetUserId];
+
+    const updatedFollowingCount = isCurrentlyFollowing
+      ? Math.max(0, user.followingCount - 1)
+      : user.followingCount + 1;
+
+    const updatedCurrentUser = {
+      ...user,
+      followingUserIds: updatedFollowingIds,
+      followingCount: updatedFollowingCount,
+    };
+    setUser(updatedCurrentUser);
+
+    // Update target user followers count in allUsers
+    setAllUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === targetUserId) {
+          const newFollowers = isCurrentlyFollowing
+            ? Math.max(0, u.followersCount - 1)
+            : u.followersCount + 1;
+          return { ...u, followersCount: newFollowers };
+        }
+        if (u.id === user.id) {
+          return updatedCurrentUser;
+        }
+        return u;
+      })
+    );
+
+    // Call server API
+    const res = await api.followUser(targetUserId, user.id);
+    if (res) {
+      // Re-fetch users to keep perfectly synced
+      fetchUsers();
+    }
+    return !isCurrentlyFollowing;
+  };
+
+  const getUserById = (id: string): UserProfile | undefined => {
+    if (user && user.id === id) return user;
+    return allUsers.find((u) => u.id === id);
+  };
+
   const logout = () => {
     setUser(null);
     setIsAuthModalOpen(true);
@@ -319,6 +375,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfile,
         setUserStatus,
         setPassword,
+        followUser,
+        getUserById,
         logout,
         isOnline,
         isServerConnected,

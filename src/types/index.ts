@@ -16,6 +16,7 @@ export interface UserProfile {
   joinedAt: string;
   authProvider?: 'google' | 'email' | 'guest' | 'demo';
   hasPassword?: boolean;
+  followingUserIds?: string[];
 }
 
 export type MediaType = 'image' | 'video' | 'audio' | 'none';

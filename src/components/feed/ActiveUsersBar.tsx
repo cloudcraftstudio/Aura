@@ -37,6 +37,14 @@ export const ActiveUsersBar: React.FC<ActiveUsersBarProps> = ({ onOpenProfile })
     window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'chat' } }));
   };
 
+  const handleOpenUserProfile = (userId: string) => {
+    if (onOpenProfile) {
+      onOpenProfile(userId);
+    } else {
+      window.dispatchEvent(new CustomEvent('open_user_profile', { detail: { userId } }));
+    }
+  };
+
   return (
     <div
       id="active-online-users-bar"
@@ -73,7 +81,7 @@ export const ActiveUsersBar: React.FC<ActiveUsersBarProps> = ({ onOpenProfile })
             className="flex items-center gap-2.5 p-2 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-blue-500/30 transition-all flex-shrink-0 group"
           >
             {/* User Avatar with Green Ring */}
-            <div className="relative cursor-pointer" onClick={() => onOpenProfile?.(u.id)}>
+            <div className="relative cursor-pointer" onClick={() => handleOpenUserProfile(u.id)}>
               <div className="ring-2 ring-emerald-400 ring-offset-2 ring-offset-[#070a1a] rounded-full">
                 <Avatar src={u.avatarUrl} name={u.name} size="sm" />
               </div>
@@ -81,7 +89,7 @@ export const ActiveUsersBar: React.FC<ActiveUsersBarProps> = ({ onOpenProfile })
             </div>
 
             {/* Name and Status Message */}
-            <div className="min-w-0 pr-1 cursor-pointer" onClick={() => onOpenProfile?.(u.id)}>
+            <div className="min-w-0 pr-1 cursor-pointer" onClick={() => handleOpenUserProfile(u.id)}>
               <div className="flex items-center gap-1">
                 <p className="text-xs font-bold text-white group-hover:text-blue-300 transition-colors truncate max-w-[100px]">
                   {u.name.split(' ')[0]}

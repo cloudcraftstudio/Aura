@@ -13,6 +13,7 @@ export interface DBUser {
   statusMessage?: string;
   followersCount: number;
   followingCount: number;
+  followingUserIds?: string[];
   isVerified?: boolean;
   joinedAt: string;
   googleId?: string;
@@ -584,6 +585,33 @@ class JSONDatabase {
 
     this.scheduleSave();
     return updated;
+  }
+
+  public toggleFollowUser(currentUserId: string, targetUserId: string): { isFollowing: boolean; targetFollowersCount: number; currentFollowingCount: number } | null {
+    if (currentUserId === targetUserId) return null;
+    const currentUser = this.getUserById(currentUserId);
+    const targetUser = this.getUserById(targetUserId);
+    if (!currentUser || !targetUser) return null;
+
+    if (!currentUser.followingUserIds) currentUser.followingUserIds = [];
+    const isFollowing = currentUser.followingUserIds.includes(targetUserId);
+
+    if (isFollowing) {
+      currentUser.followingUserIds = currentUser.followingUserIds.filter((id) => id !== targetUserId);
+      currentUser.followingCount = Math.max(0, (currentUser.followingCount || 1) - 1);
+      targetUser.followersCount = Math.max(0, (targetUser.followersCount || 1) - 1);
+    } else {
+      currentUser.followingUserIds.push(targetUserId);
+      currentUser.followingCount = (currentUser.followingCount || 0) + 1;
+      targetUser.followersCount = (targetUser.followersCount || 0) + 1;
+    }
+
+    this.scheduleSave();
+    return {
+      isFollowing: !isFollowing,
+      targetFollowersCount: targetUser.followersCount,
+      currentFollowingCount: currentUser.followingCount,
+    };
   }
 
   // --- Posts Operations ---

@@ -359,15 +359,29 @@ export const ChatView: React.FC = () => {
                 {(() => {
                   const recipient = getRecipient(activeConversation);
                   return (
-                    <>
-                      <Avatar
-                        src={activeConversation.isGroup ? activeConversation.avatar : recipient?.avatarUrl}
-                        name={activeConversation.isGroup ? activeConversation.name || 'Group' : recipient?.name || 'User'}
-                        size="sm"
-                        status={activeConversation.isGroup ? undefined : recipient?.status}
-                      />
+                    <div
+                      onClick={() => {
+                        if (!activeConversation.isGroup && recipient) {
+                          window.dispatchEvent(
+                            new CustomEvent('open_user_profile', { detail: { userId: recipient.id } })
+                          );
+                        }
+                      }}
+                      className={`flex items-center gap-2.5 min-w-0 ${
+                        !activeConversation.isGroup ? 'cursor-pointer group' : ''
+                      }`}
+                      title={!activeConversation.isGroup ? `View ${recipient?.name}'s profile` : undefined}
+                    >
+                      <div className="transition-transform group-hover:scale-105">
+                        <Avatar
+                          src={activeConversation.isGroup ? activeConversation.avatar : recipient?.avatarUrl}
+                          name={activeConversation.isGroup ? activeConversation.name || 'Group' : recipient?.name || 'User'}
+                          size="sm"
+                          status={activeConversation.isGroup ? undefined : recipient?.status}
+                        />
+                      </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                        <h4 className="text-xs sm:text-sm font-bold text-white group-hover:text-blue-300 transition-colors truncate">
                           {activeConversation.isGroup ? activeConversation.name : recipient?.name}
                         </h4>
                         <p className="text-[10px] text-emerald-400 flex items-center gap-1 truncate">
@@ -377,7 +391,7 @@ export const ChatView: React.FC = () => {
                             : recipient?.statusMessage || (recipient?.status === 'online' ? 'Active now' : 'Offline')}
                         </p>
                       </div>
-                    </>
+                    </div>
                   );
                 })()}
               </div>
@@ -451,13 +465,30 @@ export const ChatView: React.FC = () => {
                       className={`flex gap-2.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}
                     >
                       {!isMe && (
-                        <Avatar src={msg.senderAvatar} name={msg.senderName} size="sm" />
+                        <div
+                          onClick={() => {
+                            window.dispatchEvent(
+                              new CustomEvent('open_user_profile', { detail: { userId: msg.senderId } })
+                            );
+                          }}
+                          className="cursor-pointer hover:scale-105 transition-transform flex-shrink-0"
+                          title={`View ${msg.senderName}'s profile`}
+                        >
+                          <Avatar src={msg.senderAvatar} name={msg.senderName} size="sm" />
+                        </div>
                       )}
 
                       <div className={`max-w-[85%] sm:max-w-[70%] space-y-1 ${isMe ? 'items-end' : 'items-start'}`}>
                         {/* Sender name for group chats */}
                         {!isMe && activeConversation.isGroup && (
-                          <p className="text-[10px] font-semibold text-blue-300 px-1">
+                          <p
+                            onClick={() => {
+                              window.dispatchEvent(
+                                new CustomEvent('open_user_profile', { detail: { userId: msg.senderId } })
+                              );
+                            }}
+                            className="text-[10px] font-semibold text-blue-300 px-1 cursor-pointer hover:text-blue-200 transition-colors"
+                          >
                             {msg.senderName}
                           </p>
                         )}

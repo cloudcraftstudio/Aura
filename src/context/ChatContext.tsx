@@ -102,48 +102,57 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch conversations from server
   const refreshConversations = async () => {
-    const serverConvs = await api.getConversations(user?.id);
-    if (serverConvs && serverConvs.length > 0) {
-      setConversations(serverConvs);
-      offlineStorage.save(STORAGE_KEYS.CONVERSATIONS, serverConvs);
-    }
+    try {
+      const serverConvs = await api.getConversations(user?.id);
+      if (serverConvs && serverConvs.length > 0) {
+        setConversations(serverConvs);
+        offlineStorage.save(STORAGE_KEYS.CONVERSATIONS, serverConvs);
+      }
+    } catch (e) {}
   };
 
   useEffect(() => {
     refreshConversations();
+    const interval = setInterval(refreshConversations, 2500);
+    return () => clearInterval(interval);
   }, [user?.id]);
 
-  // Load messages for active conversation from server
+  // Load and live-sync messages for active conversation from server
   useEffect(() => {
     if (!activeConversationId) return;
     const fetchMsgs = async () => {
-      const serverMsgs = await api.getMessages(activeConversationId);
-      if (serverMsgs && serverMsgs.length > 0) {
-        setMessages((prev) => {
-          const currentList = prev[activeConversationId] || [];
-          // Deduplicate server messages with any pending/existing messages
-          const idMap = new Map<string, ChatMessage>();
-          serverMsgs.forEach((m) => idMap.set(m.id, m));
-          currentList.forEach((m) => {
-            if (!idMap.has(m.id)) {
-              // Check if already represented by a message with same sender, content, and near timestamp
-              const exists = Array.from(idMap.values()).some(
-                (sm) => sm.senderId === m.senderId && sm.content === m.content && Math.abs(sm.timestamp - m.timestamp) < 4000
-              );
-              if (!exists) {
-                idMap.set(m.id, m);
+      try {
+        const serverMsgs = await api.getMessages(activeConversationId);
+        if (serverMsgs && serverMsgs.length > 0) {
+          setMessages((prev) => {
+            const currentList = prev[activeConversationId] || [];
+            // Deduplicate server messages with any pending/existing messages
+            const idMap = new Map<string, ChatMessage>();
+            serverMsgs.forEach((m) => idMap.set(m.id, m));
+            currentList.forEach((m) => {
+              if (!idMap.has(m.id)) {
+                // Check if already represented by a message with same sender, content, and near timestamp
+                const exists = Array.from(idMap.values()).some(
+                  (sm) => sm.senderId === m.senderId && sm.content === m.content && Math.abs(sm.timestamp - m.timestamp) < 4000
+                );
+                if (!exists) {
+                  idMap.set(m.id, m);
+                }
               }
-            }
+            });
+            const merged = Array.from(idMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+            return {
+              ...prev,
+              [activeConversationId]: merged,
+            };
           });
-          const merged = Array.from(idMap.values()).sort((a, b) => a.timestamp - b.timestamp);
-          return {
-            ...prev,
-            [activeConversationId]: merged,
-          };
-        });
-      }
+        }
+      } catch (e) {}
     };
+
     fetchMsgs();
+    const interval = setInterval(fetchMsgs, 2000);
+    return () => clearInterval(interval);
   }, [activeConversationId]);
 
   // Save to offline storage

@@ -518,11 +518,25 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
           {/* User Profile Bar */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Avatar src={currentStory.userAvatar} name={currentStory.userName} size="sm" />
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsPaused(true);
+                window.dispatchEvent(
+                  new CustomEvent('open_user_profile', { detail: { userId: currentStory.userId } })
+                );
+              }}
+              className="flex items-center gap-2.5 cursor-pointer group"
+              title={`View ${currentStory.userName}'s profile`}
+            >
+              <div className="transition-transform group-hover:scale-105">
+                <Avatar src={currentStory.userAvatar} name={currentStory.userName} size="sm" />
+              </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h4 className="text-sm font-bold text-white tracking-tight">{currentStory.userName}</h4>
+                  <h4 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors tracking-tight">
+                    {currentStory.userName}
+                  </h4>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 </div>
                 <p className="text-[11px] text-slate-300 font-medium">

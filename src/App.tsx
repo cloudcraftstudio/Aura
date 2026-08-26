@@ -14,6 +14,7 @@ import { IncomingCallBanner } from './components/call/IncomingCallBanner';
 import { NotificationToastContainer } from './components/notifications/NotificationToastContainer';
 import { NotificationsModal } from './components/notifications/NotificationsModal';
 import { UserProfileModal } from './components/profile/UserProfileModal';
+import { MemberProfileModal } from './components/profile/MemberProfileModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { MatrixSplashScreen } from './components/splash/MatrixSplashScreen';
 import { ShareAppModal } from './components/common/ShareAppModal';
@@ -22,6 +23,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 function MainApp() {
   const [activeTab, setActiveTab] = useState<'feed' | 'chat' | 'bookmarks'>('feed');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareModalType, setShareModalType] = useState<'general' | 'call' | 'chat'>('general');
   const [shareRoomId, setShareRoomId] = useState<string | undefined>();
@@ -52,12 +54,20 @@ function MainApp() {
       setShareRoomId(customEvent.detail?.roomId);
       setIsShareModalOpen(true);
     };
+    const handleOpenUserProfile = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId: string }>;
+      if (customEvent.detail?.userId) {
+        setViewingUserId(customEvent.detail.userId);
+      }
+    };
 
     window.addEventListener('navigate_tab', handleTabNav);
     window.addEventListener('open_share_modal', handleOpenShare);
+    window.addEventListener('open_user_profile', handleOpenUserProfile);
     return () => {
       window.removeEventListener('navigate_tab', handleTabNav);
       window.removeEventListener('open_share_modal', handleOpenShare);
+      window.removeEventListener('open_user_profile', handleOpenUserProfile);
     };
   }, []);
 
@@ -129,7 +139,7 @@ function MainApp() {
       {/* Notifications Center Modal */}
       <NotificationsModal isOpen={isNotificationsOpen} onClose={closeNotifications} />
 
-      {/* User Profile Modal */}
+      {/* User Profile Modal (Self) */}
       {isProfileOpen && (
         <UserProfileModal
           onClose={() => setIsProfileOpen(false)}
@@ -137,6 +147,18 @@ function MainApp() {
           onOpenShare={() => {
             setIsProfileOpen(false);
             handleOpenShareModal('general');
+          }}
+        />
+      )}
+
+      {/* Member Profile Modal (Other Users / Profile Cards) */}
+      {viewingUserId && (
+        <MemberProfileModal
+          userId={viewingUserId}
+          onClose={() => setViewingUserId(null)}
+          onOpenSelfEdit={() => {
+            setViewingUserId(null);
+            setIsProfileOpen(true);
           }}
         />
       )}

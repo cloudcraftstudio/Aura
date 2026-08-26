@@ -87,6 +87,13 @@ class ApiService {
     });
   }
 
+  public async followUser(targetUserId: string, currentUserId: string): Promise<{ isFollowing: boolean; targetFollowersCount: number; currentFollowingCount: number } | null> {
+    return this.request<{ isFollowing: boolean; targetFollowersCount: number; currentFollowingCount: number }>(`/users/${targetUserId}/follow`, {
+      method: 'POST',
+      body: JSON.stringify({ currentUserId }),
+    });
+  }
+
   // --- Posts ---
   public async getPosts(): Promise<SocialPost[] | null> {
     return this.request<SocialPost[]>('/posts');

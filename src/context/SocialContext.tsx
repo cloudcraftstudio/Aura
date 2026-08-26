@@ -40,21 +40,52 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return offlineStorage.load<string[]>(STORAGE_KEYS.BOOKMARKS, ['post_1']);
   });
 
-  // Fetch initial posts & stories from server API
+  // Fetch posts & stories from server API with smart real-time merging
   const refreshFeed = async () => {
-    const [serverPosts, serverStories] = await Promise.all([api.getPosts(), api.getStories()]);
-    if (serverPosts && serverPosts.length > 0) {
-      setPosts(serverPosts);
-      offlineStorage.save(STORAGE_KEYS.POSTS, serverPosts);
-    }
-    if (serverStories && serverStories.length > 0) {
-      setStories(serverStories);
-      offlineStorage.save(STORAGE_KEYS.STORIES, serverStories);
+    try {
+      const [serverPosts, serverStories] = await Promise.all([api.getPosts(), api.getStories()]);
+      if (serverPosts && serverPosts.length > 0) {
+        setPosts((prevPosts) => {
+          // Merge server posts with any optimistic local posts
+          const serverMap = new Map<string, SocialPost>();
+          serverPosts.forEach((sp) => serverMap.set(sp.id, sp));
+
+          // Include any pending offline posts that are not yet on the server
+          const merged: SocialPost[] = [];
+          const seenIds = new Set<string>();
+
+          // Server posts take canonical precedence for comments and likes
+          serverPosts.forEach((sp) => {
+            seenIds.add(sp.id);
+            merged.push(sp);
+          });
+
+          // Check if local has any temp/offline pending posts
+          prevPosts.forEach((lp) => {
+            if (lp.isPendingSync && !seenIds.has(lp.id)) {
+              merged.unshift(lp);
+            }
+          });
+
+          return merged;
+        });
+        offlineStorage.save(STORAGE_KEYS.POSTS, serverPosts);
+      }
+
+      if (serverStories && serverStories.length > 0) {
+        setStories(serverStories);
+        offlineStorage.save(STORAGE_KEYS.STORIES, serverStories);
+      }
+    } catch (err) {
+      console.warn('Feed refresh error:', err);
     }
   };
 
   useEffect(() => {
     refreshFeed();
+    // Real-time cross-device sync interval (every 2.5 seconds)
+    const interval = setInterval(refreshFeed, 2500);
+    return () => clearInterval(interval);
   }, []);
 
   // Save to offline storage

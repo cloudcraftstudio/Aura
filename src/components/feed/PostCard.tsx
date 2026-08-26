@@ -61,15 +61,27 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     >
       {/* Author Header */}
       <div className="p-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Avatar src={post.authorAvatar} name={post.authorName} size="md" />
+        <div
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent('open_user_profile', { detail: { userId: post.authorId } })
+            );
+          }}
+          className="flex items-center gap-3 cursor-pointer group"
+          title={`View ${post.authorName}'s profile`}
+        >
+          <div className="transition-transform group-hover:scale-105">
+            <Avatar src={post.authorAvatar} name={post.authorName} size="md" />
+          </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h4 className="text-sm font-bold text-white">{post.authorName}</h4>
+              <h4 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors">
+                {post.authorName}
+              </h4>
               <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 fill-blue-400/20" />
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span>@{post.authorHandle}</span>
+              <span className="group-hover:text-slate-300">@{post.authorHandle}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 {post.isPendingSync ? (
@@ -206,10 +218,29 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
               {post.comments.map((c) => (
                 <div key={c.id} className="flex items-start gap-2.5 text-xs">
-                  <Avatar src={c.authorAvatar} name={c.authorName} size="xs" />
+                  <div
+                    onClick={() => {
+                      window.dispatchEvent(
+                        new CustomEvent('open_user_profile', { detail: { userId: c.authorId } })
+                      );
+                    }}
+                    className="cursor-pointer hover:scale-105 transition-transform"
+                    title={`View ${c.authorName}'s profile`}
+                  >
+                    <Avatar src={c.authorAvatar} name={c.authorName} size="xs" />
+                  </div>
                   <div className="flex-1 bg-white/5 rounded-2xl p-2.5 border border-white/5">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-semibold text-white">{c.authorName}</span>
+                      <span
+                        onClick={() => {
+                          window.dispatchEvent(
+                            new CustomEvent('open_user_profile', { detail: { userId: c.authorId } })
+                          );
+                        }}
+                        className="font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors"
+                      >
+                        {c.authorName}
+                      </span>
                       <span className="text-[10px] text-slate-500">
                         {formatDistanceToNow(c.createdAt, { addSuffix: true })}
                       </span>

@@ -185,6 +185,14 @@ async function startServer() {
     res.json(updated);
   });
 
+  app.post('/api/users/:id/follow', (req, res) => {
+    const { currentUserId } = req.body;
+    if (!currentUserId) return res.status(400).json({ error: 'currentUserId is required' });
+    const result = db.toggleFollowUser(currentUserId, req.params.id);
+    if (!result) return res.status(404).json({ error: 'User not found or cannot follow self' });
+    res.json(result);
+  });
+
   // --- Posts & Feed API ---
   app.get('/api/posts', (req, res) => {
     const posts = db.getPosts();
