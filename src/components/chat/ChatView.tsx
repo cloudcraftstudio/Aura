@@ -63,6 +63,7 @@ export const ChatView: React.FC = () => {
   const [mobileShowChatRoom, setMobileShowChatRoom] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioTimerRef = useRef<any>(null);
@@ -94,10 +95,44 @@ export const ChatView: React.FC = () => {
     window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'feed' } }));
   };
 
-  // Scroll to bottom on new messages
+  // Robust scroll to bottom function that pins view to latest messages & input
+  const scrollToBottom = (smooth = false) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
+    }
+  };
+
+  // Immediate instant scroll to bottom on mount, conversation switch, or mobile transition
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentMessages.length, activeConversation?.id]);
+    scrollToBottom(false);
+    const frame = requestAnimationFrame(() => scrollToBottom(false));
+    const timer1 = setTimeout(() => scrollToBottom(false), 40);
+    const timer2 = setTimeout(() => scrollToBottom(false), 120);
+    const timer3 = setTimeout(() => scrollToBottom(false), 300);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [activeConversation?.id, mobileShowChatRoom]);
+
+  // Smooth scroll when user sends or receives new messages
+  useEffect(() => {
+    if (currentMessages.length > 0) {
+      scrollToBottom(true);
+    }
+  }, [currentMessages.length]);
 
   // Audio recording timer
   useEffect(() => {
@@ -194,11 +229,11 @@ export const ChatView: React.FC = () => {
   return (
     <div
       id="chat-view"
-      className="w-full max-w-6xl mx-auto h-full flex gap-3 md:gap-6 overflow-hidden flex-1 min-h-0 p-2 sm:p-4"
+      className="w-full max-w-6xl mx-auto h-full flex flex-col md:flex-row gap-0 sm:gap-3 md:gap-6 overflow-hidden flex-1 min-h-0 p-0 sm:p-2 md:p-4"
     >
       {/* Left Sidebar: Conversations List */}
       <div
-        className={`w-full md:w-80 lg:w-96 rounded-3xl bg-[#090d22]/85 backdrop-blur-2xl border border-white/10 flex flex-col h-full overflow-hidden shadow-2xl ${
+        className={`w-full md:w-80 lg:w-96 rounded-none sm:rounded-3xl bg-[#090d22]/90 backdrop-blur-2xl border-0 sm:border border-white/10 flex flex-col h-full min-h-0 overflow-hidden shadow-2xl ${
           mobileShowChatRoom ? 'hidden md:flex' : 'flex'
         }`}
       >
@@ -339,7 +374,7 @@ export const ChatView: React.FC = () => {
 
       {/* Right Main Chat Area */}
       <div
-        className={`w-full md:flex-1 rounded-3xl bg-[#090d22]/85 backdrop-blur-2xl border border-white/10 flex flex-col h-full min-h-0 overflow-hidden shadow-2xl ${
+        className={`w-full md:flex-1 rounded-none sm:rounded-3xl bg-[#090d22]/90 backdrop-blur-2xl border-0 sm:border border-white/10 flex flex-col h-full min-h-0 overflow-hidden shadow-2xl ${
           mobileShowChatRoom ? 'flex' : 'hidden md:flex'
         }`}
       >
@@ -446,8 +481,11 @@ export const ChatView: React.FC = () => {
               </div>
             </div>
 
-            {/* Messages Scroll View */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 space-y-3 overscroll-contain">
+            {/* Messages Scroll View - Only message area scrolls */}
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-5 space-y-3 overscroll-contain touch-pan-y"
+            >
               {currentMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 text-xs">
                   <Sparkles className="w-8 h-8 text-blue-400/50 mb-2 animate-bounce" />
@@ -524,6 +562,7 @@ export const ChatView: React.FC = () => {
                                   alt="Story"
                                   className="w-full h-full object-cover"
                                   referrerPolicy="no-referrer"
+                                  onLoad={() => scrollToBottom(false)}
                                 />
                               </div>
                             )}
@@ -560,6 +599,7 @@ export const ChatView: React.FC = () => {
                                 alt="Attachment"
                                 className="w-full h-full object-cover transition-transform group-hover:scale-105"
                                 referrerPolicy="no-referrer"
+                                onLoad={() => scrollToBottom(false)}
                               />
                               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <span className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] text-white">

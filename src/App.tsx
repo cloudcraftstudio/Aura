@@ -97,7 +97,11 @@ function MainApp() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#05060f] text-white flex flex-col selection:bg-blue-500/30 selection:text-blue-200">
+    <div
+      className={`relative ${
+        activeTab === 'chat' ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-screen'
+      } bg-[#05060f] text-white flex flex-col selection:bg-blue-500/30 selection:text-blue-200`}
+    >
       {/* Matrix Style Splash Screen with Touch to Enter */}
       {showSplashScreen && (
         <MatrixSplashScreen onEnter={handleEnterMatrix} />
@@ -122,7 +126,11 @@ function MainApp() {
       <PermissionBanner />
 
       {/* Main Content Area */}
-      <main className={`relative z-10 flex-1 flex flex-col min-h-0 ${activeTab === 'chat' ? 'pb-16 md:pb-4 overflow-hidden' : 'pb-20 md:pb-6'}`}>
+      <main
+        className={`relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden ${
+          activeTab === 'chat' ? 'p-0 sm:p-2 md:p-4' : 'pb-20 md:pb-6 overflow-y-auto'
+        }`}
+      >
         {activeTab === 'feed' && <SocialFeed />}
         {activeTab === 'chat' && <ChatView />}
         {activeTab === 'bookmarks' && <BookmarksView />}
