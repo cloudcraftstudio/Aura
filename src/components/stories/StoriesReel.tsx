@@ -28,7 +28,7 @@ const STORY_EMOJIS = ['🔥', '✨', '🌊', '🌴', '💫', '🎉', '🚀', '�
 
 export const StoriesReel: React.FC = () => {
   const { stories, addStory } = useSocial();
-  const { user } = useAuth();
+  const { user, allUsers } = useAuth();
   const [selectedStoryIndex, setSelectedStoryIndex] = useState<number | null>(null);
   const [isAddingStory, setIsAddingStory] = useState(false);
   const [storyImageUrl, setStoryImageUrl] = useState('');
@@ -131,28 +131,95 @@ export const StoriesReel: React.FC = () => {
   return (
     <div id="stories-reel" className="w-full mb-6">
       <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-none">
-        {/* Add My Story Button */}
-        <div className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group">
-          <div
-            id="add-story-btn"
-            onClick={() => setIsAddingStory(true)}
-            className="relative w-16 h-16 rounded-2xl p-0.5 border-2 border-dashed border-blue-500/50 hover:border-blue-400 bg-white/5 backdrop-blur-2xl flex items-center justify-center transition-all group-hover:scale-105"
-          >
-            {user ? (
-              <Avatar src={user.avatarUrl} name={user.name} size="lg" />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-slate-800" />
-            )}
-            <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg border-2 border-[#05060f]">
-              <Plus className="w-3.5 h-3.5" />
-            </span>
-          </div>
-          <span className="text-[11px] font-medium text-slate-300">Your Story</span>
-        </div>
+        {/* Add / View My Story Button */}
+        {(() => {
+          const myStoryIndex = stories.findIndex((s) => s.userId === user?.id);
+          const myStory = myStoryIndex !== -1 ? stories[myStoryIndex] : null;
+          const myMedia = myStory?.mediaUrl || myStory?.slides?.[0]?.mediaUrl;
+          const hasValidMyMedia = myMedia && (myMedia.startsWith('http') || myMedia.startsWith('data:image'));
+
+          if (myStory) {
+            return (
+              <div className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group">
+                <div
+                  id="my-active-story-item"
+                  className="relative w-16 h-16 sm:w-[70px] sm:h-[70px] rounded-2xl bg-gradient-to-tr from-cyan-400 via-blue-500 to-indigo-500 p-[2px] shadow-[0_0_15px_rgba(59,130,246,0.45)] transition-all group-hover:scale-105"
+                >
+                  <div
+                    onClick={() => setSelectedStoryIndex(myStoryIndex)}
+                    className="w-full h-full rounded-[14px] overflow-hidden bg-slate-900 relative cursor-pointer"
+                  >
+                    {hasValidMyMedia ? (
+                      <img
+                        src={myMedia}
+                        alt="Your story"
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-950 p-1.5 flex items-center justify-center text-center">
+                        <p className="text-[9px] text-white font-bold line-clamp-3 leading-tight">
+                          {myStory.caption || 'Your Story'}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Author Mini Avatar */}
+                    <div className="absolute top-1 left-1 ring-1 ring-black/70 rounded-full shadow-md z-10">
+                      <Avatar src={user?.avatarUrl || myStory.userAvatar} name="You" size="xs" />
+                    </div>
+                  </div>
+
+                  {/* Add slide plus badge in bottom-right */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAddingStory(true);
+                    }}
+                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg border-2 border-[#05060f] transition-transform active:scale-90 z-20"
+                    title="Add another story or slide"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <span className="text-[11px] font-semibold text-blue-300">Your Story</span>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group">
+              <div
+                id="add-story-btn"
+                onClick={() => setIsAddingStory(true)}
+                className="relative w-16 h-16 sm:w-[70px] sm:h-[70px] rounded-2xl p-0.5 border-2 border-dashed border-blue-500/50 hover:border-blue-400 bg-white/5 backdrop-blur-2xl flex items-center justify-center transition-all group-hover:scale-105"
+              >
+                {user ? (
+                  <Avatar src={user.avatarUrl} name={user.name} size="lg" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-slate-800" />
+                )}
+                <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg border-2 border-[#05060f]">
+                  <Plus className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <span className="text-[11px] font-medium text-slate-300">Your Story</span>
+            </div>
+          );
+        })()}
 
         {/* Stories from following */}
         {stories.map((story, index) => {
+          // If this is current user's story, we already handled it in "Your Story" above
+          if (user && story.userId === user.id) return null;
+
           const isSeen = user ? story.seenByUserIds.includes(user.id) : false;
+          const media = story.mediaUrl || story.slides?.[0]?.mediaUrl;
+          const hasValidMedia = media && (media.startsWith('http') || media.startsWith('data:image'));
+          const authorUser = allUsers.find((u) => u.id === story.userId || u.name.toLowerCase() === story.userName.toLowerCase());
+          const isAuthorOnline = authorUser?.status === 'online' || authorUser?.status === 'busy';
+
           return (
             <div
               key={story.id}
@@ -161,24 +228,53 @@ export const StoriesReel: React.FC = () => {
               className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer group"
             >
               <div
-                className={`w-16 h-16 rounded-2xl p-0.5 transition-all group-hover:scale-105 ${
+                className={`relative w-16 h-16 sm:w-[70px] sm:h-[70px] rounded-2xl transition-all duration-200 group-hover:scale-105 ${
                   isSeen
-                    ? 'border-2 border-white/10 bg-white/5'
-                    : 'bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 p-[2px] shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+                    ? 'border-2 border-white/15 bg-white/5 p-0.5'
+                    : 'bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 p-[2px] shadow-[0_0_15px_rgba(59,130,246,0.45)]'
                 }`}
               >
-                <div className="w-full h-full rounded-[14px] overflow-hidden border border-black/40 bg-black/40">
-                  <img
-                    src={story.userAvatar}
-                    alt={story.userName}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
+                <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-950 relative border border-black/40">
+                  {/* Story Actual Image or Text Snippet */}
+                  {hasValidMedia ? (
+                    <img
+                      src={media}
+                      alt={story.userName}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-950 p-1.5 flex items-center justify-center text-center">
+                      <p className="text-[9px] text-white font-bold line-clamp-3 leading-tight">
+                        {story.caption || story.userName}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Caption gradient overlay if caption exists */}
+                  {story.caption && hasValidMedia && (
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-1 pt-2 pointer-events-none">
+                      <p className="text-[8px] text-white/95 truncate font-semibold leading-tight">
+                        {story.caption}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Author Mini Avatar Badge in Corner with Online Pulse Dot */}
+                  <div className="absolute top-1 left-1 ring-1.5 ring-black/70 rounded-full shadow-lg z-10 relative">
+                    <Avatar src={story.userAvatar} name={story.userName} size="xs" />
+                    {isAuthorOnline && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-black ring-1 ring-emerald-500/50" />
+                    )}
+                  </div>
                 </div>
               </div>
-              <span className="text-[11px] font-medium text-slate-300 max-w-[64px] truncate">
-                {story.userName.split(' ')[0]}
-              </span>
+              <div className="flex items-center justify-center gap-1 max-w-[64px] sm:max-w-[70px]">
+                {isAuthorOnline && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
+                <span className="text-[11px] font-medium text-slate-300 truncate text-center">
+                  {story.userName.split(' ')[0]}
+                </span>
+              </div>
             </div>
           );
         })}

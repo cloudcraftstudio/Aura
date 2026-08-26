@@ -3,6 +3,7 @@ import { Sparkles, Image as ImageIcon, Video, Compass, Share2, QrCode } from 'lu
 import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
 import { StoriesReel } from '../stories/StoriesReel';
+import { ActiveUsersBar } from './ActiveUsersBar';
 import { PostCard } from './PostCard';
 import { CreatePostModal, POST_CATEGORIES } from './CreatePostModal';
 import { DailyMotivationalCard } from './DailyMotivationalCard';
@@ -40,6 +41,9 @@ export const SocialFeed: React.FC = () => {
     <div id="social-feed-view" className="w-full max-w-2xl mx-auto py-6 px-4">
       {/* 24-Hour Ephemeral Stories Reel */}
       <StoriesReel />
+
+      {/* Real-time Active Online Members Bar */}
+      <ActiveUsersBar />
 
       {/* Daily Motivational Quote - Displayed to all users and changes daily */}
       <DailyMotivationalCard onShareToFeed={handleShareQuoteToFeed} />

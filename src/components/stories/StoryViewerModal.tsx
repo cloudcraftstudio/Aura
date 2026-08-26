@@ -224,6 +224,21 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If the user is currently typing in an input or textarea, DO NOT hijack spacebar or arrow keys
+      const target = e.target as HTMLElement | null;
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (
+        activeTag === 'input' ||
+        activeTag === 'textarea' ||
+        target?.tagName?.toLowerCase() === 'input' ||
+        target?.tagName?.toLowerCase() === 'textarea'
+      ) {
+        if (e.key === 'Escape') {
+          (document.activeElement as HTMLElement)?.blur();
+        }
+        return;
+      }
+
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'ArrowRight') {
@@ -361,10 +376,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
     <div
       id="story-viewer-modal"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/92 backdrop-blur-2xl animate-fade-in select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/92 backdrop-blur-2xl animate-fade-in select-none overflow-y-auto"
     >
       {/* Top action controls bar */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-2 z-40">
+      <div className="absolute top-3 right-3 sm:top-5 sm:right-5 flex items-center gap-2 z-40">
         <button
           id="toggle-story-pause-btn"
           type="button"
@@ -372,10 +387,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             e.stopPropagation();
             setIsPaused((p) => !p);
           }}
-          className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-md border border-white/15 shadow-xl"
+          className="p-2 sm:p-2.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors backdrop-blur-md border border-white/20 shadow-xl"
           title={isPaused ? 'Resume story (Space)' : 'Pause story (Space)'}
         >
-          {isPaused ? <Play className="w-4 h-4 sm:w-5 sm:h-5" /> : <Pause className="w-4 h-4 sm:w-5 sm:h-5" />}
+          {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
         </button>
 
         <button
@@ -385,10 +400,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             e.stopPropagation();
             onClose();
           }}
-          className="p-2.5 sm:p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors backdrop-blur-md border border-white/15 shadow-xl"
+          className="p-2 sm:p-2.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors backdrop-blur-md border border-white/20 shadow-xl"
           title="Close story (Esc)"
         >
-          <X className="w-4 h-4 sm:w-5 sm:h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -401,10 +416,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             e.stopPropagation();
             goToPrevSlide();
           }}
-          className="absolute left-3 sm:left-8 top-1/2 -translate-y-1/2 p-3 sm:p-4 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all z-40 hidden sm:flex items-center justify-center backdrop-blur-md border border-white/15 hover:scale-110 shadow-2xl"
+          className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/85 text-white transition-all z-40 hidden md:flex items-center justify-center backdrop-blur-md border border-white/20 hover:scale-110 shadow-2xl"
           title="Previous slide / story"
         >
-          <ChevronLeft className="w-6 h-6" />
+          <ChevronLeft className="w-5 h-5" />
         </button>
       )}
 
@@ -416,10 +431,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             e.stopPropagation();
             goToNextSlide();
           }}
-          className="absolute right-3 sm:right-8 top-1/2 -translate-y-1/2 p-3 sm:p-4 rounded-full bg-white/10 hover:bg-white/25 text-white transition-all z-40 hidden sm:flex items-center justify-center backdrop-blur-md border border-white/15 hover:scale-110 shadow-2xl"
+          className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/60 hover:bg-black/85 text-white transition-all z-40 hidden md:flex items-center justify-center backdrop-blur-md border border-white/20 hover:scale-110 shadow-2xl"
           title="Next slide / story"
         >
-          <ChevronRight className="w-6 h-6" />
+          <ChevronRight className="w-5 h-5" />
         </button>
       )}
 
@@ -438,10 +453,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         onMouseUp={handleHoldEnd}
         onTouchStart={handleHoldStart}
         onTouchEnd={handleHoldEnd}
-        className="relative w-full max-w-sm sm:max-w-md h-[84vh] max-h-[780px] rounded-[32px] overflow-hidden bg-slate-950 backdrop-blur-2xl border border-white/20 shadow-[0_0_80px_rgba(0,0,0,0.85)] flex flex-col justify-between cursor-pointer"
+        className="relative w-full max-w-[390px] sm:max-w-md h-[88dvh] max-h-[720px] my-auto rounded-[28px] sm:rounded-[32px] overflow-hidden bg-slate-950 backdrop-blur-2xl border border-white/20 shadow-[0_0_80px_rgba(0,0,0,0.85)] flex flex-col justify-between cursor-pointer flex-shrink-0"
       >
         {/* Story Visual Media / Background Image */}
-        {!imageError ? (
+        {!imageError && activeSlide.mediaUrl ? (
           <img
             src={activeSlide.mediaUrl}
             alt={currentStory.userName}
@@ -450,10 +465,16 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
             className="absolute inset-0 w-full h-full object-cover pointer-events-none"
           />
         ) : (
-          <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-950 via-slate-900 to-black flex flex-col items-center justify-center p-6 text-center pointer-events-none">
-            <Avatar src={currentStory.userAvatar} name={currentStory.userName} size="xl" />
-            <p className="mt-4 text-base font-bold text-slate-100">{currentStory.userName}'s Story</p>
-            <p className="text-xs text-slate-400 mt-1 max-w-xs">{activeSlide.caption || 'Shared moment'}</p>
+          <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-950 via-indigo-900 to-purple-950 flex flex-col items-center justify-center p-8 text-center pointer-events-none">
+            <div className="p-4 rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/15 shadow-2xl max-w-xs">
+              <p className="text-base sm:text-lg font-bold text-white leading-snug">
+                {activeSlide.caption || currentStory.caption || `${currentStory.userName}'s Story`}
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-2 text-slate-300 text-xs font-medium">
+              <Avatar src={currentStory.userAvatar} name={currentStory.userName} size="sm" />
+              <span>{currentStory.userName}</span>
+            </div>
           </div>
         )}
 
@@ -565,12 +586,12 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
 
         {/* Bottom Story Caption & Interaction Bar */}
         <div
-          className="relative z-30 p-4 space-y-3 pointer-events-auto"
+          className="relative z-30 p-3 sm:p-4 pb-5 sm:pb-6 space-y-2.5 pointer-events-auto bg-gradient-to-t from-black/95 via-black/80 to-transparent"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Story Caption */}
           {(activeSlide.caption || currentStory.caption) && (
-            <div className="p-3.5 rounded-2xl bg-black/65 backdrop-blur-xl border border-white/15 text-white text-xs sm:text-sm font-medium leading-relaxed shadow-lg">
+            <div className="p-3 rounded-2xl bg-black/75 backdrop-blur-xl border border-white/15 text-white text-xs sm:text-sm font-medium leading-relaxed shadow-lg">
               {activeSlide.caption || currentStory.caption}
             </div>
           )}
@@ -585,7 +606,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
                 onChange={(e) => setReplyText(e.target.value)}
                 onFocus={() => setIsPaused(true)}
                 onBlur={() => setIsPaused(false)}
-                className="flex-1 px-4 py-2.5 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/20 text-white placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-400 focus:bg-black/80 transition-all shadow-lg"
+                className="flex-1 px-4 py-2.5 rounded-2xl bg-black/70 backdrop-blur-xl border border-white/20 text-white placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-400 focus:bg-black/90 transition-all shadow-lg"
               />
               {replyText.trim().length > 0 && (
                 <button
@@ -605,7 +626,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
               className={`p-2.5 rounded-2xl backdrop-blur-xl border transition-all flex-shrink-0 shadow-lg ${
                 hasLikedCurrentSlide
                   ? 'bg-pink-500/30 border-pink-500/50 text-pink-400 scale-110'
-                  : 'bg-black/60 hover:bg-white/15 border-white/20 text-white hover:text-pink-400'
+                  : 'bg-black/70 hover:bg-white/15 border-white/20 text-white hover:text-pink-400'
               }`}
               title="Like story slide"
             >

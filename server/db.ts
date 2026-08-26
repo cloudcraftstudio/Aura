@@ -17,6 +17,7 @@ export interface DBUser {
   joinedAt: string;
   googleId?: string;
   passwordHash?: string;
+  authProvider?: 'google' | 'email' | 'guest' | 'demo';
 }
 
 export interface DBComment {
@@ -560,6 +561,8 @@ class JSONDatabase {
       isVerified: user.isVerified ?? false,
       joinedAt: user.joinedAt || new Date().toISOString().split('T')[0],
       googleId: user.googleId,
+      passwordHash: user.passwordHash,
+      authProvider: user.authProvider || (user.googleId ? 'google' : 'email'),
     };
 
     this.data.users.unshift(newUser);

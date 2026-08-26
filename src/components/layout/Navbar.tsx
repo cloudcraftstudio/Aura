@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { notificationService } from '../../services/notifications';
 import { Avatar } from '../common/Avatar';
 import { UserStatus } from '../../types';
@@ -25,6 +26,7 @@ interface NavbarProps {
   setActiveTab: (tab: 'feed' | 'chat' | 'bookmarks') => void;
   onOpenProfile: () => void;
   onOpenShare?: () => void;
+  onOpenNotifications?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,23 +34,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   onOpenProfile,
   onOpenShare,
+  onOpenNotifications,
 }) => {
   const { user, allUsers, loginAsUser, isOnline, openAuthModal, isServerConnected } = useAuth();
   const { conversations } = useChat();
+  const { unreadCount, openNotifications } = useNotifications();
 
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
 
   const totalUnreadChats = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
 
-  const handleRequestPush = async () => {
-    const granted = await notificationService.requestPermission();
-    if (granted) {
-      notificationService.notify({
-        type: 'system',
-        title: 'Push Notifications Enabled',
-        body: 'You will receive instant alerts for chats, likes, and calls.',
-        playSound: true,
-      });
+  const handleBellClick = async () => {
+    // Also proactively request permission if default
+    if (notificationService.getPermissionStatus() === 'default') {
+      await notificationService.requestPermission();
+    }
+    if (onOpenNotifications) {
+      onOpenNotifications();
+    } else {
+      openNotifications();
     }
   };
 
@@ -193,13 +197,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
-          {/* Push Notification Button */}
+          {/* Notifications Center Bell Button */}
           <button
-            onClick={handleRequestPush}
-            className="p-2 sm:p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-blue-400 transition-all flex items-center justify-center"
-            title="Enable Instant Push Notifications"
+            id="notifications-bell-btn"
+            onClick={handleBellClick}
+            className="relative p-2 sm:p-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-blue-400 transition-all flex items-center justify-center active:scale-95"
+            title="Notifications & Activity"
           >
             <Bell className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-[10px] font-black flex items-center justify-center shadow-lg shadow-blue-500/40 border-2 border-[#05060f] animate-pulse">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {/* User Profile Avatar or Sign In button */}

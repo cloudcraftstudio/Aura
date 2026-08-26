@@ -41,37 +41,87 @@ async function startServer() {
 
   // --- Auth & Users API ---
   app.get('/api/users', (req, res) => {
-    const users = db.getUsers();
+    const users = db.getUsers().map((u) => {
+      const { passwordHash, ...safeUser } = u;
+      return { ...safeUser, hasPassword: Boolean(passwordHash) };
+    });
     res.json(users);
   });
 
   app.get('/api/users/:id', (req, res) => {
     const user = db.getUserById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
+    const { passwordHash, ...safeUser } = user;
+    res.json({ ...safeUser, hasPassword: Boolean(passwordHash) });
+  });
+
+  app.post('/api/auth/check-email', (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const user = db.getUserByEmail(email.trim());
+    if (!user) {
+      return res.json({ exists: false });
+    }
+    res.json({
+      exists: true,
+      hasPassword: Boolean(user.passwordHash),
+      name: user.name,
+      avatarUrl: user.avatarUrl,
+      handle: user.handle,
+      authProvider: user.authProvider || 'email',
+    });
   });
 
   app.post('/api/auth/register', (req, res) => {
-    const { name, email, handle, avatarUrl, bio } = req.body;
+    const { name, email, handle, avatarUrl, bio, password } = req.body;
     if (!name || !email) {
       return res.status(400).json({ error: 'Name and email are required' });
     }
-    const user = db.createUser({ name, email, handle, avatarUrl, bio });
-    res.status(201).json(user);
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = db.getUserByEmail(cleanEmail);
+    if (existing) {
+      return res.status(409).json({ error: 'An account with this email already exists. Please log in.' });
+    }
+
+    const user = db.createUser({
+      name,
+      email: cleanEmail,
+      handle,
+      avatarUrl,
+      bio,
+      passwordHash: password ? String(password) : undefined,
+      authProvider: 'email',
+    });
+    const { passwordHash, ...safeUser } = user;
+    res.status(201).json({ ...safeUser, hasPassword: Boolean(passwordHash) });
   });
 
   app.post('/api/auth/login', (req, res) => {
-    const { email, userId } = req.body;
+    const { email, userId, password } = req.body;
     let user;
     if (userId) {
       user = db.getUserById(userId);
     } else if (email) {
-      user = db.getUserByEmail(email);
+      user = db.getUserByEmail(email.trim().toLowerCase());
     }
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'No account found with this email or ID' });
     }
-    res.json(user);
+
+    // If user has a password set, require and verify the password
+    if (user.passwordHash) {
+      if (!password) {
+        return res.status(401).json({ error: 'Password is required for this protected account', requiresPassword: true });
+      }
+      if (String(user.passwordHash) !== String(password)) {
+        return res.status(401).json({ error: 'Incorrect password. Please try again.', requiresPassword: true });
+      }
+    }
+
+    const { passwordHash, ...safeUser } = user;
+    res.json({ ...safeUser, hasPassword: Boolean(passwordHash) });
   });
 
   app.post('/api/auth/google', (req, res) => {
@@ -80,19 +130,46 @@ async function startServer() {
       return res.status(400).json({ error: 'Google email is required' });
     }
 
-    let user = db.getUserByEmail(email);
+    const cleanEmail = email.trim().toLowerCase();
+    let user = db.getUserByEmail(cleanEmail);
     if (!user) {
       user = db.createUser({
-        name: name || email.split('@')[0],
-        email,
-        handle: email.split('@')[0].toLowerCase(),
-        avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${email}`,
+        name: name || cleanEmail.split('@')[0],
+        email: cleanEmail,
+        handle: cleanEmail.split('@')[0].toLowerCase(),
+        avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanEmail}`,
         googleId,
+        authProvider: 'google',
       });
-    } else if (avatarUrl && (!user.avatarUrl || user.avatarUrl.includes('dicebear'))) {
-      user = db.updateUser(user.id, { avatarUrl }) || user;
+    } else {
+      // Retain existing profile customizations, but update googleId or avatar if blank
+      const updates: any = {};
+      if (googleId && !user.googleId) updates.googleId = googleId;
+      if (!user.authProvider) updates.authProvider = 'google';
+      if (Object.keys(updates).length > 0) {
+        user = db.updateUser(user.id, updates) || user;
+      }
     }
-    res.json(user);
+    const { passwordHash, ...safeUser } = user;
+    res.json({ ...safeUser, hasPassword: Boolean(passwordHash) });
+  });
+
+  app.post('/api/auth/set-password', (req, res) => {
+    const { userId, newPassword, currentPassword } = req.body;
+    if (!userId || !newPassword) {
+      return res.status(400).json({ error: 'User ID and new password are required' });
+    }
+    const user = db.getUserById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.passwordHash && user.passwordHash !== currentPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const updated = db.updateUser(userId, { passwordHash: String(newPassword) });
+    if (!updated) return res.status(500).json({ error: 'Failed to set password' });
+    const { passwordHash, ...safeUser } = updated;
+    res.json({ ...safeUser, hasPassword: true });
   });
 
   app.put('/api/users/:id', (req, res) => {

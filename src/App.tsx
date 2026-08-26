@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocialProvider } from './context/SocialContext';
 import { ChatProvider } from './context/ChatContext';
 import { CallProvider } from './context/CallContext';
+import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import { Navbar } from './components/layout/Navbar';
 import { BottomNav } from './components/layout/BottomNav';
 import { SocialFeed } from './components/feed/SocialFeed';
@@ -11,6 +12,7 @@ import { BookmarksView } from './components/bookmarks/BookmarksView';
 import { VideoCallModal } from './components/call/VideoCallModal';
 import { IncomingCallBanner } from './components/call/IncomingCallBanner';
 import { NotificationToastContainer } from './components/notifications/NotificationToastContainer';
+import { NotificationsModal } from './components/notifications/NotificationsModal';
 import { UserProfileModal } from './components/profile/UserProfileModal';
 import { AuthModal } from './components/auth/AuthModal';
 import { MatrixSplashScreen } from './components/splash/MatrixSplashScreen';
@@ -31,6 +33,7 @@ function MainApp() {
     }
   });
   const { user, isAuthModalOpen, setIsAuthModalOpen } = useAuth();
+  const { isNotificationsOpen, closeNotifications, openNotifications } = useNotifications();
 
   React.useEffect(() => {
     const handleTabNav = (e: Event) => {
@@ -123,6 +126,9 @@ function MainApp() {
       {/* Toast Notifications */}
       <NotificationToastContainer />
 
+      {/* Notifications Center Modal */}
+      <NotificationsModal isOpen={isNotificationsOpen} onClose={closeNotifications} />
+
       {/* User Profile Modal */}
       {isProfileOpen && (
         <UserProfileModal
@@ -153,13 +159,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <SocialProvider>
-          <ChatProvider>
-            <CallProvider>
-              <MainApp />
-            </CallProvider>
-          </ChatProvider>
-        </SocialProvider>
+        <NotificationProvider>
+          <SocialProvider>
+            <ChatProvider>
+              <CallProvider>
+                <MainApp />
+              </CallProvider>
+            </ChatProvider>
+          </SocialProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

@@ -14,6 +14,8 @@ export interface UserProfile {
   followingCount: number;
   isVerified?: boolean;
   joinedAt: string;
+  authProvider?: 'google' | 'email' | 'guest' | 'demo';
+  hasPassword?: boolean;
 }
 
 export type MediaType = 'image' | 'video' | 'audio' | 'none';

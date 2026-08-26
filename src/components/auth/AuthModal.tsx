@@ -1,9 +1,23 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Sparkles, LogIn, UserPlus, Upload, CheckCircle2, Quote } from 'lucide-react';
+import {
+  X,
+  Sparkles,
+  LogIn,
+  UserPlus,
+  Upload,
+  CheckCircle2,
+  Quote,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  AlertCircle,
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getDailyQuote } from '../../data/quotes';
 import { compressImage } from '../../utils/imageCompressor';
+import { soundEffects } from '../../services/audio';
 
 interface AuthModalProps {
   isOpen?: boolean;
@@ -21,41 +35,48 @@ const AVATAR_PRESETS = [
 ];
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signup' }) => {
-  const { loginWithGoogle, registerCustomUser, loginWithEmail } = useAuth();
+  const { promptGoogleChooser, registerCustomUser, loginWithEmail } = useAuth();
   const dailyQuote = getDailyQuote();
 
   const [mode, setMode] = useState<'signup' | 'login'>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [handle, setHandle] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(AVATAR_PRESETS[0]);
   const [customAvatarInput, setCustomAvatarInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [requiresPasswordPrompt, setRequiresPasswordPrompt] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleGoogleAuth = async () => {
-    setIsSubmitting(true);
-    try {
-      await loginWithGoogle();
-      onClose();
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleGoogleClick = () => {
+    soundEffects.playTap();
+    promptGoogleChooser();
   };
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     if (!name.trim() || !email.trim()) return;
+
+    if (!password.trim()) {
+      setErrorMessage('Please set a password to protect your account and posts.');
+      return;
+    }
 
     setIsSubmitting(true);
     const finalAvatar = customAvatarInput.trim() || avatarUrl;
     const finalHandle = handle.trim() || name.toLowerCase().replace(/\s+/g, '');
 
     try {
-      await registerCustomUser(name.trim(), email.trim(), finalHandle, finalAvatar, bio.trim());
+      await registerCustomUser(name.trim(), email.trim(), finalHandle, finalAvatar, bio.trim(), password.trim());
       onClose();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -63,23 +84,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     if (!email.trim()) return;
 
     setIsSubmitting(true);
     try {
-      await loginWithEmail(email.trim());
-      onClose();
+      const result = await loginWithEmail(email.trim(), password.trim());
+      if (result.success) {
+        onClose();
+      } else if (result.requiresPassword) {
+        setRequiresPasswordPrompt(true);
+        setErrorMessage('This account is password-protected. Please enter your password.');
+      } else {
+        setErrorMessage(result.error || 'Login failed. Check your email/password or create an account.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login error occurred.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-4 sm:p-6 flex min-h-screen items-center justify-center">
+    <div
+      id="auth-modal-overlay"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-4 sm:p-6 flex min-h-screen items-center justify-center"
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
+        id="auth-modal-card"
         className="w-full max-w-lg my-auto rounded-[32px] bg-[#0c1024]/95 border border-white/15 p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-3xl text-white"
       >
         {/* Glow ambient accent */}
@@ -105,7 +140,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             {mode === 'signup'
               ? 'Connect with real-time photo feeds, HD WebRTC calling, and encrypted chats.'
-              : 'Sign in to access your persistent conversations, stories, and feed.'}
+              : 'Sign in to access your saved profile, posts, stories, and conversations.'}
           </p>
         </div>
 
@@ -127,7 +162,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         {/* Mode Toggle Tabs */}
         <div className="flex p-1 rounded-2xl bg-white/5 border border-white/10 mb-5">
           <button
-            onClick={() => setMode('signup')}
+            onClick={() => {
+              setErrorMessage(null);
+              setMode('signup');
+            }}
             className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               mode === 'signup'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30'
@@ -135,11 +173,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             }`}
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Create Account</span>
+            <span>Create Protected Account</span>
           </button>
 
           <button
-            onClick={() => setMode('login')}
+            onClick={() => {
+              setErrorMessage(null);
+              setMode('login');
+            }}
             className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               mode === 'login'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30'
@@ -151,12 +192,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           </button>
         </div>
 
-        {/* Google One-Click Sign In */}
+        {/* Google One-Click Sign In (Opens Account Chooser) */}
         <button
           type="button"
-          onClick={handleGoogleAuth}
+          onClick={handleGoogleClick}
           disabled={isSubmitting}
-          className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs shadow-xl transition-all flex items-center justify-center gap-2.5 mb-5 active:scale-[0.99]"
+          className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs shadow-xl transition-all flex items-center justify-center gap-2.5 mb-5 active:scale-[0.99] border border-white/20"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -176,16 +217,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span>Continue with Google Workspace / Gmail</span>
+          <span>Choose Google / Gmail Account</span>
         </button>
 
         <div className="relative flex py-2 items-center mb-5">
           <div className="flex-grow border-t border-white/10"></div>
           <span className="flex-shrink mx-3 text-[10px] uppercase font-bold tracking-wider text-slate-400">
-            or continue with email
+            or continue with email & password
           </span>
           <div className="flex-grow border-t border-white/10"></div>
         </div>
+
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="mb-4 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {mode === 'signup' ? (
           /* Sign Up Form */
@@ -234,6 +283,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
               />
+            </div>
+
+            {/* Account Protection Password */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Account Password (To protect your account)
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Enter a secure password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             {/* Custom Photo Upload */}
@@ -344,7 +417,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all flex items-center justify-center gap-2 mt-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isSubmitting ? 'Creating Account...' : 'Complete Registration & Enter Aura'}</span>
+              <span>{isSubmitting ? 'Creating Protected Account...' : 'Complete Registration & Save Account'}</span>
             </button>
           </form>
         ) : (
@@ -357,11 +430,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               <input
                 type="text"
                 required
-                placeholder="name@company.com or username"
+                placeholder="name@gmail.com or username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3.5 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
               />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold text-slate-400">
+                  Password {requiresPasswordPrompt && <span className="text-rose-400">*Required</span>}
+                </label>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your account password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`w-full pl-3.5 pr-10 py-3 rounded-xl bg-white/5 border ${
+                    requiresPasswordPrompt ? 'border-amber-400/60' : 'border-white/10'
+                  } text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
@@ -370,7 +469,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all flex items-center justify-center gap-2"
             >
               <LogIn className="w-4 h-4" />
-              <span>{isSubmitting ? 'Signing In...' : 'Sign In to Your Account'}</span>
+              <span>{isSubmitting ? 'Signing In...' : 'Sign In & Access Account'}</span>
             </button>
           </form>
         )}

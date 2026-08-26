@@ -411,6 +411,34 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </div>
               </div>
 
+              {/* Account Protection & Security Section */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-400" />
+                    <span>Account Security & Login Protection</span>
+                  </label>
+                  <span className="text-[10px] text-blue-300 font-medium">
+                    {user.authProvider === 'google' ? 'Google Account' : user.hasPassword ? 'Password Protected' : 'Email Login'}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                    Email Account (Used for Sign-In)
+                  </label>
+                  <input
+                    type="email"
+                    disabled
+                    value={user.email}
+                    className="w-full px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5 text-slate-400 text-xs cursor-not-allowed"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Your profile, uploaded stories, and posts remain strictly linked to this email address across all devices.
+                  </p>
+                </div>
+              </div>
+
               {/* Matrix Protocol Splash Screen Quick Launch */}
               {onTriggerMatrixSplash && (
                 <div className="pt-2">

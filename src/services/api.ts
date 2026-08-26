@@ -37,18 +37,32 @@ class ApiService {
     return this.request<UserProfile>(`/users/${id}`);
   }
 
-  public async register(name: string, email: string, handle?: string, avatarUrl?: string, bio?: string): Promise<UserProfile | null> {
-    return this.request<UserProfile>('/auth/register', {
+  public async checkEmail(email: string): Promise<{ exists: boolean; hasPassword?: boolean; name?: string; avatarUrl?: string; handle?: string; authProvider?: string } | null> {
+    return this.request<{ exists: boolean; hasPassword?: boolean; name?: string; avatarUrl?: string; handle?: string; authProvider?: string }>('/auth/check-email', {
       method: 'POST',
-      body: JSON.stringify({ name, email, handle, avatarUrl, bio }),
+      body: JSON.stringify({ email }),
     });
   }
 
-  public async login(emailOrUserId: string): Promise<UserProfile | null> {
+  public async register(name: string, email: string, handle?: string, avatarUrl?: string, bio?: string, password?: string): Promise<UserProfile | null> {
+    return this.request<UserProfile>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, handle, avatarUrl, bio, password }),
+    });
+  }
+
+  public async login(emailOrUserId: string, password?: string): Promise<UserProfile | null> {
     const isEmail = emailOrUserId.includes('@');
     return this.request<UserProfile>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(isEmail ? { email: emailOrUserId } : { userId: emailOrUserId }),
+      body: JSON.stringify(isEmail ? { email: emailOrUserId, password } : { userId: emailOrUserId, password }),
+    });
+  }
+
+  public async setPassword(userId: string, newPassword: string, currentPassword?: string): Promise<UserProfile | null> {
+    return this.request<UserProfile>('/auth/set-password', {
+      method: 'POST',
+      body: JSON.stringify({ userId, newPassword, currentPassword }),
     });
   }
 
