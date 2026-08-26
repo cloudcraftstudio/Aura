@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronLeft, ChevronRight, Download, Share2, ZoomIn, ZoomOut } from 'lucide-react';
 import { soundEffects } from '../../services/audio';
@@ -104,7 +105,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -112,7 +113,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
         exit={{ opacity: 0 }}
         onClick={handleClose}
         id="image-lightbox-overlay"
-        className="fixed inset-0 z-[100] flex flex-col items-center justify-between bg-black/95 backdrop-blur-2xl p-4 select-none"
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-between bg-black/95 backdrop-blur-2xl p-3 sm:p-5 select-none"
       >
         {/* Top Control Bar */}
         <div
@@ -173,36 +174,35 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
         {/* Center Image Container */}
         <div
           onClick={(e) => {
-            // Clicking the image toggles zoom, clicking outside closes
             e.stopPropagation();
             setIsZoomed(!isZoomed);
           }}
-          className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden my-2 cursor-zoom-in"
+          className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-auto my-2 cursor-zoom-in"
         >
           {/* Previous Button */}
           {images.length > 1 && (
             <button
               onClick={handlePrev}
-              className="absolute left-2 sm:left-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
+              className="absolute left-2 sm:left-4 z-20 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
               title="Previous photo"
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
           )}
 
-          {/* Current Photo */}
+          {/* Current Photo with full display preservation */}
           <motion.img
             key={currentImage}
             src={currentImage}
-            alt="Preview"
+            alt="Full Preview"
             referrerPolicy="no-referrer"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{
               opacity: 1,
-              scale: isZoomed ? 1.4 : 1,
+              scale: isZoomed ? 1.5 : 1,
             }}
             transition={{ duration: 0.2 }}
-            className={`max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/10 transition-transform ${
+            className={`max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-2xl shadow-2xl border border-white/10 transition-transform ${
               isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
             }`}
           />
@@ -211,7 +211,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           {images.length > 1 && (
             <button
               onClick={handleNext}
-              className="absolute right-2 sm:right-4 z-20 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
+              className="absolute right-2 sm:right-4 z-20 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
               title="Next photo"
             >
               <ChevronRight className="w-6 h-6" />
@@ -268,4 +268,6 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
       </motion.div>
     </AnimatePresence>
   );
+
+  return createPortal(modalContent, document.body);
 };

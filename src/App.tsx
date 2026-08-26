@@ -102,7 +102,7 @@ function MainApp() {
       />
 
       {/* Main Content Area */}
-      <main className="relative z-10 flex-1 flex flex-col pb-20 md:pb-6">
+      <main className={`relative z-10 flex-1 flex flex-col min-h-0 ${activeTab === 'chat' ? 'pb-16 md:pb-4 overflow-hidden' : 'pb-20 md:pb-6'}`}>
         {activeTab === 'feed' && <SocialFeed />}
         {activeTab === 'chat' && <ChatView />}
         {activeTab === 'bookmarks' && <BookmarksView />}

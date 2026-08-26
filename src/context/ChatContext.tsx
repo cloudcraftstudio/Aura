@@ -119,10 +119,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchMsgs = async () => {
       const serverMsgs = await api.getMessages(activeConversationId);
       if (serverMsgs && serverMsgs.length > 0) {
-        setMessages((prev) => ({
-          ...prev,
-          [activeConversationId]: serverMsgs,
-        }));
+        setMessages((prev) => {
+          const currentList = prev[activeConversationId] || [];
+          // Deduplicate server messages with any pending/existing messages
+          const idMap = new Map<string, ChatMessage>();
+          serverMsgs.forEach((m) => idMap.set(m.id, m));
+          currentList.forEach((m) => {
+            if (!idMap.has(m.id)) {
+              // Check if already represented by a message with same sender, content, and near timestamp
+              const exists = Array.from(idMap.values()).some(
+                (sm) => sm.senderId === m.senderId && sm.content === m.content && Math.abs(sm.timestamp - m.timestamp) < 4000
+              );
+              if (!exists) {
+                idMap.set(m.id, m);
+              }
+            }
+          });
+          const merged = Array.from(idMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+          return {
+            ...prev,
+            [activeConversationId]: merged,
+          };
+        });
       }
     };
     fetchMsgs();
@@ -142,10 +160,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsub = offlineStorage.onBroadcastEvent(({ type, payload }) => {
       if (type === 'chat_message') {
         const msg = payload as ChatMessage;
-        setMessages((prev) => ({
-          ...prev,
-          [msg.conversationId]: [...(prev[msg.conversationId] || []), msg],
-        }));
+        setMessages((prev) => {
+          const list = prev[msg.conversationId] || [];
+          if (list.some((m) => m.id === msg.id || (m.senderId === msg.senderId && m.content === msg.content && Math.abs(m.timestamp - msg.timestamp) < 3000))) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [msg.conversationId]: [...list, msg],
+          };
+        });
 
         setConversations((prev) =>
           prev.map((c) => (c.id === msg.conversationId ? { ...c, lastMessage: msg, updatedAt: msg.timestamp } : c))
@@ -185,7 +209,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ) => {
     if (!user || !activeConversationId) return;
 
+    const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
     const newMessageData = {
+      id: messageId,
       conversationId: activeConversationId,
       senderId: user.id,
       senderName: user.name,
@@ -209,14 +236,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const tempMessage: ChatMessage = {
       ...newMessageData,
-      id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
     };
 
     // Optimistic UI update
-    setMessages((prev) => ({
-      ...prev,
-      [activeConversationId]: [...(prev[activeConversationId] || []), tempMessage],
-    }));
+    setMessages((prev) => {
+      const existing = prev[activeConversationId] || [];
+      if (existing.some((m) => m.id === tempMessage.id)) return prev;
+      return {
+        ...prev,
+        [activeConversationId]: [...existing, tempMessage],
+      };
+    });
 
     setConversations((prev) =>
       prev.map((c) =>
@@ -321,7 +351,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       api.createConversation(currentUser.id, [targetUserId], false).catch(() => {});
     }
 
+    const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
     const newMsgData = {
+      id: messageId,
       conversationId: conv.id,
       senderId: currentUser.id,
       senderName: currentUser.name,
@@ -340,16 +373,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const tempMessage: ChatMessage = {
       ...newMsgData,
-      id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
     };
 
     // Update active conversation & messages map
     setActiveConversationId(conv.id);
 
-    setMessages((prev) => ({
-      ...prev,
-      [conv!.id]: [...(prev[conv!.id] || []), tempMessage],
-    }));
+    setMessages((prev) => {
+      const existing = prev[conv!.id] || [];
+      if (existing.some((m) => m.id === tempMessage.id)) return prev;
+      return {
+        ...prev,
+        [conv!.id]: [...existing, tempMessage],
+      };
+    });
 
     setConversations((prev) => {
       const filtered = prev.filter((c) => c.id !== conv!.id);
@@ -367,12 +403,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Call server API asynchronously
     api.sendMessage(newMsgData).then((savedServerMsg) => {
       if (savedServerMsg) {
-        setMessages((prev) => ({
-          ...prev,
-          [conv!.id]: (prev[conv!.id] || []).map((m) =>
-            m.id === tempMessage.id ? savedServerMsg : m
-          ),
-        }));
+        setMessages((prev) => {
+          const list = prev[conv!.id] || [];
+          return {
+            ...prev,
+            [conv!.id]: list.map((m) =>
+              m.id === tempMessage.id ? savedServerMsg : m
+            ),
+          };
+        });
       }
     }).catch(() => {});
 
@@ -387,8 +426,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Thanks for the feedback! Means a lot! 💫',
         ];
         const randomReply = replyPool[Math.floor(Math.random() * replyPool.length)];
+        const replyMsgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
         const replyMsgData = {
+          id: replyMsgId,
           conversationId: conv!.id,
           senderId: targetUserId,
           senderName: targetUserName,
@@ -407,13 +448,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const replyTempMsg: ChatMessage = {
           ...replyMsgData,
-          id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         };
 
-        setMessages((prev) => ({
-          ...prev,
-          [conv!.id]: [...(prev[conv!.id] || []), replyTempMsg],
-        }));
+        setMessages((prev) => {
+          const existing = prev[conv!.id] || [];
+          if (existing.some((m) => m.id === replyTempMsg.id)) return prev;
+          return {
+            ...prev,
+            [conv!.id]: [...existing, replyTempMsg],
+          };
+        });
 
         setConversations((prev) => {
           const target = prev.find((c) => c.id === conv!.id);

@@ -84,9 +84,12 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           prev.map((p) => {
             if (p.id === payload.postId) {
               const comments = p.comments || [];
+              if (comments.some((c) => c.id === payload.comment.id)) {
+                return p;
+              }
               return {
                 ...p,
-                commentsCount: p.commentsCount + 1,
+                commentsCount: comments.length + 1,
                 comments: [...comments, payload.comment],
               };
             }

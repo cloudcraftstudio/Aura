@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Sparkles, LogIn, UserPlus, Upload, ShieldCheck, CheckCircle2, ChevronRight, Users, Quote } from 'lucide-react';
+import { motion } from 'motion/react';
+import { X, Sparkles, LogIn, UserPlus, Upload, CheckCircle2, Quote } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Avatar } from '../common/Avatar';
 import { getDailyQuote } from '../../data/quotes';
+import { compressImage } from '../../utils/imageCompressor';
 
 interface AuthModalProps {
   isOpen?: boolean;
@@ -21,7 +21,7 @@ const AVATAR_PRESETS = [
 ];
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signup' }) => {
-  const { loginWithGoogle, registerCustomUser, loginWithEmail, allUsers, loginAsUser } = useAuth();
+  const { loginWithGoogle, registerCustomUser, loginWithEmail } = useAuth();
   const dailyQuote = getDailyQuote();
 
   const [mode, setMode] = useState<'signup' | 'login'>(initialMode);
@@ -31,7 +31,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(AVATAR_PRESETS[0]);
   const [customAvatarInput, setCustomAvatarInput] = useState('');
-  const [showTeamSwitch, setShowTeamSwitch] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -76,12 +75,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-2xl overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-4 sm:p-6 flex min-h-screen items-center justify-center">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="w-full max-w-lg my-8 rounded-[32px] bg-[#0c1024]/95 border border-white/15 p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-3xl text-white"
+        className="w-full max-w-lg my-auto rounded-[32px] bg-[#0c1024]/95 border border-white/15 p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-3xl text-white"
       >
         {/* Glow ambient accent */}
         <div className="absolute -top-24 -right-24 w-60 h-60 bg-blue-500/25 rounded-full blur-3xl pointer-events-none" />
@@ -138,6 +137,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             <UserPlus className="w-3.5 h-3.5" />
             <span>Create Account</span>
           </button>
+
           <button
             onClick={() => setMode('login')}
             className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
@@ -151,133 +151,125 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           </button>
         </div>
 
-        {/* Google One-Tap / Social Auth */}
-        <div className="space-y-4 mb-5">
-          <button
-            id="google-signin-btn"
-            onClick={handleGoogleAuth}
-            disabled={isSubmitting}
-            className="w-full py-3.5 px-4 rounded-2xl bg-white text-slate-900 font-bold text-sm shadow-xl hover:bg-slate-100 transition-all flex items-center justify-center gap-3 active:scale-[0.99]"
-          >
-            {/* Official Google 'G' Icon */}
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </svg>
-            <span>Continue with Google</span>
-          </button>
+        {/* Google One-Click Sign In */}
+        <button
+          type="button"
+          onClick={handleGoogleAuth}
+          disabled={isSubmitting}
+          className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs shadow-xl transition-all flex items-center justify-center gap-2.5 mb-5 active:scale-[0.99]"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24">
+            <path
+              fill="#4285F4"
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+            />
+          </svg>
+          <span>Continue with Google Workspace / Gmail</span>
+        </button>
 
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-[1px] bg-white/10" />
-            <span className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold">
-              Or with email
-            </span>
-            <div className="flex-1 h-[1px] bg-white/10" />
-          </div>
+        <div className="relative flex py-2 items-center mb-5">
+          <div className="flex-grow border-t border-white/10"></div>
+          <span className="flex-shrink mx-3 text-[10px] uppercase font-bold tracking-wider text-slate-400">
+            or continue with email
+          </span>
+          <div className="flex-grow border-t border-white/10"></div>
         </div>
 
-        {/* Sign Up Form */}
         {mode === 'signup' ? (
-          <form onSubmit={handleSignupSubmit} className="space-y-4">
+          /* Sign Up Form */
+          <form onSubmit={handleSignupSubmit} className="space-y-3.5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Full Name *
+                  Full Name / Display Name
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sarah Connor"
+                  placeholder="e.g. Alex Morgan"
                   value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (!handle) {
-                      setHandle(e.target.value.toLowerCase().replace(/\s+/g, ''));
-                    }
-                  }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400 transition-all"
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Email Address *
+                  Handle / Username
                 </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400 transition-all"
-                />
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-500 text-xs">@</span>
+                  <input
+                    type="text"
+                    placeholder="alexmorgan"
+                    value={handle}
+                    onChange={(e) => setHandle(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                    className="w-full pl-7 pr-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Username Handle (@)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">@</span>
-                  <input
-                    type="text"
-                    placeholder="sarahc"
-                    value={handle}
-                    onChange={(e) => setHandle(e.target.value.replace('@', ''))}
-                    className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400 font-mono"
-                  />
-                </div>
-              </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="alex@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
+              />
+            </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Upload Avatar or Photo URL
-                </label>
-                <div className="flex items-center gap-2">
+            {/* Custom Photo Upload */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Profile Avatar Photo
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Paste image URL or upload photo"
+                  value={customAvatarInput}
+                  onChange={(e) => setCustomAvatarInput(e.target.value)}
+                  className="flex-1 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
+                />
+
+                <label className="cursor-pointer px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-300 hover:text-white flex items-center gap-1.5 transition-all">
+                  <Upload className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Upload</span>
                   <input
-                    type="url"
-                    placeholder="Paste URL or upload..."
-                    value={customAvatarInput}
-                    onChange={(e) => setCustomAvatarInput(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
-                  />
-                  <label className="p-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 cursor-pointer flex-shrink-0" title="Upload avatar from device">
-                    <Upload className="w-4 h-4" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            if (evt.target?.result) {
-                              setCustomAvatarInput(evt.target.result as string);
-                            }
-                          };
-                          reader.readAsDataURL(file);
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          const compressed = await compressImage(file, 400, 400, 0.85);
+                          setCustomAvatarInput(compressed);
+                        } catch (err) {
+                          console.warn('Avatar compression error:', err);
                         }
-                      }}
-                    />
-                  </label>
-                </div>
+                      }
+                    }}
+                  />
+                </label>
               </div>
             </div>
 
@@ -339,7 +331,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               </label>
               <textarea
                 rows={2}
-                placeholder="Tell your team a bit about your role or passions..."
+                placeholder="Tell others a bit about your passions..."
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400 resize-none"
@@ -382,43 +374,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             </button>
           </form>
         )}
-
-        {/* Collapsible Team Testing Section */}
-        <div className="mt-6 pt-4 border-t border-white/10">
-          <button
-            type="button"
-            onClick={() => setShowTeamSwitch(!showTeamSwitch)}
-            className="text-[11px] text-slate-400 hover:text-slate-300 flex items-center justify-between w-full transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-blue-400" />
-              <span>Small Team Quick-Switch (For local/multi-person testing)</span>
-            </span>
-            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showTeamSwitch ? 'rotate-90' : ''}`} />
-          </button>
-
-          {showTeamSwitch && (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {allUsers.slice(0, 4).map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => {
-                    loginAsUser(u.id);
-                    onClose();
-                  }}
-                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-2 text-left transition-all"
-                >
-                  <Avatar src={u.avatarUrl} name={u.name} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-white truncate">{u.name}</p>
-                    <p className="text-[10px] text-slate-400 truncate">@{u.handle}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
       </motion.div>
     </div>
   );

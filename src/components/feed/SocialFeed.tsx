@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Sparkles, Plus, Image as ImageIcon, Video, Filter, Compass, Share2, QrCode } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Video, Compass, Share2, QrCode } from 'lucide-react';
 import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
 import { StoriesReel } from '../stories/StoriesReel';
 import { PostCard } from './PostCard';
-import { CreatePostModal } from './CreatePostModal';
+import { CreatePostModal, POST_CATEGORIES } from './CreatePostModal';
 import { DailyMotivationalCard } from './DailyMotivationalCard';
 import { Avatar } from '../common/Avatar';
 
-const TAG_FILTERS = ['All', 'Photography', 'Tech', 'WebRTC', 'Music', 'Design'];
+const TAG_FILTERS = ['All', ...POST_CATEGORIES];
 
 export const SocialFeed: React.FC = () => {
   const { posts } = useSocial();
@@ -26,13 +26,13 @@ export const SocialFeed: React.FC = () => {
 
   const handleShareQuoteToFeed = (quoteText: string, author: string) => {
     setInitialPostContent(`“${quoteText}”\n\n— ${author}`);
-    setInitialPostTags('Inspiration, DailyQuote, Motivation');
+    setInitialPostTags('Inspiration, Spiritual');
     setIsCreateModalOpen(true);
   };
 
-  const handleOpenCreateModal = () => {
+  const handleOpenCreateModal = (presetCategory?: string) => {
     setInitialPostContent('');
-    setInitialPostTags('');
+    setInitialPostTags(presetCategory || (activeFilter !== 'All' ? activeFilter : ''));
     setIsCreateModalOpen(true);
   };
 
@@ -52,7 +52,7 @@ export const SocialFeed: React.FC = () => {
         <div className="flex items-center gap-3">
           {user && <Avatar src={user.avatarUrl} name={user.name} size="md" />}
           <button
-            onClick={handleOpenCreateModal}
+            onClick={() => handleOpenCreateModal()}
             className="flex-1 text-left px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 text-sm transition-all flex items-center justify-between"
           >
             <span>What's on your mind? Share photos or thoughts...</span>
@@ -62,7 +62,7 @@ export const SocialFeed: React.FC = () => {
 
         <div className="flex items-center justify-between mt-4 pt-3.5 border-t border-white/5">
           <button
-            onClick={handleOpenCreateModal}
+            onClick={() => handleOpenCreateModal('Photography')}
             className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-blue-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
           >
             <ImageIcon className="w-4 h-4 text-blue-400" />
@@ -70,7 +70,7 @@ export const SocialFeed: React.FC = () => {
           </button>
 
           <button
-            onClick={handleOpenCreateModal}
+            onClick={() => handleOpenCreateModal()}
             className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-emerald-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
           >
             <Video className="w-4 h-4 text-emerald-400" />
@@ -78,7 +78,7 @@ export const SocialFeed: React.FC = () => {
           </button>
 
           <button
-            onClick={handleOpenCreateModal}
+            onClick={() => handleOpenCreateModal()}
             className="px-4 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 text-xs font-bold shadow-lg transition-transform hover:scale-105"
           >
             Post
@@ -88,14 +88,14 @@ export const SocialFeed: React.FC = () => {
 
       {/* Filter Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none mb-3">
-        <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 flex items-center justify-center">
+        <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 flex items-center justify-center flex-shrink-0">
           <Compass className="w-3.5 h-3.5" />
         </div>
         {TAG_FILTERS.map((tag) => (
           <button
             key={tag}
             onClick={() => setActiveFilter(tag)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
               activeFilter === tag
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30'
                 : 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white'

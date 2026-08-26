@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   Share2,
+  Home,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useChat } from '../../context/ChatContext';
@@ -65,7 +66,32 @@ export const ChatView: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const audioTimerRef = useRef<any>(null);
 
-  const currentMessages = activeConversation ? messages[activeConversation.id] || [] : [];
+  const rawMessages = activeConversation ? messages[activeConversation.id] || [] : [];
+
+  // Deduplicate messages by ID and near-simultaneous duplicate contents
+  const currentMessages = useMemo(() => {
+    const seenIds = new Set<string>();
+    const result: ChatMessage[] = [];
+    rawMessages.forEach((m) => {
+      if (!seenIds.has(m.id)) {
+        const isDuplicateContent = result.some(
+          (prev) =>
+            prev.senderId === m.senderId &&
+            prev.content === m.content &&
+            Math.abs(prev.timestamp - m.timestamp) < 3000
+        );
+        if (!isDuplicateContent) {
+          seenIds.add(m.id);
+          result.push(m);
+        }
+      }
+    });
+    return result;
+  }, [rawMessages]);
+
+  const handleExitChatToFeed = () => {
+    window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'feed' } }));
+  };
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -167,25 +193,35 @@ export const ChatView: React.FC = () => {
   return (
     <div
       id="chat-view"
-      className="w-full max-w-6xl mx-auto h-[calc(100dvh-4.5rem)] md:h-[82vh] p-2 sm:p-4 flex gap-4 md:gap-6 overflow-hidden"
+      className="w-full max-w-6xl mx-auto h-full flex gap-3 md:gap-6 overflow-hidden flex-1 min-h-0 p-2 sm:p-4"
     >
       {/* Left Sidebar: Conversations List */}
       <div
-        className={`w-full md:w-80 lg:w-96 rounded-3xl bg-[#090d22]/80 backdrop-blur-2xl border border-white/10 flex flex-col overflow-hidden shadow-2xl ${
+        className={`w-full md:w-80 lg:w-96 rounded-3xl bg-[#090d22]/85 backdrop-blur-2xl border border-white/10 flex flex-col h-full overflow-hidden shadow-2xl ${
           mobileShowChatRoom ? 'hidden md:flex' : 'flex'
         }`}
       >
         {/* Header with Search & New Actions */}
-        <div className="p-4 sm:p-5 border-b border-white/10 space-y-3 bg-white/5">
+        <div className="p-3.5 sm:p-4 border-b border-white/10 space-y-3 bg-white/5">
           <div className="flex items-center justify-between">
-            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-              <span>Messages</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                {conversations.length}
-              </span>
-            </h3>
-
             <div className="flex items-center gap-2">
+              <button
+                id="exit-chat-to-feed-btn"
+                onClick={handleExitChatToFeed}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white transition-all"
+                title="Back to Feed"
+              >
+                <Home className="w-4 h-4 text-blue-400" />
+              </button>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <span>Messages</span>
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  {conversations.length}
+                </span>
+              </h3>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 id="invite-chat-btn"
                 onClick={() => {
@@ -221,7 +257,7 @@ export const ChatView: React.FC = () => {
 
           {/* Search bar */}
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400" />
             <input
               type="text"
               placeholder="Search conversations..."
@@ -233,7 +269,7 @@ export const ChatView: React.FC = () => {
         </div>
 
         {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1.5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3 space-y-1.5">
           {filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-xs">
               No conversations found. Start a new chat!
@@ -302,15 +338,15 @@ export const ChatView: React.FC = () => {
 
       {/* Right Main Chat Area */}
       <div
-        className={`w-full md:flex-1 rounded-3xl bg-[#090d22]/80 backdrop-blur-2xl border border-white/10 flex-col overflow-hidden shadow-2xl ${
+        className={`w-full md:flex-1 rounded-3xl bg-[#090d22]/85 backdrop-blur-2xl border border-white/10 flex flex-col h-full min-h-0 overflow-hidden shadow-2xl ${
           mobileShowChatRoom ? 'flex' : 'hidden md:flex'
         }`}
       >
         {activeConversation ? (
           <>
             {/* Chat Room Top Bar */}
-            <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md">
-              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md flex-shrink-0 z-10">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 {/* Back button for mobile */}
                 <button
                   onClick={() => setMobileShowChatRoom(false)}
@@ -346,8 +382,8 @@ export const ChatView: React.FC = () => {
                 })()}
               </div>
 
-              {/* WebRTC Video & Audio Call Buttons & Share */}
-              <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
+              {/* WebRTC Video & Audio Call Buttons, Share & Exit */}
+              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                 <button
                   id="share-chat-conversation-btn"
                   onClick={() => {
@@ -355,17 +391,17 @@ export const ChatView: React.FC = () => {
                       new CustomEvent('open_share_modal', { detail: { type: 'chat' } })
                     );
                   }}
-                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all text-xs font-medium flex items-center gap-1.5"
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all text-xs font-medium flex items-center gap-1"
                   title="Invite Others to this Chat"
                 >
                   <Share2 className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="hidden md:inline">Invite</span>
+                  <span className="hidden lg:inline">Invite</span>
                 </button>
 
                 <button
                   id="start-audio-call-btn"
                   onClick={() => handleStartCall(false)}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all text-xs font-medium flex items-center gap-1.5"
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all text-xs font-medium flex items-center gap-1"
                   title="WebRTC Audio Call"
                 >
                   <Phone className="w-3.5 h-3.5 text-blue-400" />
@@ -375,17 +411,28 @@ export const ChatView: React.FC = () => {
                 <button
                   id="start-video-call-btn"
                   onClick={() => handleStartCall(true)}
-                  className="px-3 sm:px-4 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-xl text-blue-400 text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 shadow-lg shadow-blue-500/15 hover:scale-105"
+                  className="px-2.5 sm:px-3.5 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-xl text-blue-400 text-xs font-medium transition-all flex items-center gap-1 shadow-lg shadow-blue-500/15 hover:scale-105"
                   title="WebRTC HD Video Call"
                 >
-                  <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span>Join Video</span>
+                  <Video className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Join Video</span>
+                </button>
+
+                {/* Exit Chat Button */}
+                <button
+                  id="close-chat-btn"
+                  onClick={handleExitChatToFeed}
+                  className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:border-rose-500/30 border border-white/10 text-slate-300 hover:text-rose-300 transition-all text-xs font-medium flex items-center gap-1"
+                  title="Exit to Feed"
+                >
+                  <X className="w-4 h-4 text-slate-400 hover:text-rose-300" />
+                  <span className="hidden sm:inline">Exit</span>
                 </button>
               </div>
             </div>
 
             {/* Messages Scroll View */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-5 space-y-3 overscroll-contain">
               {currentMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 text-xs">
                   <Sparkles className="w-8 h-8 text-blue-400/50 mb-2 animate-bounce" />
@@ -611,7 +658,7 @@ export const ChatView: React.FC = () => {
             {/* Chat Input Toolbar */}
             <form
               onSubmit={handleSendMessage}
-              className="p-3 sm:p-4 border-t border-white/10 bg-white/5 flex items-center gap-2"
+              className="p-2 sm:p-3.5 border-t border-white/10 bg-[#090d22]/95 backdrop-blur-xl flex items-center gap-1.5 sm:gap-2 flex-shrink-0 z-20"
             >
               <input
                 type="file"
@@ -624,7 +671,7 @@ export const ChatView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all"
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-all flex-shrink-0"
                 title="Attach Photo"
               >
                 <ImageIcon className="w-4 h-4 text-blue-400" />
@@ -633,7 +680,7 @@ export const ChatView: React.FC = () => {
               <button
                 type="button"
                 onClick={isRecordingAudio ? handleSendVoiceNote : () => setIsRecordingAudio(true)}
-                className={`p-2 rounded-xl border transition-all ${
+                className={`p-2 rounded-xl border transition-all flex-shrink-0 ${
                   isRecordingAudio
                     ? 'bg-rose-500/20 border-rose-500/30 text-rose-400 animate-pulse'
                     : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
@@ -644,12 +691,12 @@ export const ChatView: React.FC = () => {
               </button>
 
               {isRecordingAudio ? (
-                <div className="flex-1 px-4 py-2 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
-                  <span>Recording voice note... {audioTimer}s</span>
+                <div className="flex-1 min-w-0 px-3 py-2 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center justify-between">
+                  <span className="truncate mr-2">Recording voice... {audioTimer}s</span>
                   <button
                     type="button"
                     onClick={handleSendVoiceNote}
-                    className="font-bold text-white bg-rose-500 px-3 py-1 rounded-xl text-[10px]"
+                    className="font-bold text-white bg-rose-500 px-3 py-1 rounded-xl text-[10px] flex-shrink-0"
                   >
                     Send
                   </button>
@@ -663,14 +710,14 @@ export const ChatView: React.FC = () => {
                     setMessageInput(e.target.value);
                     setTyping(true);
                   }}
-                  className="flex-1 px-3.5 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-400 text-xs focus:outline-none focus:border-blue-400"
+                  className="flex-1 min-w-0 px-3.5 py-2 sm:py-2.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:border-blue-400"
                 />
               )}
 
               <button
                 type="submit"
                 disabled={!messageInput.trim() && !selectedImageAttachment}
-                className="p-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-40 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-transform active:scale-95 flex items-center justify-center"
+                className="p-2 sm:p-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 disabled:opacity-40 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-transform active:scale-95 flex items-center justify-center flex-shrink-0"
               >
                 <Send className="w-4 h-4" />
               </button>

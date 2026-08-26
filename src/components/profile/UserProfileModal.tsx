@@ -5,11 +5,7 @@ import {
   Sparkles,
   Database,
   LogOut,
-  Check,
-  ShieldCheck,
-  Smartphone,
   Save,
-  UserPlus,
   Upload,
   Camera,
   Image as ImageIcon,
@@ -21,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { UserStatus } from '../../types';
 import { Avatar } from '../common/Avatar';
 import { soundEffects } from '../../services/audio';
+import { compressImage } from '../../utils/imageCompressor';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -42,7 +39,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onTriggerMatrixSplash,
   onOpenShare,
 }) => {
-  const { user, updateProfile, setUserStatus, logout, openAuthModal, isServerConnected } = useAuth();
+  const { user, updateProfile, logout, openAuthModal } = useAuth();
 
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
@@ -58,17 +55,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // File upload handler
-  const processImageFile = (file: File) => {
+  // File upload handler with compression
+  const processImageFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        soundEffects.playTap();
-        setAvatarUrl(e.target.result as string);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file, 400, 400, 0.85);
+      soundEffects.playTap();
+      setAvatarUrl(compressed);
+    } catch (e) {
+      console.warn('Image processing error:', e);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,7 +112,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         const startX = (canvas.width - size) / 2;
         const startY = (canvas.height - size) / 2;
         ctx.drawImage(videoRef.current, startX, startY, size, size, 0, 0, 400, 400);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         setAvatarUrl(dataUrl);
         soundEffects.playTap();
       }
@@ -134,8 +130,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
     setIsSaving(true);
     try {
+      soundEffects.playTap();
       await updateProfile({
         name: name.trim(),
         bio: bio.trim(),
@@ -144,6 +142,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         statusMessage: statusMessage.trim(),
         status,
       });
+      stopCamera();
+      onClose();
+    } catch (err) {
+      console.error('Error saving profile:', err);
       stopCamera();
       onClose();
     } finally {
@@ -160,11 +162,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <div
       id="user-profile-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-2xl animate-fade-in"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-2xl p-3 sm:p-4 flex min-h-screen items-center justify-center animate-fade-in"
     >
-      <div className="w-full max-w-lg rounded-3xl bg-[#090d22]/95 backdrop-blur-3xl border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-white">
+      <div className="w-full max-w-lg my-auto rounded-3xl bg-[#090d22]/95 backdrop-blur-3xl border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-white">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5 flex-shrink-0">
           <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
             <User className="w-4 h-4 text-blue-400" /> Account Settings & Profile
           </h3>
@@ -230,7 +232,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       <button
                         type="button"
                         onClick={stopCamera}
-                        className="px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-slate-300 text-xs"
+                        className="px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-slate-300 text-xs"
                       >
                         Cancel
                       </button>
@@ -293,10 +295,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       </div>
 
                       <input
-                        type="url"
+                        type="text"
                         value={avatarUrl}
                         onChange={(e) => setAvatarUrl(e.target.value)}
-                        placeholder="Or paste image URL (https://...)"
+                        placeholder="Or paste image URL or file"
                         className="w-full px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-white text-[11px] focus:outline-none focus:border-blue-400 truncate"
                       />
                     </div>
@@ -403,7 +405,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     type="text"
                     value={statusMessage}
                     onChange={(e) => setStatusMessage(e.target.value)}
-                    placeholder="e.g. Collaborating on WebRTC 🚀"
+                    placeholder="e.g. Collaborating on Aura ✨"
                     className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-blue-400"
                   />
                 </div>
@@ -479,7 +481,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all hover:scale-105"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
