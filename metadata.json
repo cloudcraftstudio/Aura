@@ -1,0 +1,11 @@
+{
+  "name": "Aura Social & WebRTC Chat",
+  "description": "Real-time chat, WebRTC video calling, social photo feed, matrix splash entry, daily motivational inspiration, and PWA support with frosted glass UI.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
