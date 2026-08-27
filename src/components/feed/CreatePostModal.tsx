@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Image as ImageIcon,
@@ -22,6 +23,8 @@ import {
   Palette,
   Play,
   HelpCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
@@ -201,6 +204,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [tagsInput, setTagsInput] = useState(initialTags);
   const [location, setLocation] = useState('');
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [showPresetsDrawer, setShowPresetsDrawer] = useState(false);
 
   const [isCapturingCamera, setIsCapturingCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -342,21 +346,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   const activePreset = PRESET_CARD_OPTIONS.find((p) => p.id === activePresetId);
 
-  return (
+  // Use Portal so the modal sits directly on document.body above all navbars, stacking contexts, and bottom bars
+  return createPortal(
     <div
-      id="create-post-modal"
+      id="create-post-modal-portal"
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-2xl flex flex-col p-3 sm:p-5 animate-fade-in sm:items-center sm:justify-center overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]"
+      className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-2xl flex flex-col items-center justify-center p-0 sm:p-4 md:p-6 overflow-hidden animate-fade-in"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg mx-auto rounded-[32px] bg-[#070a1e]/95 backdrop-blur-2xl border border-white/15 shadow-2xl overflow-hidden flex flex-col h-full sm:h-auto sm:max-h-[90vh]"
+        className="w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-[32px] bg-[#070a1e] border-0 sm:border sm:border-white/15 shadow-2xl overflow-hidden flex flex-col text-white"
       >
-        {/* Header with Mode Switch Tabs (Edit vs Live Card Preview) */}
-        <div className="px-5 sm:px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.04] flex-shrink-0">
+        {/* Sticky Header with Safe Area Notch Padding */}
+        <div className="px-4 sm:px-6 py-3 sm:py-3.5 border-b border-white/10 flex items-center justify-between bg-[#0a0e28] flex-shrink-0 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] sm:pt-3.5 z-20">
           <div className="flex items-center gap-2">
             {/* Tab Switcher */}
-            <div className="flex items-center p-1 rounded-xl bg-black/40 border border-white/10">
+            <div className="flex items-center p-1 rounded-xl bg-black/50 border border-white/10">
               <button
                 type="button"
                 onClick={() => {
@@ -401,16 +406,18 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               stopCamera();
               onClose();
             }}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors active:scale-95"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content Body */}
         {activeTab === 'edit' ? (
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 scrollbar-thin">
+            {/* Scrollable Form Content */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 scrollbar-thin overscroll-contain">
               {/* User Info Bar */}
               {user && (
                 <div className="flex items-center justify-between">
@@ -422,60 +429,72 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     </div>
                   </div>
 
+                  {/* Preset Drawer Trigger Toggle */}
                   <button
                     type="button"
                     onClick={() => {
                       soundEffects.playTap();
-                      setActiveTab('preview');
+                      setShowPresetsDrawer((prev) => !prev);
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      showPresetsDrawer
+                        ? 'bg-blue-600/30 border-blue-400 text-white shadow-sm'
+                        : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
+                    }`}
                   >
-                    <Eye className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Card Preview</span>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Templates</span>
+                    {showPresetsDrawer ? (
+                      <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    )}
                   </button>
                 </div>
               )}
 
-              {/* Preset Card Options Carousel */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-purple-950/40 border border-white/10 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Preset Card Templates (1-Tap Demo):</span>
-                  </span>
-                  <span className="text-[10px] text-blue-300 font-medium">Click to load</span>
-                </div>
+              {/* Collapsible / Expandable Preset Templates Tray */}
+              {showPresetsDrawer && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-blue-950/50 via-indigo-950/40 to-purple-950/50 border border-blue-500/30 space-y-2.5 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>1-Tap Card Templates:</span>
+                    </span>
+                    <span className="text-[10px] text-blue-300 font-medium">Swipe or tap to apply</span>
+                  </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {PRESET_CARD_OPTIONS.map((preset) => {
-                    const Icon = preset.icon;
-                    const isCurrent = activePresetId === preset.id;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => handleSelectPreset(preset)}
-                        className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 group active:scale-95 ${
-                          isCurrent
-                            ? 'bg-blue-600/30 border-blue-400 shadow-md shadow-blue-500/20'
-                            : 'bg-black/30 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <Icon className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
-                          {isCurrent && <Check className="w-3.5 h-3.5 text-emerald-400 font-bold" />}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-white line-clamp-1">{preset.name}</p>
-                          <span className="text-[10px] text-slate-400 group-hover:text-blue-300 transition-colors">
-                            {preset.badge}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {PRESET_CARD_OPTIONS.map((preset) => {
+                      const Icon = preset.icon;
+                      const isCurrent = activePresetId === preset.id;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => handleSelectPreset(preset)}
+                          className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 group active:scale-95 ${
+                            isCurrent
+                              ? 'bg-blue-600/40 border-blue-400 shadow-md shadow-blue-500/30'
+                              : 'bg-black/40 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <Icon className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                            {isCurrent && <Check className="w-3.5 h-3.5 text-emerald-400 font-bold" />}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-white line-clamp-1">{preset.name}</p>
+                            <span className="text-[10px] text-slate-400 group-hover:text-blue-300 transition-colors">
+                              {preset.badge}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Caption text area */}
               <div className="space-y-1.5">
@@ -485,8 +504,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </div>
                 <textarea
                   id="post-caption-input"
-                  rows={3}
-                  placeholder="Share your creative thoughts, paste a YouTube/video link, or choose a preset card above..."
+                  rows={4}
+                  placeholder="Share your creative thoughts, paste a YouTube/video link, or choose a template..."
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   className="w-full p-3.5 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-slate-400 text-sm focus:outline-none focus:border-blue-400 resize-none transition-colors"
@@ -571,13 +590,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </div>
               )}
 
-              {/* Category Selection Toggle / Chips */}
-              <div className="space-y-2">
+              {/* Category Selection Carousel / Pills */}
+              <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Select Category (Used for feed filters):</span>
+                  <span>Category Tags:</span>
                 </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                   {POST_CATEGORIES.map((cat) => {
                     const isSelected = selectedCategories.includes(cat);
                     return (
@@ -585,7 +604,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         key={cat}
                         type="button"
                         onClick={() => toggleCategory(cat)}
-                        className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1 active:scale-95 ${
+                        className={`px-3 py-1 rounded-full text-xs whitespace-nowrap transition-all flex items-center gap-1 active:scale-95 flex-shrink-0 ${
                           isSelected
                             ? 'bg-blue-600 text-white border border-blue-400 shadow-md shadow-blue-500/30 font-semibold'
                             : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10'
@@ -670,7 +689,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 <p className="text-xs font-medium text-slate-400 mb-2">
                   Or select aesthetic preset images:
                 </p>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
                   {CURATED_IMAGES.map((img, i) => {
                     const isAttached = mediaUrls.includes(img);
                     return (
@@ -682,7 +701,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                             prev.includes(img) ? prev.filter((u) => u !== img) : [...prev, img]
                           );
                         }}
-                        className={`aspect-square rounded-xl overflow-hidden border cursor-pointer transition-all hover:scale-105 relative ${
+                        className={`w-14 h-14 rounded-xl flex-shrink-0 overflow-hidden border cursor-pointer transition-all hover:scale-105 relative ${
                           isAttached ? 'border-blue-400 ring-2 ring-blue-500/50' : 'border-white/10 hover:border-blue-400'
                         }`}
                       >
@@ -728,9 +747,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </div>
             </div>
 
-            {/* Upload and Camera Triggers Footer */}
-            <div className="px-5 sm:px-6 py-3.5 border-t border-white/10 bg-[#050818]/90 flex items-center justify-between gap-2 flex-shrink-0 flex-wrap sm:flex-nowrap">
-              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            {/* Sticky Bottom Action Footer with Safe Area Padding */}
+            <div className="px-4 sm:px-6 py-3 sm:py-3.5 border-t border-white/10 bg-[#0a0e28] flex items-center justify-between gap-2 flex-shrink-0 z-20 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:pb-3.5">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -743,21 +762,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   type="button"
                   id="browse-photos-btn"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition-all"
+                  className="px-2.5 sm:px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition-all"
+                  title="Upload Photos"
                 >
-                  <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="hidden sm:inline">Upload Photos</span>
-                  <span className="sm:hidden">Photos</span>
+                  <ImageIcon className="w-4 h-4 text-blue-400" />
+                  <span className="hidden xs:inline sm:inline text-xs">Photos</span>
                 </button>
 
                 <button
                   type="button"
                   id="camera-capture-btn"
                   onClick={startCamera}
-                  className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition-all"
+                  className="px-2.5 sm:px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition-all"
+                  title="Camera Snapshot"
                 >
-                  <Camera className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Camera</span>
+                  <Camera className="w-4 h-4 text-emerald-400" />
+                  <span className="hidden xs:inline sm:inline text-xs">Camera</span>
                 </button>
 
                 <button
@@ -767,15 +787,15 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     soundEffects.playTap();
                     setShowVideoInput((prev) => !prev);
                   }}
-                  className={`px-3 py-2 rounded-xl border text-xs flex items-center gap-1.5 transition-all ${
+                  className={`px-2.5 sm:px-3 py-2 rounded-xl border text-xs flex items-center gap-1.5 transition-all ${
                     showVideoInput
                       ? 'bg-red-500/20 text-red-300 border-red-500/30'
                       : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200 hover:text-white'
                   }`}
+                  title="Insert Video Link"
                 >
-                  <Youtube className="w-3.5 h-3.5 text-red-400" />
-                  <span className="hidden sm:inline">Video Link</span>
-                  <span className="sm:hidden">Video</span>
+                  <Youtube className="w-4 h-4 text-red-400" />
+                  <span className="hidden xs:inline sm:inline text-xs">Video</span>
                 </button>
               </div>
 
@@ -786,20 +806,20 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     soundEffects.playTap();
                     setActiveTab('preview');
                   }}
-                  className="px-3.5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5"
+                  className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5"
                 >
                   <Eye className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Preview</span>
+                  <span className="hidden sm:inline">Preview</span>
                 </button>
 
                 <button
                   type="submit"
                   id="submit-post-btn"
                   disabled={isSubmitting || (!content.trim() && mediaUrls.length === 0)}
-                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0"
+                  className="px-4 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-500/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isSubmitting ? 'Publishing...' : 'Publish Post'}</span>
+                  <span>{isSubmitting ? 'Posting...' : 'Publish'}</span>
                 </button>
               </div>
             </div>
@@ -807,7 +827,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         ) : (
           /* Live Card Preview Tab Mode */
           <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 scrollbar-thin">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 scrollbar-thin overscroll-contain">
               {/* Preview Status Banner */}
               <div className="p-3 rounded-2xl bg-gradient-to-r from-blue-600/15 via-indigo-600/15 to-purple-600/15 border border-blue-500/20 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2 text-blue-300">
@@ -865,7 +885,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     <RichTextRenderer content={content} className="text-sm text-slate-100" />
                   ) : (
                     <p className="text-sm text-slate-500 italic">
-                      No caption written yet. Type your text or pick a preset card!
+                      No caption written yet. Type your text or pick a template!
                     </p>
                   )}
 
@@ -959,8 +979,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
               </article>
             </div>
 
-            {/* Preview Footer Actions */}
-            <div className="px-5 sm:px-6 py-3.5 border-t border-white/10 bg-[#050818]/90 flex items-center justify-between gap-3 flex-shrink-0">
+            {/* Preview Sticky Footer Actions */}
+            <div className="px-4 sm:px-6 py-3 sm:py-3.5 border-t border-white/10 bg-[#0a0e28] flex items-center justify-between gap-3 flex-shrink-0 z-20 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:pb-3.5">
               <button
                 type="button"
                 onClick={() => {
@@ -977,15 +997,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting || (!content.trim() && mediaUrls.length === 0)}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
+                className="px-5 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-500/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>{isSubmitting ? 'Publishing...' : 'Looks Great • Publish Now'}</span>
+                <span>{isSubmitting ? 'Publishing...' : 'Looks Great • Publish'}</span>
               </button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
