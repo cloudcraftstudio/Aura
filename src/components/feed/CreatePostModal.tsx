@@ -346,11 +346,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     <div
       id="create-post-modal"
       onClick={onClose}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl flex flex-col p-3 sm:p-5 animate-fade-in"
+      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-2xl flex flex-col p-3 sm:p-5 animate-fade-in sm:items-center sm:justify-center overflow-hidden pt-[env(safe-area-inset-top,0px)] pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg m-auto rounded-[32px] bg-[#070a1e]/95 backdrop-blur-2xl border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-full"
+        className="w-full max-w-lg mx-auto rounded-[32px] bg-[#070a1e]/95 backdrop-blur-2xl border border-white/15 shadow-2xl overflow-hidden flex flex-col h-full sm:h-auto sm:max-h-[90vh]"
       >
         {/* Header with Mode Switch Tabs (Edit vs Live Card Preview) */}
         <div className="px-5 sm:px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.04] flex-shrink-0">
