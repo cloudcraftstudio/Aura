@@ -42,8 +42,10 @@ import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 interface CreatePostModalProps {
   onClose: () => void;
   initialContent?: string;
-  initialTags?: string;
-  initialMedia?: string;
+  initialTags?: string | string[];
+  initialMedia?: string | string[];
+  initialLocation?: string;
+  editPostId?: string;
 }
 
 export const POST_CATEGORIES = [
@@ -189,18 +191,28 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   initialContent = '',
   initialTags = '',
   initialMedia,
+  initialLocation = '',
+  editPostId,
 }) => {
-  const { createPost } = useSocial();
+  const { createPost, editPost } = useSocial();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [content, setContent] = useState(initialContent);
-  const [mediaUrls, setMediaUrls] = useState<string[]>(initialMedia ? [initialMedia] : []);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    initialTags ? initialTags.split(/[\s,#]+/).filter(Boolean) : ['General']
+  const [mediaUrls, setMediaUrls] = useState<string[]>(
+    Array.isArray(initialMedia) ? initialMedia : initialMedia ? [initialMedia] : []
   );
-  const [tagsInput, setTagsInput] = useState(initialTags);
-  const [location, setLocation] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    Array.isArray(initialTags)
+      ? initialTags
+      : initialTags
+      ? initialTags.split(/[\s,#]+/).filter(Boolean)
+      : ['General']
+  );
+  const [tagsInput, setTagsInput] = useState(
+    Array.isArray(initialTags) ? initialTags.join(', ') : initialTags
+  );
+  const [location, setLocation] = useState(initialLocation);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [showPresetsDrawer, setShowPresetsDrawer] = useState(false);
 
@@ -336,7 +348,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       const categoryTags = selectedCategories.map((c) => c.toLowerCase());
       const combinedTags = Array.from(new Set([...categoryTags, ...manualTags]));
 
-      await createPost(content.trim(), mediaUrls, combinedTags, location.trim() || undefined);
+      if (editPostId) {
+        await editPost(editPostId, content.trim(), mediaUrls, combinedTags, location.trim() || undefined);
+      } else {
+        await createPost(content.trim(), mediaUrls, combinedTags, location.trim() || undefined);
+      }
+      
       stopCamera();
       onClose();
     } catch (err) {
@@ -856,7 +873,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   className="px-4 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-500/25 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isSubmitting ? 'Posting...' : 'Publish'}</span>
+                  <span>{isSubmitting ? (editPostId ? 'Saving...' : 'Posting...') : (editPostId ? 'Save' : 'Publish')}</span>
                 </button>
               </div>
             </div>

@@ -7,6 +7,9 @@ import {
   Send,
   CheckCircle2,
   Clock,
+  MoreVertical,
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { SocialPost } from '../../types';
@@ -18,19 +21,22 @@ import { AsyncMedia } from '../common/AsyncMedia';
 import { RichTextRenderer } from '../common/RichTextRenderer';
 import { extractVideosFromText, isDirectVideoUrl } from '../../utils/mediaUtils';
 import { VideoEmbed } from '../common/VideoEmbed';
+import { CreatePostModal } from './CreatePostModal';
 
 interface PostCardProps {
   post: SocialPost;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({ post }) => {
-  const { likePost, addComment, toggleSavePost } = useSocial();
+  const { likePost, addComment, toggleSavePost, deletePost } = useSocial();
   const { user } = useAuth();
 
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isHighlighted, setIsHighlighted] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const isLiked = user ? post.likedByUserIds.includes(user.id) : false;
 
@@ -124,12 +130,52 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
           </div>
         </div>
 
-        {post.location && (
-          <div className="flex items-center gap-1 text-[11px] text-blue-300 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
-            <MapPin className="w-3 h-3" />
-            <span>{post.location}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3 relative">
+          {post.location && (
+            <div className="flex items-center gap-1 text-[11px] text-blue-300 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
+              <MapPin className="w-3 h-3" />
+              <span>{post.location}</span>
+            </div>
+          )}
+          
+          {user && user.id === post.authorId && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              
+              {showMenu && (
+                <div className="absolute right-0 mt-1 w-36 bg-zinc-900 border border-white/10 rounded-xl shadow-xl overflow-hidden z-20">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setIsEditing(true);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-white/5 flex items-center gap-2"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Edit Post
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      if (confirm('Are you sure you want to delete this post?')) {
+                        deletePost(post.id);
+                      }
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-white/5 flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Post
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Post Text Content & Video Embeds */}
@@ -371,6 +417,17 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
           caption={post.content}
           authorName={post.authorName}
           onClose={() => setSelectedPhotoIndex(null)}
+        />
+      )}
+
+      {isEditing && (
+        <CreatePostModal
+          onClose={() => setIsEditing(false)}
+          initialContent={post.content}
+          initialTags={post.tags}
+          initialMedia={post.mediaUrls}
+          initialLocation={post.location}
+          editPostId={post.id}
         />
       )}
     </article>

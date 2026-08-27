@@ -16,6 +16,7 @@ interface SocialContextType {
   likePost: (postId: string) => Promise<void>;
   addComment: (postId: string, content: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
+  editPost: (postId: string, content: string, mediaUrls: string[], tags: string[], location?: string) => Promise<void>;
   toggleSavePost: (postId: string) => Promise<void>;
   addStory: (mediaUrl: string, caption?: string) => Promise<void>;
   deleteStory: (storyId: string) => Promise<void>;
@@ -312,6 +313,14 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await api.deletePost(postId);
   };
 
+  const editPost = async (postId: string, content: string, mediaUrls: string[], tags: string[], location?: string) => {
+    const updates = { content, mediaUrls, tags, location };
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, ...updates } : p))
+    );
+    await api.editPost(postId, updates);
+  };
+
   const toggleSavePost = async (postId: string) => {
     if (!user) return;
     setSavedPostIds((prev) => {
@@ -465,6 +474,7 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         likePost,
         addComment,
         deletePost,
+        editPost,
         toggleSavePost,
         addStory,
         deleteStory,

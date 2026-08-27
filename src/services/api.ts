@@ -112,6 +112,14 @@ class ApiService {
     return Boolean(res?.success);
   }
 
+  public async editPost(postId: string, updates: any): Promise<SocialPost | null> {
+    const res = await this.request<{ post: SocialPost }>(`/posts/${postId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    return res?.post || null;
+  }
+
   public async likePost(postId: string, userId: string): Promise<{ likesCount: number; likedByUserIds: string[] } | null> {
     return this.request<{ likesCount: number; likedByUserIds: string[] }>(`/posts/${postId}/like`, {
       method: 'POST',
