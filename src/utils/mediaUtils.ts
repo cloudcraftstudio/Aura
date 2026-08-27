@@ -67,7 +67,9 @@ export function extractVimeoId(url: string): string | null {
  */
 export function isDirectVideoUrl(url: string): boolean {
   try {
-    return /^https?:\/\/[^\s]+?\.(mp4|webm|ogg|mov)(\?[^\s]*)?$/i.test(url.trim());
+    const trimmed = url.trim();
+    if (trimmed.startsWith('blob:')) return true;
+    return /^https?:\/\/[^\s]+?\.(mp4|webm|ogg|mov)(\?[^\s]*)?$/i.test(trimmed);
   } catch {
     return false;
   }

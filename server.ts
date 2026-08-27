@@ -207,9 +207,12 @@ async function startServer() {
 
   app.post('/api/posts', (req, res) => {
     const { authorId, authorName, authorHandle, authorAvatar, content, mediaUrls, tags, location } = req.body;
-    if (!authorId || !content) {
-      return res.status(400).json({ error: 'authorId and content are required' });
+    
+    // A post must have an author, and either some text content OR some media
+    if (!authorId || (!content && (!mediaUrls || mediaUrls.length === 0))) {
+      return res.status(400).json({ error: 'authorId and either content or mediaUrls are required' });
     }
+    
     const newPost = db.createPost({
       authorId,
       authorName,
@@ -434,6 +437,145 @@ async function startServer() {
     const since = req.query.since ? parseInt(req.query.since as string, 10) : 0;
     const signals = db.getCallSignals(req.params.roomId, excludeSenderId, since);
     res.json(signals);
+  });
+
+  // --- AI TUTOR (KING JAMES) API ---
+  app.post('/api/bible-study/generate', async (req, res) => {
+    try {
+      const { topic, isVerseOfDay } = req.body;
+      const { GoogleGenAI, Type } = await import('@google/genai');
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const promptString = isVerseOfDay
+        ? `You are AI Tutor King James, well versed on anything about the Bible. Provide a beautiful Verse of the Day from the King James Version (KJV). Then provide a full breakdown including summary, historical context, Hebrew/Greek bites, comparison to now, application, and a prayer.`
+        : `You are AI Tutor King James, well versed on anything about the Bible. The user wants a study on: "${topic}". Use the King James Version (KJV) for all scripture references. Provide a full summary, historical context (who wrote it, time period, target audience), Hebrew/Greek bites (real definitions for context), comparison to now, how to apply it day-to-day, and a prayer.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: promptString,
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              reference: { type: Type.STRING, description: 'The Bible reference, e.g. John 3:16 or Genesis 1' },
+              text: { type: Type.STRING, description: 'The actual KJV text of the verse or passage' },
+              summary: { type: Type.STRING, description: 'Full summary of the passage' },
+              historicalContext: {
+                type: Type.OBJECT,
+                properties: {
+                  author: { type: Type.STRING },
+                  timePeriod: { type: Type.STRING },
+                  setting: { type: Type.STRING },
+                  targetAudience: { type: Type.STRING }
+                }
+              },
+              hebrewGreekBites: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    word: { type: Type.STRING, description: 'The original Hebrew or Greek word' },
+                    definition: { type: Type.STRING, description: 'The real definition to help understand context' }
+                  }
+                }
+              },
+              compareAndContrast: { type: Type.STRING, description: 'Comparison from then until now' },
+              application: { type: Type.STRING, description: 'How to apply it to our day-to-day lives' },
+              prayer: { type: Type.STRING, description: 'A prayer relating to this study' }
+            },
+            required: ["reference", "text", "summary", "historicalContext", "hebrewGreekBites", "compareAndContrast", "application", "prayer"]
+          }
+        }
+      });
+      
+      let parsed;
+      try {
+        parsed = JSON.parse(response.text?.trim() || '{}');
+      } catch (e) {
+        return res.status(500).json({ error: 'Failed to parse AI response' });
+      }
+      res.json(parsed);
+    } catch (err: any) {
+      console.error('Bible study generation error:', err);
+      res.status(500).json({ error: err.message || 'Error generating bible study' });
+    }
+  });
+
+  app.post('/api/bible-study/audio', async (req, res) => {
+    try {
+      const { text } = req.body;
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      // Prompt the model to speak with authority/wisdom
+      const prompt = `Read the following Bible passage with a wise, majestic, and authoritative voice, like King James himself: ${text}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Zephyr' }, // Zephyr has a deep authoritative tone
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        res.json({ audioData: base64Audio });
+      } else {
+        res.status(500).json({ error: 'No audio generated' });
+      }
+    } catch (err: any) {
+      console.error('TTS error:', err);
+      res.status(500).json({ error: err.message || 'Error generating audio' });
+    }
+  });
+
+  app.post('/api/generate-image', async (req, res) => {
+    try {
+      const { prompt } = req.body;
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      });
+
+      const response = await ai.models.generateImages({
+        model: 'imagen-3.0-generate-002',
+        prompt: prompt,
+        config: {
+          aspectRatio: "1:1",
+          numberOfImages: 1,
+          outputMimeType: "image/jpeg"
+        }
+      });
+
+      let imageUrl = null;
+      if (response.generatedImages && response.generatedImages.length > 0) {
+        const imageBytes = response.generatedImages[0].image.imageBytes;
+        imageUrl = `data:image/jpeg;base64,${imageBytes}`;
+      }
+
+      if (imageUrl) {
+        res.json({ imageUrl });
+      } else {
+        res.status(500).json({ error: 'No image generated' });
+      }
+    } catch (err: any) {
+      console.error('Image generation error:', err);
+      res.status(500).json({ error: err.message || 'Error generating image' });
+    }
   });
 
   // --- VITE MIDDLEWARE SETUP ---

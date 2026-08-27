@@ -1,12 +1,12 @@
 import React from 'react';
-import { Home, MessageSquare, Bookmark, User, PlusCircle, Share2 } from 'lucide-react';
+import { Home, MessageSquare, Bookmark, User, PlusCircle, Share2, BookOpen } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 
 interface BottomNavProps {
-  activeTab: 'feed' | 'chat' | 'bookmarks';
-  setActiveTab: (tab: 'feed' | 'chat' | 'bookmarks') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'bookmarks';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'bookmarks') => void;
   onOpenProfile: () => void;
   onOpenCreatePost?: () => void;
   onOpenShare?: () => void;

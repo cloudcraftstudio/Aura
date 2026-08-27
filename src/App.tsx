@@ -25,7 +25,7 @@ import { SaveToHomeModal } from './components/permissions/SaveToHomeModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState<'feed' | 'chat' | 'bookmarks'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'bible' | 'chat' | 'bookmarks'>('feed');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -43,7 +43,7 @@ function MainApp() {
 
   React.useEffect(() => {
     const handleTabNav = (e: Event) => {
-      const customEvent = e as CustomEvent<{ tab: 'feed' | 'chat' | 'bookmarks' }>;
+      const customEvent = e as CustomEvent<{ tab: 'feed' | 'bible' | 'chat' | 'bookmarks' }>;
       if (customEvent.detail?.tab) {
         setActiveTab(customEvent.detail.tab);
       }
@@ -217,4 +217,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-

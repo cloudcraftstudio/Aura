@@ -85,20 +85,31 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  // Refs for stale closure prevention
+  const activeCallRef = useRef<CallSession | null>(null);
+  useEffect(() => {
+    activeCallRef.current = activeCall;
+  }, [activeCall]);
+
   // Periodic polling for incoming calls on server (every 1.5 seconds)
   useEffect(() => {
     if (!user) return;
-
+    
+    let isMounted = true;
+    
     const checkIncomingCalls = async () => {
-      if (activeCall) return; // Already on a call
-
+      if (activeCallRef.current) return; // Already on a call
       try {
         const res = await fetch(`/api/calls/pending?userId=${encodeURIComponent(user.id)}`);
+        if (!isMounted) return;
+        
         if (res.ok) {
           const pendingCalls: CallSession[] = await res.json();
           if (pendingCalls.length > 0) {
             const first = pendingCalls[0];
             if (!incomingCall || incomingCall.roomId !== first.roomId) {
+              if (activeCallRef.current) return; // double check before ringing
+              
               setIncomingCall(first);
               soundEffects.startRingtone();
               // Only trigger a single notification per incoming call session, not every poll
@@ -129,11 +140,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     callPollIntervalRef.current = setInterval(checkIncomingCalls, 1500);
 
     return () => {
+      isMounted = false;
       if (callPollIntervalRef.current) {
         clearInterval(callPollIntervalRef.current);
       }
     };
-  }, [user, activeCall, incomingCall]);
+  }, [user, incomingCall]);
 
   // Poll active call status from server so caller immediately transitions when receiver answers
   useEffect(() => {

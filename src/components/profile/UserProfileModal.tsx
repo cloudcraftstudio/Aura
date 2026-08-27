@@ -45,28 +45,28 @@ const AVATAR_PRESETS = [
 
 const COVER_BANNER_PRESETS = [
   {
-    name: 'Cosmic Aurora',
-    url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80',
+    name: 'Jesus Christ',
+    url: 'https://image.pollinations.ai/prompt/Jesus%20Christ%20portrait%20cinematic%20lighting%20holy%20spirit?width=1200&height=800&nologo=true',
   },
   {
-    name: 'Cyber Neon',
-    url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200&auto=format&fit=crop&q=80',
+    name: 'Holy Cross',
+    url: 'https://image.pollinations.ai/prompt/Wooden%20cross%20on%20a%20hill%20at%20sunrise%20cinematic?width=1200&height=800&nologo=true',
   },
   {
-    name: 'Sunset Horizon',
-    url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
+    name: 'Baptist Church',
+    url: 'https://image.pollinations.ai/prompt/Beautiful%20Baptist%20church%20sanctuary%20stained%20glass%20light?width=1200&height=800&nologo=true',
   },
   {
-    name: 'Abstract Fluid',
-    url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+    name: 'The Holy Bible',
+    url: 'https://image.pollinations.ai/prompt/Open%20Holy%20Bible%20with%20glowing%20golden%20light?width=1200&height=800&nologo=true',
   },
   {
-    name: 'Mountain Mist',
-    url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200&auto=format&fit=crop&q=80',
+    name: 'Holy Spirit',
+    url: 'https://image.pollinations.ai/prompt/White%20dove%20flying%20in%20golden%20sunrise%20clouds%20spiritual?width=1200&height=800&nologo=true',
   },
   {
-    name: 'Tokyo Night',
-    url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=1200&auto=format&fit=crop&q=80',
+    name: 'River Baptism',
+    url: 'https://image.pollinations.ai/prompt/River%20baptism%20spiritual%20golden%20light%20cinematic?width=1200&height=800&nologo=true',
   },
 ];
 

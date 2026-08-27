@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Sparkles,
+  BookOpen,
   MessageSquare,
   Home,
   Bookmark,
@@ -25,8 +26,8 @@ import { Avatar } from '../common/Avatar';
 import { UserStatus } from '../../types';
 
 interface NavbarProps {
-  activeTab: 'feed' | 'chat' | 'bookmarks';
-  setActiveTab: (tab: 'feed' | 'chat' | 'bookmarks') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'bookmarks';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'bookmarks') => void;
   onOpenProfile: () => void;
   onOpenShare?: () => void;
   onOpenNotifications?: () => void;

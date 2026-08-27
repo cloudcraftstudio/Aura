@@ -195,55 +195,60 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const likePost = async (postId: string) => {
     if (!user) return;
+    
+    // Find post first to do side effects safely outside state updater
+    const post = posts.find((p) => p.id === postId);
+    if (post) {
+      const isLiked = post.likedByUserIds.includes(user.id);
+      if (!isLiked) {
+        soundEffects.playLikeSparkle();
+        try {
+          confetti({
+            particleCount: 25,
+            spread: 40,
+            origin: { y: 0.8 },
+            colors: ['#ec4899', '#8b5cf6', '#3b82f6'],
+          });
+        } catch (e) {}
+
+        if (post.authorId !== user.id) {
+          notificationService.notify({
+            type: 'like',
+            title: `${user.name} liked your post`,
+            body: post.content.slice(0, 60) + '...',
+            avatar: user.avatarUrl,
+            actionId: post.id,
+            playSound: true,
+          });
+        }
+      }
+    }
 
     // Optimistic update
     setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
-          const isLiked = post.likedByUserIds.includes(user.id);
+      prev.map((p) => {
+        if (p.id === postId) {
+          const isLiked = p.likedByUserIds.includes(user.id);
           const updatedLikes = isLiked
-            ? post.likedByUserIds.filter((id) => id !== user.id)
-            : [...post.likedByUserIds, user.id];
-          const newCount = isLiked ? Math.max(0, post.likesCount - 1) : post.likesCount + 1;
-
-          if (!isLiked) {
-            soundEffects.playLikeSparkle();
-            try {
-              confetti({
-                particleCount: 25,
-                spread: 40,
-                origin: { y: 0.8 },
-                colors: ['#ec4899', '#8b5cf6', '#3b82f6'],
-              });
-            } catch (e) {}
-
-            if (post.authorId !== user.id) {
-              notificationService.notify({
-                type: 'like',
-                title: `${user.name} liked your post`,
-                body: post.content.slice(0, 60) + '...',
-                avatar: user.avatarUrl,
-                actionId: post.id,
-                playSound: true,
-              });
-            }
-          }
-
+            ? p.likedByUserIds.filter((id) => id !== user.id)
+            : [...p.likedByUserIds, user.id];
+          const newCount = isLiked ? Math.max(0, p.likesCount - 1) : p.likesCount + 1;
+          
           const updatedPost = {
-            ...post,
+            ...p,
             likesCount: newCount,
             likedByUserIds: updatedLikes,
           };
-
+          
           offlineStorage.broadcastEvent('post_liked', {
-            postId: post.id,
+            postId: p.id,
             likesCount: newCount,
             likedByUserIds: updatedLikes,
           });
-
+          
           return updatedPost;
         }
-        return post;
+        return p;
       })
     );
 
@@ -266,13 +271,25 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       likedByUserIds: [],
     };
 
+    const post = posts.find((p) => p.id === postId);
+    if (post && post.authorId !== user.id) {
+      notificationService.notify({
+        type: 'comment',
+        title: `${user.name} commented on your post`,
+        body: content.slice(0, 60),
+        avatar: user.avatarUrl,
+        actionId: post.id,
+        playSound: true,
+      });
+    }
+
     setPosts((prev) =>
-      prev.map((post) => {
-        if (post.id === postId) {
+      prev.map((p) => {
+        if (p.id === postId) {
           const updated = {
-            ...post,
-            commentsCount: post.commentsCount + 1,
-            comments: [...(post.comments || []), newComment],
+            ...p,
+            commentsCount: p.commentsCount + 1,
+            comments: [...(p.comments || []), newComment],
           };
 
           offlineStorage.broadcastEvent('new_comment', {
@@ -280,20 +297,9 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             comment: newComment,
           });
 
-          if (post.authorId !== user.id) {
-            notificationService.notify({
-              type: 'comment',
-              title: `${user.name} commented on your post`,
-              body: content.slice(0, 60),
-              avatar: user.avatarUrl,
-              actionId: post.id,
-              playSound: true,
-            });
-          }
-
           return updated;
         }
-        return post;
+        return p;
       })
     );
 

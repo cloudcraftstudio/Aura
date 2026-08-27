@@ -156,68 +156,98 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         const contentVideos = extractVideosFromText(post.content);
         const contentVideoUrls = new Set(contentVideos.map(v => v.url));
 
-        const videoMedia = post.mediaUrls.filter(url => {
+        const externalVideoMedia = post.mediaUrls.filter(url => {
           const yt = extractVideosFromText(url);
-          return (yt.length > 0 || isDirectVideoUrl(url)) && !contentVideoUrls.has(url);
+          return yt.length > 0 && yt[0].type !== 'direct' && !contentVideoUrls.has(url);
         });
 
-        const imageMedia = post.mediaUrls.filter(url => {
+        const nativeMedia = post.mediaUrls.filter(url => {
           const yt = extractVideosFromText(url);
-          return yt.length === 0 && !isDirectVideoUrl(url);
+          return yt.length === 0 || yt[0].type === 'direct';
         });
 
         return (
           <div className="px-5 pb-3.5 space-y-3">
-            {/* Any standalone video media in mediaUrls */}
-            {videoMedia.map((vUrl, vIdx) => {
+            {/* Any external video embeds (YouTube) */}
+            {externalVideoMedia.map((vUrl, vIdx) => {
               const extracted = extractVideosFromText(vUrl);
-              const vObj = extracted.length > 0 ? extracted[0] : { type: 'direct' as const, url: vUrl, embedUrl: vUrl };
+              const vObj = extracted[0];
               return <VideoEmbed key={vIdx} video={vObj} />;
             })}
 
-            {/* Photos */}
-            {imageMedia.length === 1 && (
+            {/* Native Media (Photos & Direct Videos) */}
+            {nativeMedia.length === 1 && (
               <div
-                onClick={() => setSelectedPhotoIndex(0)}
-                className="relative max-h-[580px] w-full rounded-2xl overflow-hidden cursor-pointer border border-white/10 group bg-black/50 flex items-center justify-center"
+                onClick={() => {
+                  if (!isDirectVideoUrl(nativeMedia[0])) {
+                    setSelectedPhotoIndex(0);
+                  }
+                }}
+                className={`relative max-h-[580px] w-full rounded-2xl overflow-hidden ${!isDirectVideoUrl(nativeMedia[0]) ? 'cursor-pointer group' : ''} border border-white/10 bg-black/50 flex items-center justify-center`}
               >
-                <img
-                  src={imageMedia[0]}
-                  alt="Post media"
-                  referrerPolicy="no-referrer"
-                  className="w-full max-h-[580px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
-                />
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-xs font-semibold text-white border border-white/20 shadow-xl">
-                    Click to View Full Size
-                  </span>
-                </div>
+                {isDirectVideoUrl(nativeMedia[0]) ? (
+                  <video
+                    src={nativeMedia[0]}
+                    controls
+                    playsInline
+                    className="w-full max-h-[580px] object-contain bg-black"
+                  />
+                ) : (
+                  <>
+                    <img
+                      src={nativeMedia[0]}
+                      alt="Post media"
+                      referrerPolicy="no-referrer"
+                      className="w-full max-h-[580px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
+                    />
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                      <span className="px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-xs font-semibold text-white border border-white/20 shadow-xl">
+                        Click to View Full Size
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {imageMedia.length > 1 && (
+            {nativeMedia.length > 1 && (
               <div
                 className={`grid gap-2 ${
-                  imageMedia.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
+                  nativeMedia.length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
                 }`}
               >
-                {imageMedia.map((url, i) => (
+                {nativeMedia.map((url, i) => (
                   <div
                     key={i}
-                    onClick={() => setSelectedPhotoIndex(i)}
-                    className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer border border-white/10 group bg-black/40"
+                    onClick={() => {
+                      if (!isDirectVideoUrl(url)) {
+                        setSelectedPhotoIndex(i);
+                      }
+                    }}
+                    className={`relative aspect-square rounded-2xl overflow-hidden ${!isDirectVideoUrl(url) ? 'cursor-pointer group' : ''} border border-white/10 bg-black/40`}
                   >
-                    <img
-                      src={url}
-                      alt={`Photo ${i + 1}`}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-xs text-white">
-                        View
-                      </span>
-                    </div>
+                    {isDirectVideoUrl(url) ? (
+                      <video
+                        src={url}
+                        controls
+                        playsInline
+                        className="w-full h-full object-contain bg-black"
+                      />
+                    ) : (
+                      <>
+                        <img
+                          src={url}
+                          alt={`Photo ${i + 1}`}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                          <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-xs text-white">
+                            View
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

@@ -31,7 +31,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { compressImage } from '../../utils/imageCompressor';
 import { soundEffects } from '../../services/audio';
-import { extractVideosFromText } from '../../utils/mediaUtils';
+import { extractVideosFromText, isDirectVideoUrl } from '../../utils/mediaUtils';
 import { VideoEmbed } from '../common/VideoEmbed';
 import { RichTextRenderer } from '../common/RichTextRenderer';
 import { notificationService } from '../../services/notifications';
@@ -40,6 +40,7 @@ interface CreatePostModalProps {
   onClose: () => void;
   initialContent?: string;
   initialTags?: string;
+  initialMedia?: string;
 }
 
 export const POST_CATEGORIES = [
@@ -191,13 +192,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   onClose,
   initialContent = '',
   initialTags = '',
+  initialMedia,
 }) => {
   const { createPost } = useSocial();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('edit');
   const [content, setContent] = useState(initialContent);
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [mediaUrls, setMediaUrls] = useState<string[]>(initialMedia ? [initialMedia] : []);
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     initialTags ? initialTags.split(/[\s,#]+/).filter(Boolean) : ['General']
   );
@@ -211,6 +213,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const [showVideoInput, setShowVideoInput] = useState(false);
@@ -245,17 +248,24 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     setShowVideoInput(false);
   };
 
-  // File upload handler with compression
+  // File upload handler with compression and video support
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       soundEffects.playTap();
       for (const file of Array.from(files)) {
         try {
-          const compressed = await compressImage(file, 1200, 1200, 0.85);
-          setMediaUrls((prev) => [...prev, compressed]);
+          if (file.type.startsWith('video/')) {
+            // For real applications, this would upload to a server.
+            // For now, we create a local object URL to display the video.
+            const videoUrl = URL.createObjectURL(file);
+            setMediaUrls((prev) => [...prev, videoUrl]);
+          } else {
+            const compressed = await compressImage(file, 1200, 1200, 0.85);
+            setMediaUrls((prev) => [...prev, compressed]);
+          }
         } catch (err) {
-          console.warn('Error compressing uploaded file:', err);
+          console.warn('Error processing uploaded file:', err);
         }
       }
     }
@@ -646,11 +656,11 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </div>
               )}
 
-              {/* Attached Photos Grid */}
+              {/* Attached Media Grid */}
               {mediaUrls.length > 0 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs text-slate-300 font-semibold">
-                    <span>Attached Photos ({mediaUrls.length}):</span>
+                    <span>Attached Media ({mediaUrls.length}):</span>
                     <button
                       type="button"
                       onClick={() => setMediaUrls([])}
@@ -663,14 +673,21 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     {mediaUrls.map((url, index) => (
                       <div
                         key={index}
-                        className="relative aspect-square rounded-xl overflow-hidden border border-white/20 group"
+                        className="relative aspect-square rounded-xl overflow-hidden border border-white/20 group bg-black/50"
                       >
-                        <img
-                          src={url}
-                          alt="attached"
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
+                        {isDirectVideoUrl(url) ? (
+                          <video
+                            src={url}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={url}
+                            alt="attached"
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        )}
                         <button
                           type="button"
                           onClick={() => removeMedia(index)}
@@ -758,6 +775,15 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   className="hidden"
                   onChange={handleFileUpload}
                 />
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                
                 <button
                   type="button"
                   id="browse-photos-btn"
@@ -766,7 +792,18 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   title="Upload Photos"
                 >
                   <ImageIcon className="w-4 h-4 text-blue-400" />
-                  <span className="hidden xs:inline sm:inline text-xs">Photos</span>
+                  <span className="hidden xs:inline sm:inline text-xs">Photo</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="browse-videos-btn"
+                  onClick={() => videoInputRef.current?.click()}
+                  className="px-2.5 sm:px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition-all"
+                  title="Upload Video"
+                >
+                  <Video className="w-4 h-4 text-purple-400" />
+                  <span className="hidden xs:inline sm:inline text-xs">Video</span>
                 </button>
 
                 <button
@@ -792,10 +829,10 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       ? 'bg-red-500/20 text-red-300 border-red-500/30'
                       : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-200 hover:text-white'
                   }`}
-                  title="Insert Video Link"
+                  title="Insert YouTube Link"
                 >
                   <Youtube className="w-4 h-4 text-red-400" />
-                  <span className="hidden xs:inline sm:inline text-xs">Video</span>
+                  <span className="hidden xs:inline sm:inline text-xs">Link</span>
                 </button>
               </div>
 
@@ -918,17 +955,25 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   </div>
                 )}
 
-                {/* Live Photos Grid Preview */}
+                {/* Live Photos & Videos Grid Preview */}
                 {mediaUrls.length > 0 && (
                   <div className="px-5 pb-3.5 relative z-10">
                     {mediaUrls.length === 1 ? (
                       <div className="relative max-h-[420px] w-full rounded-2xl overflow-hidden border border-white/10 bg-black/50 flex items-center justify-center">
-                        <img
-                          src={mediaUrls[0]}
-                          alt="Post media"
-                          referrerPolicy="no-referrer"
-                          className="w-full max-h-[420px] object-cover"
-                        />
+                        {isDirectVideoUrl(mediaUrls[0]) ? (
+                          <video
+                            src={mediaUrls[0]}
+                            controls
+                            className="w-full max-h-[420px] object-contain"
+                          />
+                        ) : (
+                          <img
+                            src={mediaUrls[0]}
+                            alt="Post media"
+                            referrerPolicy="no-referrer"
+                            className="w-full max-h-[420px] object-cover"
+                          />
+                        )}
                       </div>
                     ) : (
                       <div
@@ -941,12 +986,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                             key={i}
                             className="relative aspect-square rounded-2xl overflow-hidden border border-white/10 bg-black/50"
                           >
-                            <img
-                              src={url}
-                              alt={`Post media ${i + 1}`}
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover"
-                            />
+                            {isDirectVideoUrl(url) ? (
+                              <video
+                                src={url}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <img
+                                src={url}
+                                alt={`Post media ${i + 1}`}
+                                referrerPolicy="no-referrer"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
