@@ -99,7 +99,7 @@ export function extractVideosFromText(text: string): ExtractedVideo[] {
         type: 'youtube',
         url: cleanUrl,
         videoId: yt.videoId,
-        embedUrl: `https://www.youtube-nocookie.com/embed/${yt.videoId}?autoplay=0&rel=0&modestbranding=1&playsinline=1${startParam}`,
+        embedUrl: `https://www.youtube.com/embed/${yt.videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1${startParam}`,
         thumbnailUrl: `https://img.youtube.com/vi/${yt.videoId}/hqdefault.jpg`,
       });
       continue;

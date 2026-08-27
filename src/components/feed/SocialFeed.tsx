@@ -64,22 +64,33 @@ export const SocialFeed: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex items-center justify-between mt-4 pt-3.5 border-t border-white/5">
-          <button
-            onClick={() => handleOpenCreateModal('Photography')}
-            className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-blue-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
-          >
-            <ImageIcon className="w-4 h-4 text-blue-400" />
-            <span>Share Photo</span>
-          </button>
+        <div className="flex items-center justify-between mt-4 pt-3.5 border-t border-white/5 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleOpenCreateModal('Photography')}
+              className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-blue-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+            >
+              <ImageIcon className="w-4 h-4 text-blue-400" />
+              <span>Share Photo</span>
+            </button>
 
-          <button
-            onClick={() => handleOpenCreateModal()}
-            className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-emerald-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
-          >
-            <Video className="w-4 h-4 text-emerald-400" />
-            <span>Camera Capture</span>
-          </button>
+            <button
+              onClick={() => handleOpenCreateModal()}
+              className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-300 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-purple-500/10 hover:from-amber-500/20 hover:to-purple-500/20 border border-amber-500/20 transition-all"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Preset Cards</span>
+            </button>
+
+            <button
+              onClick={() => handleOpenCreateModal()}
+              className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-emerald-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+            >
+              <Video className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">Camera Capture</span>
+              <span className="sm:hidden">Camera</span>
+            </button>
+          </div>
 
           <button
             onClick={() => handleOpenCreateModal()}

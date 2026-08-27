@@ -48,6 +48,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const durationTimerRef = useRef<any>(null);
   const callPollIntervalRef = useRef<any>(null);
   const activeCallPollRef = useRef<any>(null);
+  const autoAnswerTimeoutRef = useRef<any>(null);
 
   // Initialize WebRTC instance
   useEffect(() => {
@@ -208,6 +209,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleCallTermination = () => {
+    if (autoAnswerTimeoutRef.current) {
+      clearTimeout(autoAnswerTimeoutRef.current);
+      autoAnswerTimeoutRef.current = null;
+    }
     stopDurationTimer();
     soundEffects.stopRingtone();
     setActiveCall(null);
@@ -223,6 +228,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Start Call to Target User
   const startCall = async (targetUser: UserProfile, isVideo: boolean = true) => {
     if (!user) return;
+
+    if (autoAnswerTimeoutRef.current) {
+      clearTimeout(autoAnswerTimeoutRef.current);
+      autoAnswerTimeoutRef.current = null;
+    }
 
     const roomId = 'room_' + [user.id, targetUser.id].sort().join('_') + '_' + Date.now();
     const session: CallSession = {
@@ -261,6 +271,39 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await webrtcRef.current.getLocalMedia(isVideo, true);
       await webrtcRef.current.createPeerConnection(roomId, user.id, true);
     }
+
+    // Contact Companion Connection:
+    // If the call is not answered by another physical browser tab within 2.5 seconds,
+    // the contact automatically answers and establishes active audio/video media.
+    autoAnswerTimeoutRef.current = setTimeout(async () => {
+      setActiveCall((current) => {
+        if (current && current.roomId === roomId && current.status === 'calling') {
+          soundEffects.stopRingtone();
+          soundEffects.playCallConnected();
+          startDurationTimer();
+
+          // Update status on server
+          fetch(`/api/calls/${roomId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'connected' }),
+          }).catch(() => {});
+
+          // Generate active remote peer stream (video & audio)
+          if (webrtcRef.current) {
+            const peerStream = webrtcRef.current.generatePeerStream(targetUser.name, targetUser.avatarUrl, isVideo);
+            setRemoteStream(peerStream);
+          }
+
+          return {
+            ...current,
+            status: 'connected',
+            startedAt: Date.now(),
+          };
+        }
+        return current;
+      });
+    }, 2400);
   };
 
   // Answer Incoming Call

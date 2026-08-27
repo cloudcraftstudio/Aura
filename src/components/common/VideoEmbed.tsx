@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ExternalLink, Play, Video as VideoIcon, Youtube } from 'lucide-react';
+import { ExternalLink, Play, Video as VideoIcon, Youtube, RotateCcw } from 'lucide-react';
 import { ExtractedVideo } from '../../utils/mediaUtils';
+import { soundEffects } from '../../services/audio';
 
 interface VideoEmbedProps {
   video: ExtractedVideo;
@@ -13,6 +14,18 @@ export const VideoEmbed: React.FC<VideoEmbedProps> = ({
   className = '',
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  const getYoutubeEmbedUrl = () => {
+    const separator = video.embedUrl.includes('?') ? '&' : '?';
+    return isPlaying ? `${video.embedUrl}${separator}autoplay=1` : video.embedUrl;
+  };
+
+  const handleStartPlay = () => {
+    soundEffects.playTap();
+    setIsPlaying(true);
+    setHasError(false);
+  };
 
   return (
     <div
@@ -20,13 +33,21 @@ export const VideoEmbed: React.FC<VideoEmbedProps> = ({
       onClick={(e) => e.stopPropagation()}
     >
       {/* 16:9 Aspect Ratio Container */}
-      <div className="relative w-full aspect-video bg-black flex items-center justify-center">
+      <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
         {video.type === 'youtube' ? (
-          !isPlaying && video.thumbnailUrl ? (
-            /* Fast-loading custom poster thumbnail with play button */
+          !isPlaying && video.thumbnailUrl && !hasError ? (
+            /* Fast-loading custom poster thumbnail with live play button */
             <div
-              className="relative w-full h-full cursor-pointer group"
-              onClick={() => setIsPlaying(true)}
+              className="relative w-full h-full cursor-pointer group select-none"
+              onClick={handleStartPlay}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleStartPlay();
+                }
+              }}
             >
               <img
                 src={video.thumbnailUrl}
@@ -39,18 +60,22 @@ export const VideoEmbed: React.FC<VideoEmbedProps> = ({
                   <Play className="w-7 h-7 fill-white translate-x-0.5" />
                 </div>
               </div>
-              <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-semibold text-white">
+              <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-semibold text-white shadow-md">
                 <Youtube className="w-4 h-4 text-red-500 fill-red-500/20" />
                 <span>YouTube Video</span>
+              </div>
+              <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-sm text-[10px] font-bold text-white/90">
+                Click to Play Live
               </div>
             </div>
           ) : (
             /* Live YouTube iFrame */
             <iframe
-              src={`${video.embedUrl}${isPlaying ? '&autoplay=1' : ''}`}
+              src={getYoutubeEmbedUrl()}
               title="YouTube video player"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
               allowFullScreen
+              onError={() => setHasError(true)}
               className="w-full h-full border-0 absolute inset-0"
             />
           )
@@ -76,8 +101,8 @@ export const VideoEmbed: React.FC<VideoEmbedProps> = ({
         )}
       </div>
 
-      {/* Video Footer bar with direct link */}
-      <div className="px-4 py-2.5 bg-slate-900/90 backdrop-blur-md flex items-center justify-between gap-2 border-t border-slate-800/80 text-xs text-slate-300">
+      {/* Video Footer bar with direct link and replay controls */}
+      <div className="px-4 py-2.5 bg-slate-900/95 backdrop-blur-md flex items-center justify-between gap-2 border-t border-slate-800/80 text-xs text-slate-300">
         <div className="flex items-center gap-2 truncate">
           {video.type === 'youtube' ? (
             <Youtube className="w-4 h-4 text-red-400 shrink-0" />
@@ -91,6 +116,17 @@ export const VideoEmbed: React.FC<VideoEmbedProps> = ({
               ? 'Vimeo Player'
               : 'Direct Video Player'}
           </span>
+          {isPlaying && (
+            <button
+              type="button"
+              onClick={() => setIsPlaying(false)}
+              className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+              title="Reset player preview"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>Reset</span>
+            </button>
+          )}
         </div>
 
         <a
@@ -98,9 +134,9 @@ export const VideoEmbed: React.FC<VideoEmbedProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-colors text-xs font-medium shrink-0 border border-white/5 hover:border-white/10"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 hover:text-white transition-colors text-xs font-semibold shrink-0 border border-blue-500/20 shadow-sm"
         >
-          <span>Watch on source</span>
+          <span>Watch on YouTube</span>
           <ExternalLink className="w-3 h-3" />
         </a>
       </div>
