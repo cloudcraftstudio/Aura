@@ -30,6 +30,8 @@ import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { compressImage } from '../../utils/imageCompressor';
+import { mediaCache } from '../../services/mediaCache';
+import { AsyncMedia } from '../common/AsyncMedia';
 import { soundEffects } from '../../services/audio';
 import { extractVideosFromText, isDirectVideoUrl } from '../../utils/mediaUtils';
 import { VideoEmbed } from '../common/VideoEmbed';
@@ -249,14 +251,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       soundEffects.playTap();
       for (const file of Array.from(files)) {
         try {
+          const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 7);
           if (file.type.startsWith('video/')) {
-            // For real applications, this would upload to a server.
-            // For now, we create a local object URL to display the video.
-            const videoUrl = URL.createObjectURL(file);
-            setMediaUrls((prev) => [...prev, videoUrl]);
+            await mediaCache.saveMedia(id, file);
+            setMediaUrls((prev) => [...prev, `localmedia://video/${id}`]);
           } else {
-            const compressed = await compressImage(file, 1200, 1200, 0.85);
-            setMediaUrls((prev) => [...prev, compressed]);
+            const compressedUrl = await compressImage(file, 1200, 1200, 0.85);
+            // Convert data URL back to Blob for IndexedDB to save localStorage space
+            const res = await fetch(compressedUrl);
+            const blob = await res.blob();
+            await mediaCache.saveMedia(id, blob);
+            setMediaUrls((prev) => [...prev, `localmedia://image/${id}`]);
           }
         } catch (err) {
           console.warn('Error processing uploaded file:', err);
@@ -670,15 +675,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                         className="relative aspect-square rounded-xl overflow-hidden border border-white/20 group bg-black/50"
                       >
                         {isDirectVideoUrl(url) ? (
-                          <video
+                          <AsyncMedia
+                            mediaType="video"
                             src={url}
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <img
+                          <AsyncMedia
+                            mediaType="image"
                             src={url}
                             alt="attached"
-                            referrerPolicy="no-referrer"
                             className="w-full h-full object-cover"
                           />
                         )}
@@ -955,16 +961,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                     {mediaUrls.length === 1 ? (
                       <div className="relative max-h-[420px] w-full rounded-2xl overflow-hidden border border-white/10 bg-black/50 flex items-center justify-center">
                         {isDirectVideoUrl(mediaUrls[0]) ? (
-                          <video
+                          <AsyncMedia
+                            mediaType="video"
                             src={mediaUrls[0]}
                             controls
                             className="w-full max-h-[420px] object-contain"
                           />
                         ) : (
-                          <img
+                          <AsyncMedia
+                            mediaType="image"
                             src={mediaUrls[0]}
                             alt="Post media"
-                            referrerPolicy="no-referrer"
                             className="w-full max-h-[420px] object-cover"
                           />
                         )}
@@ -981,15 +988,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                             className="relative aspect-square rounded-2xl overflow-hidden border border-white/10 bg-black/50"
                           >
                             {isDirectVideoUrl(url) ? (
-                              <video
+                              <AsyncMedia
+                                mediaType="video"
                                 src={url}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <img
+                              <AsyncMedia
+                                mediaType="image"
                                 src={url}
                                 alt={`Post media ${i + 1}`}
-                                referrerPolicy="no-referrer"
                                 className="w-full h-full object-cover"
                               />
                             )}

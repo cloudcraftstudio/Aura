@@ -14,6 +14,7 @@ import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { ImageLightboxModal } from '../common/ImageLightboxModal';
+import { AsyncMedia } from '../common/AsyncMedia';
 import { RichTextRenderer } from '../common/RichTextRenderer';
 import { extractVideosFromText, isDirectVideoUrl } from '../../utils/mediaUtils';
 import { VideoEmbed } from '../common/VideoEmbed';
@@ -186,7 +187,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 className={`relative max-h-[580px] w-full rounded-2xl overflow-hidden ${!isDirectVideoUrl(nativeMedia[0]) ? 'cursor-pointer group' : ''} border border-white/10 bg-black/50 flex items-center justify-center`}
               >
                 {isDirectVideoUrl(nativeMedia[0]) ? (
-                  <video
+                  <AsyncMedia
+                    mediaType="video"
                     src={nativeMedia[0]}
                     controls
                     playsInline
@@ -194,10 +196,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                   />
                 ) : (
                   <>
-                    <img
+                    <AsyncMedia
+                      mediaType="image"
                       src={nativeMedia[0]}
                       alt="Post media"
-                      referrerPolicy="no-referrer"
                       className="w-full max-h-[580px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
                     />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
@@ -227,7 +229,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     className={`relative aspect-square rounded-2xl overflow-hidden ${!isDirectVideoUrl(url) ? 'cursor-pointer group' : ''} border border-white/10 bg-black/40`}
                   >
                     {isDirectVideoUrl(url) ? (
-                      <video
+                      <AsyncMedia
+                        mediaType="video"
                         src={url}
                         controls
                         playsInline
@@ -235,10 +238,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                       />
                     ) : (
                       <>
-                        <img
+                        <AsyncMedia
+                          mediaType="image"
                           src={url}
                           alt={`Photo ${i + 1}`}
-                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
