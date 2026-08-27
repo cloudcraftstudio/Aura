@@ -31,6 +31,7 @@ import { useCall } from '../../context/CallContext';
 import { useSocial } from '../../context/SocialContext';
 import { Avatar } from '../common/Avatar';
 import { formatDistanceToNow } from 'date-fns';
+import { DEFAULT_PRESET_COVER } from '../../data/presetImages';
 
 interface MemberProfileModalProps {
   userId: string;
@@ -38,8 +39,7 @@ interface MemberProfileModalProps {
   onOpenSelfEdit?: () => void;
 }
 
-const DEFAULT_COVER_IMAGE =
-  'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1200&auto=format&fit=crop&q=80';
+const DEFAULT_COVER_IMAGE = DEFAULT_PRESET_COVER;
 
 export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
   userId,

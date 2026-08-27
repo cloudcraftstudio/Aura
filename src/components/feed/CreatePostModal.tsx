@@ -35,6 +35,7 @@ import { extractVideosFromText, isDirectVideoUrl } from '../../utils/mediaUtils'
 import { VideoEmbed } from '../common/VideoEmbed';
 import { RichTextRenderer } from '../common/RichTextRenderer';
 import { notificationService } from '../../services/notifications';
+import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 
 interface CreatePostModalProps {
   onClose: () => void;
@@ -44,25 +45,18 @@ interface CreatePostModalProps {
 }
 
 export const POST_CATEGORIES = [
-  'Photography',
-  'Tech',
-  'WebRTC',
-  'Design',
-  'Art',
-  'Music',
+  'Scripture',
+  'Prayer & Worship',
+  'Testimony',
+  'Baptist Heritage',
+  'Christian Art',
+  'Fellowship',
+  'Youth & Family',
   'Spiritual',
-  'Lifestyle',
   'General',
 ];
 
-export const CURATED_IMAGES = [
-  'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1000&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1000&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1000&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1000&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=1000&auto=format&fit=crop&q=80',
-];
+export const CURATED_IMAGES = ALL_CHRISTIAN_PRESET_IMAGES.map((p) => p.url);
 
 export interface CardPresetOption {
   id: string;

@@ -14,17 +14,11 @@ import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { StoryViewerModal } from './StoryViewerModal';
 import { soundEffects } from '../../services/audio';
+import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 
-const PRESET_STORY_IMAGES = [
-  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
-];
+const PRESET_STORY_IMAGES = ALL_CHRISTIAN_PRESET_IMAGES;
 
-const STORY_EMOJIS = ['🔥', '✨', '🌊', '🌴', '💫', '🎉', '🚀', '💜'];
+const STORY_EMOJIS = ['🙏', '✝️', '🕊️', '📖', '✨', '🔥', '💫', '💖'];
 
 export const StoriesReel: React.FC = () => {
   const { stories, addStory } = useSocial();
@@ -112,7 +106,7 @@ export const StoriesReel: React.FC = () => {
 
   const handleCreateStory = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = storyImageUrl.trim() || PRESET_STORY_IMAGES[0];
+    const url = storyImageUrl.trim() || PRESET_STORY_IMAGES[0].url;
     soundEffects.playMessageSent();
     addStory(url, storyCaption.trim() || undefined);
     stopCamera();
@@ -425,22 +419,26 @@ export const StoriesReel: React.FC = () => {
 
               {/* Presets */}
               <div>
-                <p className="text-[11px] text-slate-400 mb-1.5 font-medium">Or choose an aesthetic shot:</p>
-                <div className="grid grid-cols-6 gap-1.5">
-                  {PRESET_STORY_IMAGES.map((img, i) => (
+                <p className="text-[11px] text-slate-400 mb-1.5 font-medium">Or choose a Christian Art preset:</p>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-40 overflow-y-auto pr-1">
+                  {PRESET_STORY_IMAGES.map((item) => (
                     <div
-                      key={i}
+                      key={item.id}
                       onClick={() => {
                         soundEffects.playTap();
-                        setStoryImageUrl(img);
+                        setStoryImageUrl(item.url);
                       }}
-                      className={`aspect-square rounded-xl overflow-hidden border cursor-pointer transition-all ${
-                        storyImageUrl === img
+                      className={`aspect-square rounded-xl overflow-hidden border cursor-pointer transition-all relative group ${
+                        storyImageUrl === item.url
                           ? 'border-blue-400 ring-2 ring-blue-500/40 scale-105'
-                          : 'border-white/10 hover:border-white/40 opacity-70 hover:opacity-100'
+                          : 'border-white/10 hover:border-white/40 opacity-75 hover:opacity-100'
                       }`}
+                      title={item.name}
                     >
-                      <img src={img} alt="preset" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={item.url} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <div className="absolute inset-x-0 bottom-0 bg-black/75 px-1 py-0.5 text-[8px] text-white truncate text-center">
+                        {item.name}
+                      </div>
                     </div>
                   ))}
                 </div>

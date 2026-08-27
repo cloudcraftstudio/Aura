@@ -27,6 +27,7 @@ import { UserStatus } from '../../types';
 import { Avatar } from '../common/Avatar';
 import { soundEffects } from '../../services/audio';
 import { compressImage } from '../../utils/imageCompressor';
+import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -43,32 +44,7 @@ const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
 ];
 
-const COVER_BANNER_PRESETS = [
-  {
-    name: 'Jesus Christ',
-    url: 'https://image.pollinations.ai/prompt/Jesus%20Christ%20portrait%20cinematic%20lighting%20holy%20spirit?width=1200&height=800&nologo=true',
-  },
-  {
-    name: 'Holy Cross',
-    url: 'https://image.pollinations.ai/prompt/Wooden%20cross%20on%20a%20hill%20at%20sunrise%20cinematic?width=1200&height=800&nologo=true',
-  },
-  {
-    name: 'Baptist Church',
-    url: 'https://image.pollinations.ai/prompt/Beautiful%20Baptist%20church%20sanctuary%20stained%20glass%20light?width=1200&height=800&nologo=true',
-  },
-  {
-    name: 'The Holy Bible',
-    url: 'https://image.pollinations.ai/prompt/Open%20Holy%20Bible%20with%20glowing%20golden%20light?width=1200&height=800&nologo=true',
-  },
-  {
-    name: 'Holy Spirit',
-    url: 'https://image.pollinations.ai/prompt/White%20dove%20flying%20in%20golden%20sunrise%20clouds%20spiritual?width=1200&height=800&nologo=true',
-  },
-  {
-    name: 'River Baptism',
-    url: 'https://image.pollinations.ai/prompt/River%20baptism%20spiritual%20golden%20light%20cinematic?width=1200&height=800&nologo=true',
-  },
-];
+const COVER_BANNER_PRESETS = ALL_CHRISTIAN_PRESET_IMAGES;
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
@@ -332,32 +308,41 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
                 {/* Preset Banner Themes */}
                 <div>
-                  <p className="text-[10px] font-medium text-slate-400 mb-2">Or choose a preset cover theme:</p>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                    {COVER_BANNER_PRESETS.map((preset, i) => (
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-slate-300">Choose from {COVER_BANNER_PRESETS.length} Christian Preset Covers:</p>
+                    <span className="text-[10px] text-blue-400 font-medium">Instant One-Click Apply</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-56 overflow-y-auto pr-1">
+                    {COVER_BANNER_PRESETS.map((preset) => (
                       <button
-                        key={i}
+                        key={preset.id}
                         type="button"
                         onClick={() => {
                           soundEffects.playTap();
                           setBannerUrl(preset.url);
                         }}
-                        className={`group relative h-12 rounded-xl overflow-hidden border-2 transition-all ${
+                        className={`group relative h-16 rounded-xl overflow-hidden border-2 transition-all text-left flex flex-col justify-end p-1.5 ${
                           bannerUrl === preset.url
-                            ? 'border-blue-400 ring-2 ring-blue-500/40 scale-105 shadow-lg'
-                            : 'border-white/10 opacity-70 hover:opacity-100'
+                            ? 'border-blue-400 ring-2 ring-blue-500/40 scale-[1.02] shadow-lg shadow-blue-500/20'
+                            : 'border-white/10 opacity-75 hover:opacity-100 hover:border-white/30'
                         }`}
                         title={preset.name}
                       >
                         <img
                           src={preset.url}
                           alt={preset.name}
-                          className="w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           referrerPolicy="no-referrer"
                         />
-                        <span className="absolute inset-x-0 bottom-0 py-0.5 bg-black/70 text-[8px] font-medium text-white truncate text-center px-1">
-                          {preset.name}
-                        </span>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
+                        <div className="relative z-10">
+                          <p className="text-[10px] font-bold text-white leading-tight truncate drop-shadow">
+                            {preset.name}
+                          </p>
+                          <p className="text-[8px] text-slate-300 leading-tight truncate">
+                            {preset.subtitle}
+                          </p>
+                        </div>
                       </button>
                     ))}
                   </div>
