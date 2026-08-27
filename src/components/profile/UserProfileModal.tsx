@@ -238,9 +238,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   return (
     <div
       id="user-profile-modal"
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-3 sm:p-4 flex min-h-screen items-center justify-center animate-fade-in"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-2xl p-3 sm:p-4 animate-fade-in flex flex-col"
     >
-      <div className="w-full max-w-xl my-auto rounded-3xl bg-[#090d22]/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-white">
+      <div className="w-full max-w-xl m-auto rounded-3xl bg-[#090d22]/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-white">
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5 flex-shrink-0">
           <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
@@ -257,37 +257,36 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </button>
         </div>
 
-        <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0">
-          {/* Live Preview Card */}
-          <div className="rounded-2xl overflow-hidden border border-white/15 bg-slate-900/60 shadow-xl relative">
-            <div className="h-28 sm:h-32 w-full relative bg-slate-800">
-              <img
-                src={bannerUrl || COVER_BANNER_PRESETS[0].url}
-                alt="Cover Preview"
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            </div>
-            <div className="px-4 pb-3 flex items-end justify-between -mt-10 relative z-10">
-              <div className="flex items-end gap-3">
-                <div className="p-1 rounded-full bg-[#0c1024] ring-2 ring-white/20 shadow-xl">
-                  <Avatar src={avatarUrl || user?.avatarUrl || ''} name={name || user?.name || ''} size="lg" />
+        {user ? (
+          <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 scrollbar-thin">
+              {/* Live Preview Card */}
+              <div className="rounded-2xl overflow-hidden border border-white/15 bg-slate-900/60 shadow-xl relative">
+                <div className="h-28 sm:h-32 w-full relative bg-slate-800">
+                  <img
+                    src={bannerUrl || COVER_BANNER_PRESETS[0].url}
+                    alt="Cover Preview"
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 </div>
-                <div className="mb-1">
-                  <h4 className="text-sm font-bold text-white leading-tight">{name || 'Your Name'}</h4>
-                  <p className="text-[11px] text-slate-300">@{handle || 'handle'}</p>
+                <div className="px-4 pb-3 flex items-end justify-between -mt-10 relative z-10">
+                  <div className="flex items-end gap-3">
+                    <div className="p-1 rounded-full bg-[#0c1024] ring-2 ring-white/20 shadow-xl">
+                      <Avatar src={avatarUrl || user?.avatarUrl || ''} name={name || user?.name || ''} size="lg" />
+                    </div>
+                    <div className="mb-1">
+                      <h4 className="text-sm font-bold text-white leading-tight">{name || 'Your Name'}</h4>
+                      <p className="text-[11px] text-slate-300">@{handle || 'handle'}</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-blue-300 font-medium italic opacity-70">
+                    Live Preview
+                  </span>
                 </div>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                Live Card Preview
-              </span>
-            </div>
-          </div>
 
-          {/* Profile Form */}
-          {user ? (
-            <form onSubmit={handleSave} className="space-y-5">
               {/* Cover Banner Customizer */}
               <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
@@ -711,30 +710,30 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </div>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>Log Out</span>
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="p-6 text-center space-y-4">
+            </div>
+            {/* Action Buttons Footer */}
+            <div className="px-5 sm:px-6 py-4 bg-[#050818]/90 border-t border-white/10 flex items-center justify-between flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold transition-all"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="p-5 sm:p-6 flex-1 min-h-0 flex items-center justify-center">
+            <div className="text-center space-y-4">
               <p className="text-xs text-slate-400">You are currently not signed in.</p>
               <button
                 onClick={() => {
@@ -747,8 +746,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 Sign In / Onboard Now
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

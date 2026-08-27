@@ -104,7 +104,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
     <div
       id="member-profile-modal"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-xl animate-fade-in select-none overflow-y-auto"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-xl animate-fade-in select-none flex flex-col p-3 sm:p-5"
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 15 }}
@@ -112,7 +112,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
         exit={{ opacity: 0, scale: 0.94, y: 15 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg bg-[#0c1024]/95 border border-white/20 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh] my-auto"
+        className="relative w-full max-w-lg m-auto bg-[#0c1024]/95 border border-white/20 rounded-[32px] shadow-2xl overflow-hidden flex flex-col"
       >
         {/* Full Image Zoom Lightbox Overlay */}
         <AnimatePresence>
@@ -140,7 +140,7 @@ export const MemberProfileModal: React.FC<MemberProfileModalProps> = ({
         </AnimatePresence>
 
         {/* Unified Scrollable Container: Banner and Profile Content together so Avatar is NEVER cut off */}
-        <div className="overflow-y-auto scrollbar-thin flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 flex flex-col">
           {/* Banner Section */}
           <div className="relative h-44 sm:h-52 w-full bg-slate-900 overflow-hidden flex-shrink-0 group">
             <img
