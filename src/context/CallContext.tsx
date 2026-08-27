@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { CallSession, UserProfile } from '../types';
 import { WebRTCManager } from '../services/webrtc';
 import { soundEffects } from '../services/audio';
@@ -19,6 +19,7 @@ interface CallContextType {
   isPipMode: boolean;
   startCall: (targetUser: UserProfile, isVideo?: boolean) => Promise<void>;
   answerCall: (withVideo?: boolean) => Promise<void>;
+  simulateCompanionAnswer: () => void;
   declineCall: () => void;
   endCall: () => void;
   toggleAudio: () => void;
@@ -26,6 +27,8 @@ interface CallContextType {
   toggleScreenShare: () => Promise<void>;
   toggleSpeaker: () => void;
   togglePipMode: () => void;
+  switchCamera: (deviceId?: string) => Promise<void>;
+  getVideoDevices: () => Promise<MediaDeviceInfo[]>;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -48,7 +51,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const durationTimerRef = useRef<any>(null);
   const callPollIntervalRef = useRef<any>(null);
   const activeCallPollRef = useRef<any>(null);
-  const autoAnswerTimeoutRef = useRef<any>(null);
+  const callTimeoutRef = useRef<any>(null);
+  const lastNotifiedCallRoomIdRef = useRef<string | null>(null);
 
   // Initialize WebRTC instance
   useEffect(() => {
@@ -97,18 +101,23 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (!incomingCall || incomingCall.roomId !== first.roomId) {
               setIncomingCall(first);
               soundEffects.startRingtone();
-              notificationService.notify({
-                type: 'call',
-                title: `Incoming ${first.isVideo ? 'Video' : 'Audio'} Call`,
-                body: `${first.callerName} is calling you...`,
-                avatar: first.callerAvatar,
-                playSound: false,
-              });
+              // Only trigger a single notification per incoming call session, not every poll
+              if (lastNotifiedCallRoomIdRef.current !== first.roomId) {
+                lastNotifiedCallRoomIdRef.current = first.roomId;
+                notificationService.notify({
+                  type: 'call',
+                  title: `Incoming ${first.isVideo ? 'Video' : 'Audio'} Call`,
+                  body: `${first.callerName} is calling you...`,
+                  avatar: first.callerAvatar,
+                  playSound: false,
+                });
+              }
             }
           } else if (incomingCall) {
             // Pending call was cancelled or answered elsewhere
             setIncomingCall(null);
             soundEffects.stopRingtone();
+            lastNotifiedCallRoomIdRef.current = null;
           }
         }
       } catch (err) {
@@ -142,6 +151,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (res.ok) {
           const serverSession: CallSession = await res.json();
           if (serverSession.status === 'connected' && activeCall.status === 'calling') {
+            if (callTimeoutRef.current) {
+              clearTimeout(callTimeoutRef.current);
+              callTimeoutRef.current = null;
+            }
             soundEffects.stopRingtone();
             soundEffects.playCallConnected();
             setActiveCall(serverSession);
@@ -174,6 +187,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (type === 'call_accepted') {
         const session: CallSession = payload;
         if (activeCall && activeCall.roomId === session.roomId && activeCall.callerId === user?.id) {
+          if (callTimeoutRef.current) {
+            clearTimeout(callTimeoutRef.current);
+            callTimeoutRef.current = null;
+          }
           soundEffects.stopRingtone();
           soundEffects.playCallConnected();
           setActiveCall((prev) => (prev ? { ...prev, status: 'connected', startedAt: Date.now() } : null));
@@ -209,9 +226,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const handleCallTermination = () => {
-    if (autoAnswerTimeoutRef.current) {
-      clearTimeout(autoAnswerTimeoutRef.current);
-      autoAnswerTimeoutRef.current = null;
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
     }
     stopDurationTimer();
     soundEffects.stopRingtone();
@@ -229,9 +246,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startCall = async (targetUser: UserProfile, isVideo: boolean = true) => {
     if (!user) return;
 
-    if (autoAnswerTimeoutRef.current) {
-      clearTimeout(autoAnswerTimeoutRef.current);
-      autoAnswerTimeoutRef.current = null;
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
     }
 
     const roomId = 'room_' + [user.id, targetUser.id].sort().join('_') + '_' + Date.now();
@@ -272,43 +289,61 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await webrtcRef.current.createPeerConnection(roomId, user.id, true);
     }
 
-    // Contact Companion Connection:
-    // If the call is not answered by another physical browser tab within 2.5 seconds,
-    // the contact automatically answers and establishes active audio/video media.
-    autoAnswerTimeoutRef.current = setTimeout(async () => {
+    // Realistic Ringing Timeout (45 seconds):
+    // Never force auto-connect! If no one answers after 45s, ring times out cleanly.
+    callTimeoutRef.current = setTimeout(() => {
       setActiveCall((current) => {
         if (current && current.roomId === roomId && current.status === 'calling') {
           soundEffects.stopRingtone();
-          soundEffects.playCallConnected();
-          startDurationTimer();
-
-          // Update status on server
+          soundEffects.playCallEnded();
           fetch(`/api/calls/${roomId}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'connected' }),
+            body: JSON.stringify({ status: 'ended' }),
           }).catch(() => {});
-
-          // Generate active remote peer stream (video & audio)
-          if (webrtcRef.current) {
-            const peerStream = webrtcRef.current.generatePeerStream(targetUser.name, targetUser.avatarUrl, isVideo);
-            setRemoteStream(peerStream);
-          }
-
-          return {
-            ...current,
-            status: 'connected',
-            startedAt: Date.now(),
-          };
+          handleCallTermination();
         }
         return current;
       });
-    }, 2400);
+    }, 45000);
+  };
+
+  // Simulate companion answering on-demand if the user wants to test peer connection
+  const simulateCompanionAnswer = () => {
+    if (!activeCall || activeCall.status !== 'calling') return;
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
+
+    const roomId = activeCall.roomId;
+    soundEffects.stopRingtone();
+    soundEffects.playCallConnected();
+    startDurationTimer();
+
+    // Update status on server
+    fetch(`/api/calls/${roomId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'connected' }),
+    }).catch(() => {});
+
+    // Generate active remote peer stream (video & audio)
+    if (webrtcRef.current) {
+      const peerStream = webrtcRef.current.generatePeerStream(activeCall.receiverName, activeCall.receiverAvatar, activeCall.isVideo);
+      setRemoteStream(peerStream);
+    }
+
+    setActiveCall((current) => (current ? { ...current, status: 'connected', startedAt: Date.now() } : null));
   };
 
   // Answer Incoming Call
   const answerCall = async (withVideo: boolean = true) => {
     if (!incomingCall || !user) return;
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
     soundEffects.stopRingtone();
     soundEffects.playCallConnected();
 
@@ -365,6 +400,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // End Call
   const endCall = () => {
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
     soundEffects.stopRingtone();
     soundEffects.playCallEnded();
 
@@ -418,6 +457,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsPipMode((prev) => !prev);
   };
 
+  const switchCamera = useCallback(async (deviceId?: string) => {
+    if (webrtcRef.current) {
+      const updatedStream = await webrtcRef.current.switchCamera(deviceId);
+      if (updatedStream) {
+        setLocalStream(new MediaStream(updatedStream.getTracks()));
+      }
+    }
+  }, []);
+
+  const getVideoDevices = useCallback(async (): Promise<MediaDeviceInfo[]> => {
+    if (webrtcRef.current) {
+      return await webrtcRef.current.getVideoDevices();
+    }
+    return [];
+  }, []);
+
   return (
     <CallContext.Provider
       value={{
@@ -433,6 +488,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isPipMode,
         startCall,
         answerCall,
+        simulateCompanionAnswer,
         declineCall,
         endCall,
         toggleAudio,
@@ -440,6 +496,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleScreenShare,
         toggleSpeaker,
         togglePipMode,
+        switchCamera,
+        getVideoDevices,
       }}
     >
       {children}

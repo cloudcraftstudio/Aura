@@ -16,13 +16,12 @@ class ApiService {
       });
 
       if (!res.ok) {
-        throw new Error(`API Error: ${res.statusText}`);
+        return null;
       }
 
       this.isServerAvailable = true;
       return (await res.json()) as T;
     } catch (err) {
-      console.warn(`Server API call failed for ${endpoint}, using local state fallback`, err);
       this.isServerAvailable = false;
       return null;
     }

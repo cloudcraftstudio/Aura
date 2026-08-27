@@ -36,6 +36,9 @@ export class WebRTCManager {
   private isSpeakerphoneOn: boolean = true;
   private peerAnimFrameId: number | null = null;
   private peerAudioCtx: AudioContext | null = null;
+  private currentFacingMode: 'user' | 'environment' = 'user';
+  private currentDeviceId: string | null = null;
+  private availableVideoDevices: MediaDeviceInfo[] = [];
 
   constructor(config: WebRTCConfig = {}) {
     this.config = config;
@@ -403,6 +406,82 @@ export class WebRTCManager {
   // Toggle Speakerphone audio routing
   public setSpeakerphone(enable: boolean) {
     this.isSpeakerphoneOn = enable;
+  }
+
+  // Get available video input cameras
+  public async getVideoDevices(): Promise<MediaDeviceInfo[]> {
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        this.availableVideoDevices = devices.filter((d) => d.kind === 'videoinput');
+        return this.availableVideoDevices;
+      }
+    } catch (e) {
+      console.warn('Failed to enumerate video devices:', e);
+    }
+    return [];
+  }
+
+  // Switch camera by deviceId or toggle facing mode (front / back / external)
+  public async switchCamera(deviceId?: string): Promise<MediaStream | null> {
+    if (this.isScreenSharing) {
+      return null;
+    }
+
+    try {
+      const devices = await this.getVideoDevices();
+      let videoConstraints: MediaTrackConstraints = {};
+
+      if (deviceId) {
+        this.currentDeviceId = deviceId;
+        videoConstraints = { deviceId: { exact: deviceId } };
+      } else if (devices.length > 1) {
+        // Cycle to next available camera device
+        const currentIndex = devices.findIndex((d) => d.deviceId === this.currentDeviceId);
+        const nextIndex = (currentIndex + 1) % devices.length;
+        this.currentDeviceId = devices[nextIndex].deviceId;
+        videoConstraints = { deviceId: { exact: this.currentDeviceId } };
+      } else {
+        // Toggle facingMode between user and environment
+        this.currentFacingMode = this.currentFacingMode === 'user' ? 'environment' : 'user';
+        videoConstraints = { facingMode: { ideal: this.currentFacingMode } };
+      }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            ...videoConstraints,
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+          },
+          audio: false,
+        });
+
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        if (newVideoTrack) {
+          // Stop old video track
+          if (this.localStream) {
+            this.localStream.getVideoTracks().forEach((t) => t.stop());
+            this.localStream.removeTrack(this.localStream.getVideoTracks()[0]);
+            this.localStream.addTrack(newVideoTrack);
+          } else {
+            this.localStream = new MediaStream([newVideoTrack]);
+          }
+
+          // Replace track in active WebRTC connection
+          this.replaceVideoTrack(newVideoTrack);
+
+          if (this.config.onLocalStream && this.localStream) {
+            this.config.onLocalStream(this.localStream);
+          }
+
+          return this.localStream;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to switch camera:', err);
+    }
+    return this.localStream;
   }
 
   // Create WebRTC Peer Connection with Server + Broadcast Signaling

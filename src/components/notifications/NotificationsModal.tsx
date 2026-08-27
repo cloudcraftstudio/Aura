@@ -63,18 +63,25 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
       markAsRead(notif.id);
     }
 
-    if (notif.type === 'chat' && notif.actionId) {
-      setActiveConversationId(notif.actionId);
-      window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'chat' } }));
-      onClose();
-    } else if (notif.type === 'chat') {
+    if (notif.type === 'chat') {
+      if (notif.actionId) {
+        setActiveConversationId(notif.actionId);
+      }
       window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'chat' } }));
       onClose();
     } else if (notif.type === 'like' || notif.type === 'comment') {
       window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'feed' } }));
+      if (notif.actionId) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('open_post', { detail: { postId: notif.actionId, openComments: notif.type === 'comment' } }));
+        }, 100);
+      }
       onClose();
     } else if (notif.type === 'call') {
       window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'chat' } }));
+      onClose();
+    } else if (notif.type === 'follow' && notif.actionId) {
+      window.dispatchEvent(new CustomEvent('open_user_profile', { detail: { userId: notif.actionId } }));
       onClose();
     }
   };

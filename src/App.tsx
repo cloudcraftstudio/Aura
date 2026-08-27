@@ -149,7 +149,7 @@ function MainApp() {
       <IncomingCallBanner />
 
       {/* Toast Notifications */}
-      <NotificationToastContainer />
+      <NotificationToastContainer onNavigate={(tab) => setActiveTab(tab)} />
 
       {/* Notifications Center Modal */}
       <NotificationsModal isOpen={isNotificationsOpen} onClose={closeNotifications} />

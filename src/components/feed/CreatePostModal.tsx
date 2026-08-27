@@ -350,7 +350,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg m-auto rounded-[32px] bg-[#070a1e]/95 backdrop-blur-2xl border border-white/15 shadow-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-lg m-auto rounded-[32px] bg-[#070a1e]/95 backdrop-blur-2xl border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-full"
       >
         {/* Header with Mode Switch Tabs (Edit vs Live Card Preview) */}
         <div className="px-5 sm:px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.04] flex-shrink-0">

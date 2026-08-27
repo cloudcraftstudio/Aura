@@ -29,8 +29,28 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [isHighlighted, setIsHighlighted] = useState(false);
 
   const isLiked = user ? post.likedByUserIds.includes(user.id) : false;
+
+  React.useEffect(() => {
+    const handleOpenPost = (e: Event) => {
+      const customEvent = e as CustomEvent<{ postId: string; openComments?: boolean }>;
+      if (customEvent.detail?.postId === post.id) {
+        setIsHighlighted(true);
+        if (customEvent.detail.openComments) {
+          setIsCommentsOpen(true);
+        }
+        const el = document.getElementById(`post-card-${post.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setTimeout(() => setIsHighlighted(false), 3000);
+      }
+    };
+    window.addEventListener('open_post', handleOpenPost);
+    return () => window.removeEventListener('open_post', handleOpenPost);
+  }, [post.id]);
 
   const handleLike = () => {
     likePost(post.id);
@@ -60,7 +80,11 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   return (
     <article
       id={`post-card-${post.id}`}
-      className="rounded-[32px] bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl overflow-hidden transition-all hover:border-white/20 mb-6"
+      className={`rounded-[32px] bg-white/5 backdrop-blur-2xl border shadow-2xl overflow-hidden transition-all duration-500 mb-6 ${
+        isHighlighted
+          ? 'border-blue-400/80 shadow-[0_0_35px_rgba(59,130,246,0.35)] ring-2 ring-blue-400/50'
+          : 'border-white/10 hover:border-white/20'
+      }`}
     >
       {/* Author Header */}
       <div className="p-5 flex items-center justify-between">

@@ -76,69 +76,109 @@ class SoundEffectsService {
     }
   }
 
-  // Play lovely like/sparkle chime
-  public playLikeSparkle() {
+  // Play authentic Super Mario Bros Coin Sound (B5 -> E6 with snappy square envelope)
+  public playMarioCoin() {
     try {
       this.initCtx();
       if (!this.ctx) return;
-      const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
-      freqs.forEach((freq, idx) => {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime + idx * 0.04;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.15);
-      });
+      const now = this.ctx.currentTime;
+
+      // Note 1: B5 (987.77 Hz)
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(987.77, now);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.setValueAtTime(0.12, now + 0.06);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.08);
+
+      // Note 2: E6 (1318.51 Hz)
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(1318.51, now + 0.08);
+      gain2.gain.setValueAtTime(0.15, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.42);
+
+      // Gentle haptic feedback on devices with vibration support
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(35);
+        } catch {}
+      }
     } catch (e) {
-      console.warn('Audio play error:', e);
+      console.warn('Mario coin audio error:', e);
     }
   }
 
-  // Start realistic glassmorphism ringing loop for calls
+  // Play lovely like/sparkle chime
+  public playLikeSparkle() {
+    this.playMarioCoin();
+  }
+
+  // Start iconic Super Mario Bros Ringtone Loop & phone vibration
   public startRingtone() {
     this.stopRingtone();
-    const playRingCycle = () => {
+
+    const playMarioRingtoneCycle = () => {
       try {
         this.initCtx();
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
-        // Dual harmonic pleasant ringtone
-        const osc1 = this.ctx.createOscillator();
-        const osc2 = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
 
-        osc1.type = 'sine';
-        osc2.type = 'triangle';
-        osc1.frequency.setValueAtTime(480, now);
-        osc2.frequency.setValueAtTime(640, now);
+        // Vibrate physical phone on Android / mobile devices (Motorola Razr)
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try {
+            navigator.vibrate([180, 80, 180, 80, 280, 100, 350]);
+          } catch {}
+        }
 
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.2, now + 0.2);
-        gain.gain.setValueAtTime(0.2, now + 1.2);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        // Mario Overworld Theme Intro Melody:
+        // E5, E5, rest, E5, rest, C5, E5, rest, G5, rest, G4
+        const melody = [
+          { note: 659.25, start: 0.00, dur: 0.12 }, // E5
+          { note: 659.25, start: 0.15, dur: 0.12 }, // E5
+          { note: 659.25, start: 0.38, dur: 0.12 }, // E5
+          { note: 523.25, start: 0.52, dur: 0.12 }, // C5
+          { note: 659.25, start: 0.66, dur: 0.14 }, // E5
+          { note: 783.99, start: 0.95, dur: 0.22 }, // G5
+          { note: 392.00, start: 1.30, dur: 0.26 }, // G4
+        ];
 
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(this.ctx.destination);
+        melody.forEach(({ note, start, dur }) => {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
 
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + 1.5);
-        osc2.stop(now + 1.5);
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(note, now + start);
+
+          gain.gain.setValueAtTime(0.001, now + start);
+          gain.gain.linearRampToValueAtTime(0.18, now + start + 0.015);
+          gain.gain.setValueAtTime(0.18, now + start + dur - 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now + start);
+          osc.stop(now + start + dur);
+        });
       } catch (e) {
-        console.warn('Ringtone error:', e);
+        console.warn('Super Mario ringtone error:', e);
       }
     };
 
-    playRingCycle();
-    this.ringtoneInterval = setInterval(playRingCycle, 3000);
+    playMarioRingtoneCycle();
+    this.ringtoneInterval = setInterval(playMarioRingtoneCycle, 2800);
   }
 
   public stopRingtone() {
@@ -146,35 +186,60 @@ class SoundEffectsService {
       clearInterval(this.ringtoneInterval);
       this.ringtoneInterval = null;
     }
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(0);
+      } catch {}
+    }
   }
 
-  // Call connected sound
+  // Super Mario 1-Up Connected Sound (E5 -> G5 -> E6 -> C6 -> D6 -> G6)
   public playCallConnected() {
     this.stopRingtone();
     try {
       this.initCtx();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      const freqs = [440, 554.37, 659.25]; // A major chord
-      freqs.forEach((f) => {
+
+      // 1-Up Chime
+      const notes = [
+        { freq: 659.25, start: 0.00, dur: 0.08 }, // E5
+        { freq: 783.99, start: 0.08, dur: 0.08 }, // G5
+        { freq: 1318.51, start: 0.16, dur: 0.08 }, // E6
+        { freq: 1046.50, start: 0.24, dur: 0.08 }, // C6
+        { freq: 1174.66, start: 0.32, dur: 0.08 }, // D6
+        { freq: 1567.98, start: 0.40, dur: 0.22 }, // G6
+      ];
+
+      notes.forEach(({ freq, start, dur }) => {
         if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(f, now);
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + start);
+
+        gain.gain.setValueAtTime(0.14, now + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+
         osc.connect(gain);
         gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.4);
+
+        osc.start(now + start);
+        osc.stop(now + start + dur);
       });
+
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([100, 50, 150]);
+        } catch {}
+      }
     } catch (e) {
       console.warn('Call connected audio error:', e);
     }
   }
 
-  // Call ended sound
+  // Call ended / Mario pipe descent sound
   public playCallEnded() {
     this.stopRingtone();
     try {
@@ -183,15 +248,15 @@ class SoundEffectsService {
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = 'sine';
+      osc.type = 'triangle';
       osc.frequency.setValueAtTime(440, now);
-      osc.frequency.linearRampToValueAtTime(220, now + 0.3);
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.frequency.linearRampToValueAtTime(160, now + 0.35);
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.3);
+      osc.stop(now + 0.35);
     } catch (e) {
       console.warn('Call ended audio error:', e);
     }
