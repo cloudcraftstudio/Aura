@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAsyncMedia } from '../../utils/useAsyncMedia';
 import { X, ChevronLeft, ChevronRight, Download, Share2, ZoomIn, ZoomOut } from 'lucide-react';
 import { soundEffects } from '../../services/audio';
 
@@ -12,6 +13,11 @@ interface ImageLightboxModalProps {
   authorName?: string;
   onClose: () => void;
 }
+
+const AsyncThumbnail: React.FC<{ src: string; alt: string; className: string }> = ({ src, alt, className }) => {
+  const { resolvedSrc } = useAsyncMedia(src);
+  return <img src={resolvedSrc || src} alt={alt} className={className} referrerPolicy="no-referrer" />;
+};
 
 export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   isOpen,
@@ -74,14 +80,15 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleClose, handleNext, handlePrev]);
 
-  if (!isOpen || images.length === 0) return null;
-
   const currentImage = images[currentIndex] || images[0];
+  const { resolvedSrc: currentResolvedSrc } = useAsyncMedia(currentImage || '');
+
+  if (!isOpen || images.length === 0) return null;
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     const link = document.createElement('a');
-    link.href = currentImage;
+    link.href = currentResolvedSrc || currentImage;
     link.download = `aura-photo-${Date.now()}.jpg`;
     link.target = '_blank';
     link.rel = 'noreferrer';
@@ -92,16 +99,17 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    const shareUrl = currentResolvedSrc || currentImage;
     if (navigator.share) {
       try {
         await navigator.share({
           title: authorName ? `Photo by ${authorName}` : 'Photo from Aura',
           text: caption || 'Check out this photo on Aura',
-          url: currentImage,
+          url: shareUrl,
         });
       } catch {}
     } else {
-      navigator.clipboard.writeText(currentImage);
+      navigator.clipboard.writeText(shareUrl);
     }
   };
 
@@ -193,7 +201,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           {/* Current Photo with full display preservation */}
           <motion.img
             key={currentImage}
-            src={currentImage}
+            src={currentResolvedSrc || currentImage}
             alt="Full Preview"
             referrerPolicy="no-referrer"
             initial={{ opacity: 0, scale: 0.96 }}
@@ -246,11 +254,10 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
                       : 'border-transparent opacity-50 hover:opacity-100'
                   }`}
                 >
-                  <img
+                  <AsyncThumbnail
                     src={img}
                     alt={`Thumb ${idx + 1}`}
                     className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
                   />
                 </button>
               ))}
@@ -270,4 +277,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   );
 
   return createPortal(modalContent, document.body);
+};
+
+const ThumbnailImage: React.FC<{ src: string; alt: string; className: string }> = ({ src, alt, className }) => {
+  const { resolvedSrc } = useAsyncMedia(src);
+  return <img src={resolvedSrc} alt={alt} className={className} referrerPolicy="no-referrer" />;
 };
