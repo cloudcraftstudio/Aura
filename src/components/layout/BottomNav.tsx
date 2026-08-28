@@ -1,12 +1,12 @@
 import React from 'react';
-import { Home, MessageSquare, Bookmark, User, PlusCircle, Share2, BookOpen } from 'lucide-react';
+import { Home, MessageSquare, Bookmark, User, PlusCircle, Share2, BookOpen, Sparkles } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 
 interface BottomNavProps {
-  activeTab: 'feed' | 'bible' | 'chat' | 'bookmarks';
-  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'bookmarks') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'studio';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio') => void;
   onOpenProfile: () => void;
   onOpenCreatePost?: () => void;
   onOpenShare?: () => void;
@@ -49,6 +49,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           )}
         </button>
 
+        {/* Bible Tab */}
+        <button
+          id="mobile-tab-bible"
+          onClick={() => setActiveTab('bible')}
+          className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all relative ${
+            activeTab === 'bible'
+              ? 'text-blue-400 font-bold scale-105'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <BookOpen className={`w-5 h-5 ${activeTab === 'bible' ? 'stroke-[2.5px]' : ''}`} />
+          <span className="text-[10px] tracking-tight">Scripture</span>
+          {activeTab === 'bible' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
+          )}
+        </button>
+
         {/* Chats Tab */}
         <button
           id="mobile-tab-chat"
@@ -73,37 +90,22 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           )}
         </button>
 
-        {/* Saved Tab */}
+        {/* Studio Tab */}
         <button
-          id="mobile-tab-bookmarks"
-          onClick={() => setActiveTab('bookmarks')}
+          id="mobile-tab-studio"
+          onClick={() => setActiveTab('studio')}
           className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all relative ${
-            activeTab === 'bookmarks'
+            activeTab === 'studio'
               ? 'text-blue-400 font-bold scale-105'
               : 'text-slate-400 hover:text-white'
           }`}
         >
-          <Bookmark className={`w-5 h-5 ${activeTab === 'bookmarks' ? 'stroke-[2.5px]' : ''}`} />
-          <span className="text-[10px] tracking-tight">Saved</span>
-          {activeTab === 'bookmarks' && (
+          <Sparkles className={`w-5 h-5 ${activeTab === 'studio' ? 'stroke-[2.5px]' : ''}`} />
+          <span className="text-[10px] tracking-tight">Studio</span>
+          {activeTab === 'studio' && (
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
           )}
         </button>
-
-        {/* Share & Invite App Mobile Button */}
-        {onOpenShare && (
-          <button
-            id="mobile-tab-share"
-            onClick={onOpenShare}
-            className="flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl text-blue-400 hover:text-blue-300 transition-all relative"
-            title="Invite & Share App"
-          >
-            <div className="w-5 h-5 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-              <Share2 className="w-3.5 h-3.5 text-blue-400" />
-            </div>
-            <span className="text-[10px] tracking-tight font-semibold">Invite</span>
-          </button>
-        )}
 
         {/* Account / Profile Button */}
         <button

@@ -11,7 +11,10 @@ interface AuthContextType {
   allUsers: UserProfile[];
   loginWithGoogle: (customAccount?: { email: string; name: string; avatarUrl?: string }) => Promise<void>;
   promptGoogleChooser: () => void;
-  loginWithEmail: (email: string, password?: string) => Promise<{ success: boolean; requiresPassword?: boolean; error?: string }>;
+  loginWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string; requiresOtp?: boolean }>;
+  registerWithEmail: (email: string, username: string, password: string, displayName?: string) => Promise<{ success: boolean; error?: string }>;
+  verifyEmailOtp: (email: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  resendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   loginAsUser: (userId: string) => void;
   registerCustomUser: (name: string, email: string, handle: string, avatarUrl?: string, bio?: string, password?: string) => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
@@ -67,6 +70,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
     return saved;
   });
+
+  // Rehydrate user session from JWT token on boot
+  useEffect(() => {
+    const rehydrateSession = async () => {
+      const token = localStorage.getItem('aura_token');
+      if (token) {
+        try {
+          const result = await api.getCurrentUser(token);
+          if (result?.user) {
+            const userProfile: UserProfile = {
+              id: result.user.id,
+              name: result.user.display_name || result.user.username,
+              email: result.user.email,
+              handle: result.user.username,
+              avatarUrl: result.user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${result.user.username}`,
+              status: 'online',
+              statusMessage: 'Active',
+              followersCount: 0,
+              followingCount: 0,
+              isVerified: result.user.is_verified,
+              joinedAt: new Date(result.user.created_at).toISOString().split('T')[0],
+              authProvider: 'email',
+            };
+            setUser(userProfile);
+            setIsServerConnected(true);
+          }
+        } catch (err) {
+          console.warn('Session rehydration failed:', err);
+          localStorage.removeItem('aura_token');
+        }
+      }
+    };
+    rehydrateSession();
+  }, []);
 
   // Fetch all users from server on mount & re-sync active user details
   const fetchUsers = async () => {
@@ -176,45 +213,111 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const loginWithEmail = async (email: string, password?: string): Promise<{ success: boolean; requiresPassword?: boolean; error?: string }> => {
+  const loginWithEmail = async (email: string, password: string): Promise<{ success: boolean; error?: string; requiresOtp?: boolean }> => {
     const cleanEmail = email.trim().toLowerCase();
-    
-    // First verify with server
     try {
-      const serverUser = await api.login(cleanEmail, password);
-      if (serverUser) {
-        setUser(serverUser);
-        setAllUsers((prev) => (prev.some((u) => u.id === serverUser.id) ? prev.map((u) => u.id === serverUser.id ? serverUser : u) : [serverUser, ...prev]));
+      const result = await api.login(cleanEmail, password);
+      if (result?.token && result?.user) {
+        localStorage.setItem('aura_token', result.token);
+        const userProfile: UserProfile = {
+          id: result.user.id,
+          name: result.user.display_name || result.user.username,
+          email: result.user.email,
+          handle: result.user.username,
+          avatarUrl: result.user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${result.user.username}`,
+          status: 'online',
+          statusMessage: 'Active',
+          followersCount: 0,
+          followingCount: 0,
+          isVerified: result.user.is_verified,
+          joinedAt: new Date(result.user.created_at).toISOString().split('T')[0],
+          authProvider: 'email',
+        };
+        setUser(userProfile);
         notificationService.notify({
           type: 'system',
-          title: `Welcome back, ${serverUser.name}`,
-          body: 'Successfully logged into your protected account.',
-          avatar: serverUser.avatarUrl,
+          title: `Welcome back, ${userProfile.name}`,
+          body: 'Successfully logged into your account.',
+          avatar: userProfile.avatarUrl,
           playSound: true,
         });
         return { success: true };
       }
+      return { success: false, error: 'Login failed' };
     } catch (err: any) {
-      console.warn('Login error:', err);
+      return { success: false, error: err.message || 'Login error' };
     }
+  };
 
-    // Check if account exists in server check
-    const check = await api.checkEmail(cleanEmail);
-    if (check?.exists) {
-      if (check.hasPassword && !password) {
-        return { success: false, requiresPassword: true, error: 'Password required for this protected account' };
+  const registerWithEmail = async (email: string, username: string, password: string, displayName?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const result = await api.registerNewUser(email.trim().toLowerCase(), username.toLowerCase(), password, displayName);
+      if (result?.user) {
+        notificationService.notify({
+          type: 'system',
+          title: 'Registration Successful',
+          body: 'Check your email for a 6-digit verification code.',
+          playSound: true,
+        });
+        return { success: true };
       }
-      return { success: false, error: 'Incorrect password or authentication failed.' };
+      return { success: false, error: 'Registration failed' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Registration error' };
     }
+  };
 
-    // Look in offline allUsers cache
-    const existing = allUsers.find((u) => u.email.toLowerCase() === cleanEmail || u.handle.toLowerCase() === cleanEmail);
-    if (existing) {
-      setUser(existing);
-      return { success: true };
+  const verifyEmailOtp = async (email: string, code: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const result = await api.verifyEmail(email.trim().toLowerCase(), code);
+      if (result?.token && result?.user) {
+        localStorage.setItem('aura_token', result.token);
+        const userProfile: UserProfile = {
+          id: result.user.id,
+          name: result.user.display_name || result.user.username,
+          email: result.user.email,
+          handle: result.user.username,
+          avatarUrl: result.user.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${result.user.username}`,
+          status: 'online',
+          statusMessage: 'Active',
+          followersCount: 0,
+          followingCount: 0,
+          isVerified: true,
+          joinedAt: new Date(result.user.created_at).toISOString().split('T')[0],
+          authProvider: 'email',
+        };
+        setUser(userProfile);
+        notificationService.notify({
+          type: 'system',
+          title: 'Email Verified!',
+          body: `Welcome to Aura, ${userProfile.name}!`,
+          avatar: userProfile.avatarUrl,
+          playSound: true,
+        });
+        return { success: true };
+      }
+      return { success: false, error: 'Verification failed' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Verification error' };
     }
+  };
 
-    return { success: false, error: 'No account found with this email. Please create an account.' };
+  const resendOtp = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const result = await api.resendVerificationCode(email.trim().toLowerCase());
+      if (result) {
+        notificationService.notify({
+          type: 'system',
+          title: 'Code Resent',
+          body: 'Check your email for the new verification code.',
+          playSound: false,
+        });
+        return { success: true };
+      }
+      return { success: false, error: 'Failed to resend code' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Resend error' };
+    }
   };
 
   const loginAsUser = (userId: string) => {
@@ -354,6 +457,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    localStorage.removeItem('aura_token');
     setUser(null);
     setIsAuthModalOpen(true);
   };
@@ -370,6 +474,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         promptGoogleChooser,
         loginWithEmail,
+        registerWithEmail,
+        verifyEmailOtp,
+        resendOtp,
         loginAsUser,
         registerCustomUser,
         updateProfile,

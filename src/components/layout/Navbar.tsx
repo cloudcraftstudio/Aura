@@ -26,8 +26,8 @@ import { Avatar } from '../common/Avatar';
 import { UserStatus } from '../../types';
 
 interface NavbarProps {
-  activeTab: 'feed' | 'bible' | 'chat' | 'bookmarks';
-  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'bookmarks') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'studio';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio') => void;
   onOpenProfile: () => void;
   onOpenShare?: () => void;
   onOpenNotifications?: () => void;
@@ -112,6 +112,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
+            id="tab-bible"
+            onClick={() => setActiveTab('bible')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'bible'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Scripture</span>
+          </button>
+
+          <button
             id="tab-chat"
             onClick={() => setActiveTab('chat')}
             className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
@@ -130,16 +143,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            id="tab-bookmarks"
-            onClick={() => setActiveTab('bookmarks')}
+            id="tab-studio"
+            onClick={() => setActiveTab('studio')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'bookmarks'
+              activeTab === 'studio'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
                 : 'text-slate-300 hover:text-white hover:bg-white/5'
             }`}
           >
-            <Bookmark className="w-4 h-4" />
-            <span>Saved</span>
+            <Sparkles className="w-4 h-4" />
+            <span>Studio</span>
           </button>
         </nav>
 

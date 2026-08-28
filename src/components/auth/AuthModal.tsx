@@ -35,12 +35,14 @@ const AVATAR_PRESETS = [
 ];
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signup' }) => {
-  const { promptGoogleChooser, registerCustomUser, loginWithEmail } = useAuth();
+  const { promptGoogleChooser, registerWithEmail, loginWithEmail, verifyEmailOtp, resendOtp } = useAuth();
   const dailyQuote = getDailyQuote();
 
   const [mode, setMode] = useState<'signup' | 'login'>(initialMode);
+  const [screen, setScreen] = useState<'form' | 'otp'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [handle, setHandle] = useState('');
@@ -49,7 +51,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const [customAvatarInput, setCustomAvatarInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [requiresPasswordPrompt, setRequiresPasswordPrompt] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
 
   if (!isOpen) return null;
 
@@ -61,22 +64,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    if (!name.trim() || !email.trim()) return;
-
-    if (!password.trim()) {
-      setErrorMessage('Please set a password to protect your account and posts.');
+    if (!name.trim() || !email.trim() || !username.trim() || !password.trim()) {
+      setErrorMessage('Please fill in all required fields.');
       return;
     }
 
     setIsSubmitting(true);
-    const finalAvatar = customAvatarInput.trim() || avatarUrl;
-    const finalHandle = handle.trim() || name.toLowerCase().replace(/\s+/g, '');
-
     try {
-      await registerCustomUser(name.trim(), email.trim(), finalHandle, finalAvatar, bio.trim(), password.trim());
-      onClose();
+      const result = await registerWithEmail(email.trim(), username.trim(), password.trim(), name.trim());
+      if (result.success) {
+        setOtpEmail(email.trim());
+        setScreen('otp');
+        setOtpCode('');
+      } else {
+        setErrorMessage(result.error || 'Registration failed.');
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed. Please try again.');
+      setErrorMessage(err.message || 'Registration error.');
     } finally {
       setIsSubmitting(false);
     }
@@ -85,21 +89,61 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    if (!email.trim()) return;
+    if (!email.trim() || !password.trim()) {
+      setErrorMessage('Please enter email and password.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
       const result = await loginWithEmail(email.trim(), password.trim());
       if (result.success) {
         onClose();
-      } else if (result.requiresPassword) {
-        setRequiresPasswordPrompt(true);
-        setErrorMessage('This account is password-protected. Please enter your password.');
       } else {
-        setErrorMessage(result.error || 'Login failed. Check your email/password or create an account.');
+        setErrorMessage(result.error || 'Login failed.');
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Login error occurred.');
+      setErrorMessage(err.message || 'Login error.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    if (otpCode.length !== 6) {
+      setErrorMessage('Please enter a 6-digit code.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await verifyEmailOtp(otpEmail, otpCode);
+      if (result.success) {
+        onClose();
+      } else {
+        setErrorMessage(result.error || 'Verification failed.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Verification error.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setErrorMessage(null);
+    setIsSubmitting(true);
+    try {
+      const result = await resendOtp(otpEmail);
+      if (result.success) {
+        setOtpCode('');
+      } else {
+        setErrorMessage(result.error || 'Failed to resend code.');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Resend error.');
     } finally {
       setIsSubmitting(false);
     }
@@ -236,13 +280,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           </div>
         )}
 
-        {mode === 'signup' ? (
+        {screen === 'otp' ? (
+          /* OTP Verification Screen */
+          <form onSubmit={handleOtpSubmit} className="space-y-4">
+            <div className="text-center mb-4">
+              <p className="text-sm text-slate-300 mb-2">
+                Enter the 6-digit code sent to <span className="font-semibold">{otpEmail}</span>
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-2">
+                Verification Code
+              </label>
+              <input
+                type="text"
+                maxLength={6}
+                placeholder="000000"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                className="w-full px-3.5 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-center text-2xl tracking-widest font-mono focus:outline-none focus:border-blue-400"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || otpCode.length !== 6}
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white font-bold text-xs shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{isSubmitting ? 'Verifying...' : 'Verify Email'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={isSubmitting}
+              className="w-full py-2 text-xs text-slate-400 hover:text-blue-400 transition-colors"
+            >
+              Didn't receive code? Resend
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setScreen('form');
+                setOtpCode('');
+                setErrorMessage(null);
+              }}
+              className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors"
+            >
+              Back to Registration
+            </button>
+          </form>
+        ) : mode === 'signup' ? (
           /* Sign Up Form */
           <form onSubmit={handleSignupSubmit} className="space-y-3.5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Full Name / Display Name
+                  Full Name
                 </label>
                 <input
                   type="text"
@@ -256,15 +353,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  Handle / Username
+                  Username
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-slate-500 text-xs">@</span>
                   <input
                     type="text"
+                    required
                     placeholder="alexmorgan"
-                    value={handle}
-                    onChange={(e) => setHandle(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
                     className="w-full pl-7 pr-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
                   />
                 </div>
@@ -285,10 +383,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               />
             </div>
 
-            {/* Account Protection Password */}
             <div>
               <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Account Password (To protect your account)
+                Password
               </label>
               <div className="relative">
                 <input
@@ -309,115 +406,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               </div>
             </div>
 
-            {/* Custom Photo Upload */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Profile Avatar Photo
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Paste image URL or upload photo"
-                  value={customAvatarInput}
-                  onChange={(e) => setCustomAvatarInput(e.target.value)}
-                  className="flex-1 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
-                />
-
-                <label className="cursor-pointer px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-300 hover:text-white flex items-center gap-1.5 transition-all">
-                  <Upload className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Upload</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        try {
-                          const compressed = await compressImage(file, 400, 400, 0.85);
-                          setCustomAvatarInput(compressed);
-                        } catch (err) {
-                          console.warn('Avatar compression error:', err);
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Avatar Presets Selector */}
-            {!customAvatarInput ? (
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-2">
-                  Choose an Avatar Preset
-                </label>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {AVATAR_PRESETS.map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setAvatarUrl(preset)}
-                      className={`relative rounded-full p-0.5 transition-all flex-shrink-0 ${
-                        avatarUrl === preset
-                          ? 'ring-2 ring-blue-500 scale-110'
-                          : 'opacity-70 hover:opacity-100 hover:scale-105'
-                      }`}
-                    >
-                      <img
-                        src={preset}
-                        alt="Avatar Option"
-                        className="w-9 h-9 rounded-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                      {avatarUrl === preset && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 bg-black rounded-full absolute bottom-0 right-0" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/10">
-                <img
-                  src={customAvatarInput}
-                  alt="Custom Avatar Preview"
-                  className="w-10 h-10 rounded-full object-cover border border-white/20"
-                />
-                <div className="flex-1 text-xs">
-                  <p className="font-semibold text-white">Custom photo loaded</p>
-                  <p className="text-[10px] text-emerald-400">Ready to save</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCustomAvatarInput('')}
-                  className="text-xs text-slate-400 hover:text-rose-400 p-1"
-                >
-                  Remove
-                </button>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Bio / Role (Optional)
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Tell others a bit about your passions..."
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400 resize-none"
-              />
-            </div>
-
             <button
               type="submit"
               disabled={isSubmitting}
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all flex items-center justify-center gap-2 mt-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{isSubmitting ? 'Creating Protected Account...' : 'Complete Registration & Save Account'}</span>
+              <span>{isSubmitting ? 'Creating Account...' : 'Create Account'}</span>
             </button>
           </form>
         ) : (
@@ -425,7 +420,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
               <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Your Email Address or Username
+                Email or Username
               </label>
               <input
                 type="text"
@@ -438,20 +433,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-semibold text-slate-400">
-                  Password {requiresPasswordPrompt && <span className="text-rose-400">*Required</span>}
-                </label>
-              </div>
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Password
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your account password"
+                  required
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full pl-3.5 pr-10 py-3 rounded-xl bg-white/5 border ${
-                    requiresPasswordPrompt ? 'border-amber-400/60' : 'border-white/10'
-                  } text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400`}
+                  className="w-full pl-3.5 pr-10 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 text-xs focus:outline-none focus:border-blue-400"
                 />
                 <button
                   type="button"
@@ -469,7 +461,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all flex items-center justify-center gap-2"
             >
               <LogIn className="w-4 h-4" />
-              <span>{isSubmitting ? 'Signing In...' : 'Sign In & Access Account'}</span>
+              <span>{isSubmitting ? 'Signing In...' : 'Sign In'}</span>
             </button>
           </form>
         )}

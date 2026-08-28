@@ -50,6 +50,17 @@ export function extractYouTubeInfo(url: string): { videoId: string; startTime?: 
 }
 
 /**
+ * Returns a youtube-nocookie embed URL for any YouTube URL format
+ * (standard, youtu.be short links, /shorts/ID).
+ */
+export function getYouTubeEmbedUrl(url: string): string | null {
+  const info = extractYouTubeInfo(url);
+  if (!info) return null;
+  const startParam = info.startTime ? `?start=${info.startTime}` : '';
+  return `https://www.youtube-nocookie.com/embed/${info.videoId}${startParam}`;
+}
+
+/**
  * Extracts Vimeo video ID from Vimeo URL formats.
  */
 export function extractVimeoId(url: string): string | null {

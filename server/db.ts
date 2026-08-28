@@ -144,6 +144,61 @@ export interface DBCallSignal {
   timestamp: number;
 }
 
+// ── Bible Study / LMS Models ──────────────────────────────────────────────
+
+export interface DBCourse {
+  id: string;
+  title: string;
+  description: string;
+  track: string; // e.g. 'foundations', 'wisdom', 'prophecy', 'new-testament'
+  lessonIds: string[];
+  createdAt: number;
+}
+
+export interface DBLesson {
+  id: string;
+  courseId: string;
+  title: string;
+  scriptureRef: string; // e.g. "John 3:16"
+  content: string;
+  order: number;
+  quizJson: QuizQuestion[] | null; // optional quiz attached to lesson
+  createdAt: number;
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  answerIndex: number; // 0-based index into options
+}
+
+export interface DBUserProgress {
+  id: string;
+  userId: string;
+  courseId: string;
+  completedLessonIds: string[];
+  currentLessonId: string | null;
+  notes: string; // free-form study notes
+  startedAt: number;
+  lastActivityAt: number;
+}
+
+export interface DBVerseCommentaryCache {
+  id: string;          // normalized ref key, e.g. "john_3_16"
+  scriptureRef: string;
+  commentary: {
+    passageText: string;
+    bookSummary: string;
+    historicalContext: string;
+    thenVsNow: string;
+    dailyApplication: string;
+    closingPrayer: string;
+  };
+  cachedAt: number;
+}
+
+// ── Core DB Schema ─────────────────────────────────────────────────────────
+
 export interface DatabaseSchema {
   users: DBUser[];
   posts: DBPost[];
@@ -525,6 +580,12 @@ class JSONDatabase {
   private dbPath: string;
   private data: DatabaseSchema;
   private saveTimeout: NodeJS.Timeout | null = null;
+
+  // In-memory LMS stores (lightweight, no need to persist to main db.json)
+  private courses: Map<string, DBCourse> = new Map();
+  private lessons: Map<string, DBLesson> = new Map();
+  private userProgress: Map<string, DBUserProgress> = new Map(); // key: userId_courseId
+  private verseCache: Map<string, DBVerseCommentaryCache> = new Map();
 
   constructor() {
     const dataDir = path.join(process.cwd(), 'data');
@@ -1150,7 +1211,155 @@ class JSONDatabase {
     );
   }
 
-  // --- System Operations ---
+  // ── LMS: Courses ────────────────────────────────────────────────────────
+
+  public createCourse(data: Omit<DBCourse, 'id' | 'lessonIds' | 'createdAt'>): DBCourse {
+    const course: DBCourse = {
+      id: `course_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      ...data,
+      lessonIds: [],
+      createdAt: Date.now(),
+    };
+    this.courses.set(course.id, course);
+    return course;
+  }
+
+  public getCourseById(id: string): DBCourse | undefined {
+    return this.courses.get(id);
+  }
+
+  public getAllCourses(): DBCourse[] {
+    return Array.from(this.courses.values());
+  }
+
+  public getCoursesByTrack(track: string): DBCourse[] {
+    return Array.from(this.courses.values()).filter((c) => c.track === track);
+  }
+
+  // ── LMS: Lessons ────────────────────────────────────────────────────────
+
+  public createLesson(data: Omit<DBLesson, 'id' | 'createdAt'>): DBLesson {
+    const lesson: DBLesson = {
+      id: `lesson_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      ...data,
+      createdAt: Date.now(),
+    };
+    this.lessons.set(lesson.id, lesson);
+
+    // Register lesson id on its parent course
+    const course = this.courses.get(lesson.courseId);
+    if (course && !course.lessonIds.includes(lesson.id)) {
+      course.lessonIds.push(lesson.id);
+      // Keep lessons sorted by order
+      course.lessonIds.sort((a, b) => {
+        const la = this.lessons.get(a)?.order ?? 0;
+        const lb = this.lessons.get(b)?.order ?? 0;
+        return la - lb;
+      });
+    }
+    return lesson;
+  }
+
+  public getLessonById(id: string): DBLesson | undefined {
+    return this.lessons.get(id);
+  }
+
+  public getLessonsByCourse(courseId: string): DBLesson[] {
+    return Array.from(this.lessons.values())
+      .filter((l) => l.courseId === courseId)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  // ── LMS: UserProgress ───────────────────────────────────────────────────
+
+  private progressKey(userId: string, courseId: string): string {
+    return `${userId}::${courseId}`;
+  }
+
+  public getOrCreateProgress(userId: string, courseId: string): DBUserProgress {
+    const key = this.progressKey(userId, courseId);
+    const existing = this.userProgress.get(key);
+    if (existing) return existing;
+
+    const course = this.courses.get(courseId);
+    const firstLessonId = course?.lessonIds[0] ?? null;
+    const progress: DBUserProgress = {
+      id: `prog_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      userId,
+      courseId,
+      completedLessonIds: [],
+      currentLessonId: firstLessonId,
+      notes: '',
+      startedAt: Date.now(),
+      lastActivityAt: Date.now(),
+    };
+    this.userProgress.set(key, progress);
+    return progress;
+  }
+
+  public getProgressForUser(userId: string): DBUserProgress[] {
+    return Array.from(this.userProgress.values()).filter((p) => p.userId === userId);
+  }
+
+  public completeLesson(userId: string, courseId: string, lessonId: string): DBUserProgress | null {
+    const key = this.progressKey(userId, courseId);
+    const progress = this.userProgress.get(key);
+    if (!progress) return null;
+
+    if (!progress.completedLessonIds.includes(lessonId)) {
+      progress.completedLessonIds.push(lessonId);
+    }
+
+    // Advance currentLessonId to the next uncompleted lesson
+    const course = this.courses.get(courseId);
+    if (course) {
+      const next = course.lessonIds.find((id) => !progress.completedLessonIds.includes(id));
+      progress.currentLessonId = next ?? null;
+    }
+
+    progress.lastActivityAt = Date.now();
+    return progress;
+  }
+
+  public updateNotes(userId: string, courseId: string, notes: string): DBUserProgress | null {
+    const key = this.progressKey(userId, courseId);
+    const progress = this.userProgress.get(key);
+    if (!progress) return null;
+    progress.notes = notes;
+    progress.lastActivityAt = Date.now();
+    return progress;
+  }
+
+  // ── LMS: VerseCommentaryCache ────────────────────────────────────────────
+
+  /** Normalise a scripture ref to a stable cache key, e.g. "John 3:16" → "john_3_16" */
+  public static cacheKey(scriptureRef: string): string {
+    return scriptureRef.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  }
+
+  public getCachedCommentary(scriptureRef: string): DBVerseCommentaryCache | undefined {
+    return this.verseCache.get(JSONDatabase.cacheKey(scriptureRef));
+  }
+
+  public setCachedCommentary(
+    scriptureRef: string,
+    commentary: DBVerseCommentaryCache['commentary']
+  ): DBVerseCommentaryCache {
+    const entry: DBVerseCommentaryCache = {
+      id: JSONDatabase.cacheKey(scriptureRef),
+      scriptureRef,
+      commentary,
+      cachedAt: Date.now(),
+    };
+    this.verseCache.set(entry.id, entry);
+    return entry;
+  }
+
+  public getAllCachedCommentaries(): DBVerseCommentaryCache[] {
+    return Array.from(this.verseCache.values());
+  }
+
+  // ── System Operations ────────────────────────────────────────────────────
   public getSystemStats() {
     return {
       usersCount: this.data.users.length,

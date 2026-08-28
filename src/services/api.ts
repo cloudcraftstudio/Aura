@@ -50,11 +50,44 @@ class ApiService {
     });
   }
 
-  public async login(emailOrUserId: string, password?: string): Promise<UserProfile | null> {
-    const isEmail = emailOrUserId.includes('@');
-    return this.request<UserProfile>('/auth/login', {
+  public async login(emailOrUsername: string, password: string): Promise<{ token: string; user: any } | null> {
+    return this.request<{ token: string; user: any }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(isEmail ? { email: emailOrUserId, password } : { userId: emailOrUserId, password }),
+      body: JSON.stringify({ emailOrUsername, password }),
+    });
+  }
+
+  public async registerNewUser(email: string, username: string, password: string, displayName?: string): Promise<{ user: any } | null> {
+    return this.request<{ user: any }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, username, password, displayName }),
+    });
+  }
+
+  public async verifyEmail(email: string, code: string): Promise<{ token: string; user: any } | null> {
+    return this.request<{ token: string; user: any }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  }
+
+  public async resendVerificationCode(email: string): Promise<{ message: string } | null> {
+    return this.request<{ message: string }>('/auth/resend-code', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  public async getCurrentUser(token: string): Promise<{ user: any } | null> {
+    return this.request<{ user: any }>('/auth/me', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+
+  public async logout(): Promise<{ message: string } | null> {
+    return this.request<{ message: string }>('/auth/logout', {
+      method: 'POST',
     });
   }
 
