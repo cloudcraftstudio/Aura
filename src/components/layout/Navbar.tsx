@@ -16,13 +16,16 @@ import {
   Share2,
   Smartphone,
   Sliders,
+  SunMedium,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { usePermissions } from '../../context/PermissionsContext';
 import { notificationService } from '../../services/notifications';
+import { soundEffects } from '../../services/audio';
 import { Avatar } from '../common/Avatar';
+import { DailyMotivationModal } from '../feed/DailyMotivationModal';
 import { UserStatus } from '../../types';
 
 interface NavbarProps {
@@ -54,6 +57,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   } = usePermissions();
 
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
+  const [isMotivationOpen, setIsMotivationOpen] = useState(false);
+
+  React.useEffect(() => {
+    const handleOpenMotivation = () => setIsMotivationOpen(true);
+    window.addEventListener('open_daily_motivation', handleOpenMotivation);
+    return () => window.removeEventListener('open_daily_motivation', handleOpenMotivation);
+  }, []);
 
   const totalUnreadChats = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
   const isAllAllowed = cameraStatus === 'granted' && micStatus === 'granted' && notificationStatus === 'granted';
@@ -253,6 +263,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </div>
 
+          {/* Daily Motivation Word & Inspiration Toggle Button */}
+          <button
+            id="daily-motivation-nav-btn"
+            onClick={() => {
+              soundEffects.playLikeSparkle();
+              setIsMotivationOpen((prev) => !prev);
+            }}
+            className={`p-2 sm:px-2.5 sm:py-1.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95 ${
+              isMotivationOpen
+                ? 'bg-amber-500/25 text-amber-300 border-amber-400/50 shadow-amber-500/20'
+                : 'bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 text-amber-300 hover:text-amber-200 border-amber-500/30'
+            }`}
+            title="Daily Inspiration & Motivational Word for Today"
+          >
+            <SunMedium className="w-3.5 h-3.5 text-amber-400 animate-spin-slow" />
+            <span className="hidden lg:inline font-bold">Daily Word</span>
+          </button>
+
           {/* Notifications Center Bell Button */}
           <button
             id="notifications-bell-btn"
@@ -289,6 +317,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       </div>
+
+      {/* Daily Motivation Word Toggle Modal */}
+      <DailyMotivationModal
+        isOpen={isMotivationOpen}
+        onClose={() => setIsMotivationOpen(false)}
+      />
     </header>
   );
 };

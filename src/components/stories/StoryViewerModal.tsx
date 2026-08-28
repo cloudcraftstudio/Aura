@@ -21,6 +21,31 @@ import { useChat } from '../../context/ChatContext';
 import { Avatar } from '../common/Avatar';
 import { soundEffects } from '../../services/audio';
 import { notificationService } from '../../services/notifications';
+import { useAsyncMedia } from '../../utils/useAsyncMedia';
+
+const StorySlideMedia: React.FC<{
+  src: string;
+  alt: string;
+  onError: () => void;
+}> = ({ src, alt, onError }) => {
+  const { resolvedSrc, error } = useAsyncMedia(src);
+
+  useEffect(() => {
+    if (error) onError();
+  }, [error, onError]);
+
+  if (!resolvedSrc || error) return null;
+
+  return (
+    <img
+      src={resolvedSrc}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      onError={onError}
+      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+    />
+  );
+};
 
 interface StoryViewerModalProps {
   initialStoryIndex?: number;
@@ -458,12 +483,10 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
       >
         {/* Story Visual Media / Background Image */}
         {!imageError && activeSlide.mediaUrl ? (
-          <img
+          <StorySlideMedia
             src={activeSlide.mediaUrl}
             alt={currentStory.userName}
-            referrerPolicy="no-referrer"
             onError={() => setImageError(true)}
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
           />
         ) : (
           <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-950 via-indigo-900 to-purple-950 flex flex-col items-center justify-center p-8 text-center pointer-events-none">

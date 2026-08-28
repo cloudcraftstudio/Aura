@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, Image as ImageIcon, Video, Compass, Share2, QrCode } from 'lucide-react';
 import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
@@ -6,7 +6,6 @@ import { StoriesReel } from '../stories/StoriesReel';
 import { ActiveUsersBar } from './ActiveUsersBar';
 import { PostCard } from './PostCard';
 import { CreatePostModal, POST_CATEGORIES } from './CreatePostModal';
-import { DailyMotivationalCard } from './DailyMotivationalCard';
 import { Avatar } from '../common/Avatar';
 
 const TAG_FILTERS = ['All', ...POST_CATEGORIES];
@@ -20,16 +19,25 @@ export const SocialFeed: React.FC = () => {
   const [initialPostContent, setInitialPostContent] = useState('');
   const [initialPostTags, setInitialPostTags] = useState('');
 
+  useEffect(() => {
+    const handleOpenCreatePost = (e: Event) => {
+      const customEvent = e as CustomEvent<{ content?: string; tags?: string }>;
+      if (customEvent.detail?.content) {
+        setInitialPostContent(customEvent.detail.content);
+      }
+      if (customEvent.detail?.tags) {
+        setInitialPostTags(customEvent.detail.tags);
+      }
+      setIsCreateModalOpen(true);
+    };
+    window.addEventListener('open_create_post', handleOpenCreatePost);
+    return () => window.removeEventListener('open_create_post', handleOpenCreatePost);
+  }, []);
+
   const filteredPosts = posts.filter((post) => {
     if (activeFilter === 'All') return true;
     return post.tags.some((t) => t.toLowerCase() === activeFilter.toLowerCase());
   });
-
-  const handleShareQuoteToFeed = (quoteText: string, author: string) => {
-    setInitialPostContent(`“${quoteText}”\n\n— ${author}`);
-    setInitialPostTags('Inspiration, Spiritual');
-    setIsCreateModalOpen(true);
-  };
 
   const handleOpenCreateModal = (presetCategory?: string) => {
     setInitialPostContent('');
@@ -38,81 +46,69 @@ export const SocialFeed: React.FC = () => {
   };
 
   return (
-    <div id="social-feed-view" className="w-full max-w-2xl mx-auto py-6 px-4">
-      {/* 24-Hour Ephemeral Stories Reel */}
+    <div id="social-feed-view" className="w-full max-w-2xl mx-auto py-4 sm:py-6 px-3 sm:px-4">
+      {/* 24-Hour Ephemeral Stories Reel - Facebook-style rich card layout */}
       <StoriesReel />
 
       {/* Real-time Active Online Members Bar */}
       <ActiveUsersBar />
 
-      {/* Daily Motivational Quote - Displayed to all users and changes daily */}
-      <DailyMotivationalCard onShareToFeed={handleShareQuoteToFeed} />
-
-      {/* Quick Create Post Trigger Card */}
+      {/* Quick Create Post Trigger Card (Facebook-style composer) */}
       <div
         id="quick-post-card"
-        className="rounded-[32px] bg-white/5 backdrop-blur-2xl border border-white/10 p-5 mb-6 shadow-2xl"
+        className="rounded-2xl bg-[#0b0f24]/90 backdrop-blur-xl border border-white/10 p-3.5 sm:p-4 mb-4 shadow-lg"
       >
         <div className="flex items-center gap-3">
           {user && <Avatar src={user.avatarUrl} name={user.name} size="md" />}
           <button
             onClick={() => handleOpenCreateModal()}
-            className="flex-1 text-left px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 text-sm transition-all flex items-center justify-between"
+            className="flex-1 text-left px-4 py-2.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 text-xs sm:text-sm transition-all flex items-center justify-between"
           >
-            <span>What's on your mind? Share photos or thoughts...</span>
+            <span>What's on your mind?</span>
             <Sparkles className="w-4 h-4 text-blue-400" />
           </button>
         </div>
 
-        <div className="flex items-center justify-between mt-4 pt-3.5 border-t border-white/5 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleOpenCreateModal('Photography')}
-              className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-blue-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
-            >
-              <ImageIcon className="w-4 h-4 text-blue-400" />
-              <span>Share Photo</span>
-            </button>
-
-            <button
-              onClick={() => handleOpenCreateModal()}
-              className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-300 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-purple-500/10 hover:from-amber-500/20 hover:to-purple-500/20 border border-amber-500/20 transition-all"
-            >
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Preset Cards</span>
-            </button>
-
-            <button
-              onClick={() => handleOpenCreateModal()}
-              className="flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-emerald-400 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
-            >
-              <Video className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">Camera Capture</span>
-              <span className="sm:hidden">Camera</span>
-            </button>
-          </div>
+        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/5 gap-1">
+          <button
+            onClick={() => handleOpenCreateModal('Photography')}
+            className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:text-blue-400 py-1.5 rounded-lg hover:bg-white/5 transition-all"
+          >
+            <ImageIcon className="w-4 h-4 text-emerald-400" />
+            <span>Photo</span>
+          </button>
 
           <button
             onClick={() => handleOpenCreateModal()}
-            className="px-4 py-1.5 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 text-xs font-bold shadow-lg transition-transform hover:scale-105"
+            className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:text-amber-300 py-1.5 rounded-lg hover:bg-white/5 transition-all"
           >
-            Post
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Cards & Quotes</span>
+            <span className="sm:hidden">Cards</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenCreateModal()}
+            className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:text-purple-400 py-1.5 rounded-lg hover:bg-white/5 transition-all"
+          >
+            <Video className="w-4 h-4 text-rose-400" />
+            <span>Camera</span>
           </button>
         </div>
       </div>
 
       {/* Filter Chips */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none mb-3">
-        <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-400 flex items-center justify-center flex-shrink-0">
+      <div className="flex items-center gap-2 overflow-x-auto pb-3 scrollbar-none mb-2">
+        <div className="p-1.5 rounded-xl bg-white/5 border border-white/10 text-slate-400 flex items-center justify-center flex-shrink-0">
           <Compass className="w-3.5 h-3.5" />
         </div>
         {TAG_FILTERS.map((tag) => (
           <button
             key={tag}
             onClick={() => setActiveFilter(tag)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
+            className={`px-3.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all flex-shrink-0 ${
               activeFilter === tag
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25 border border-blue-400/30'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-400/30'
                 : 'bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white'
             }`}
           >
@@ -122,7 +118,7 @@ export const SocialFeed: React.FC = () => {
       </div>
 
       {/* Feed Posts Stream */}
-      <div className="space-y-6">
+      <div className="space-y-4">
         {filteredPosts.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}
