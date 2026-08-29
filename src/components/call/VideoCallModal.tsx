@@ -31,6 +31,19 @@ import { useCall } from '../../context/CallContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 
+
+const CALLING_CARDS = [
+  "/cards/callingcard1.jpeg",
+  "/cards/callingcard2.jpeg",
+  "/cards/callingcard3.jpeg",
+  "/cards/callingcard4.jpeg",
+  "/cards/callingcard5.jpg",
+  "/cards/callingcard6.jpg",
+  "/cards/callingcard7.jpg",
+  "/cards/callingcard8.jpg",
+  "/cards/callingcard9.jpg"
+];
+
 export const VideoCallModal: React.FC = () => {
   const { user } = useAuth();
   const {
@@ -55,6 +68,16 @@ export const VideoCallModal: React.FC = () => {
   } = useCall();
 
   // View state controls
+  
+  const [activeCard, setActiveCard] = useState<string>(CALLING_CARDS[0]);
+
+  useEffect(() => {
+    if (activeCall?.roomId || activeCall?.id) {
+      const stored = parseInt(localStorage.getItem("aura_last_card_idx") || "0", 10);
+      setActiveCard(CALLING_CARDS[stored % CALLING_CARDS.length]);
+    }
+  }, [activeCall?.roomId, activeCall?.id]);
+
   const [layoutMode, setLayoutMode] = useState<'spotlight' | 'grid'>('spotlight');
   const [isViewSwapped, setIsViewSwapped] = useState(false); // false = Remote on Big Stage, Local on Floating Inset
   const [isSelfViewMinimized, setIsSelfViewMinimized] = useState(false);
@@ -353,39 +376,56 @@ export const VideoCallModal: React.FC = () => {
                     transform: isViewSwapped && isMirrored && !isScreenSharing ? 'scaleX(-1)' : 'none',
                   }}
                 />
-              ) : isConnected ? (
-                // Audio-Only connected state
-                <div className="flex flex-col items-center gap-4 text-center p-6">
-                  <div className="relative">
-                    <Avatar src={peerAvatar} name={peerName} size="2xl" />
-                    <div className="absolute -inset-2 rounded-full border-2 border-emerald-400/40 animate-ping pointer-events-none" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl sm:text-2xl font-bold text-white">{peerName}</h4>
-                    <p className="text-xs sm:text-sm text-emerald-400 mt-1 font-semibold flex items-center justify-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      Voice Call Active &bull; {formatTimer(callDuration)}
-                    </p>
-                  </div>
-                </div>
               ) : (
-                // Outgoing Ringing State with Calling Card
-                <div className="flex flex-col items-center gap-5 text-center p-6 max-w-sm">
-                  <div className="relative">
-                    <Avatar src={peerAvatar} name={peerName} size="2xl" />
-                    <span className="absolute -inset-4 rounded-full border-2 border-blue-400/40 animate-ping pointer-events-none" />
-                    <span className="absolute -inset-8 rounded-full border border-cyan-400/20 animate-pulse pointer-events-none" />
+                // Rotating Calling Card Stage (Audio Connected & Outgoing Ringing)
+                <div className="relative w-full h-full flex flex-col items-center justify-between p-6 overflow-hidden">
+                  {/* Full-bleed card background */}
+                  <div
+                    className="absolute inset-0 z-0 bg-center bg-cover bg-no-repeat transition-all duration-700"
+                    style={{ backgroundImage: `url(${activeCard})` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/30 to-black/90" />
+                    <div className="absolute inset-0 bg-radial-at-c from-transparent via-black/10 to-black/60" />
                   </div>
-                  <div>
-                    <h4 className="text-xl sm:text-2xl font-bold text-white">{peerName}</h4>
-                    <p className="text-xs sm:text-sm text-blue-400 mt-1 font-medium flex items-center justify-center gap-1.5">
-                      <PhoneCall className="w-4 h-4 animate-bounce text-amber-400" />
-                      Ringing with Super Mario Tone...
-                    </p>
-                    <p className="text-xs text-slate-400 mt-2">
-                      Waiting for {peerName} to answer.
+
+                  {/* Top Calling Status */}
+                  <div className="relative z-10 pt-4 flex flex-col items-center text-center">
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-black/50 border border-white/20 backdrop-blur-md mb-4">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-[11px] font-semibold tracking-wider text-amber-200 uppercase">
+                        {isConnected ? "Secure Connection Live" : "Calling..."}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Center Caller Badge */}
+                  <div className="relative z-10 flex flex-col items-center text-center">
+                    <div className="relative mb-3">
+                      <div className="absolute -inset-2 rounded-full border-2 border-amber-400/50 animate-ping pointer-events-none" />
+                      <div className="relative rounded-full ring-4 ring-amber-400/80 shadow-[0_0_35px_rgba(251,191,36,0.4)] overflow-hidden">
+                        <Avatar src={peerAvatar} name={peerName} size="2xl" />
+                      </div>
+                    </div>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)]">
+                      {peerName}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-emerald-300 mt-1 font-semibold flex items-center justify-center gap-1.5 drop-shadow">
+                      {isConnected ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          Voice Call Active &bull; {formatTimer(callDuration)}
+                        </>
+                      ) : (
+                        <>
+                          <PhoneCall className="w-3.5 h-3.5 animate-bounce text-amber-400" />
+                          Ringing...
+                        </>
+                      )}
                     </p>
                   </div>
+
+                  {/* Spacer to preserve bottom controls clearance */}
+                  <div className="relative z-10 h-12" />
                 </div>
               )}
 
