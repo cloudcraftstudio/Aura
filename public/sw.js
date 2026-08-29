@@ -1,5 +1,5 @@
 // Aura PWA Service Worker for Offline Caching and Push Notifications
-const CACHE_NAME = 'aura-pwa-v1';
+const CACHE_NAME = 'aura-pwa-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -74,12 +74,44 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  // Incoming Call Push Event
+  if (data.type === 'CALL_INCOMING' || data.action === 'incoming_call') {
+    const isVideo = data.isVideo !== false;
+    const callOptions = {
+      body: data.body || `${data.callerName || 'Someone'} is calling you on Aura...`,
+      icon: data.callerAvatar || data.icon || '/icons/icon-192.svg',
+      badge: '/icons/icon-192.svg',
+      tag: data.roomId ? `call_${data.roomId}` : 'incoming_call',
+      renotify: true,
+      requireInteraction: true,
+      silent: false,
+      vibrate: [500, 250, 500, 250, 1000, 300, 1000, 300, 1000],
+      actions: [
+        { action: 'answer', title: '📞 Answer' },
+        { action: 'decline', title: '❌ Decline' }
+      ],
+      data: {
+        url: data.url || `/?action=answer_call&roomId=${encodeURIComponent(data.roomId || '')}&callerId=${encodeURIComponent(data.callerId || '')}&isVideo=${isVideo}`,
+        roomId: data.roomId
+      }
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(
+        data.title || `📞 Incoming ${isVideo ? 'Video' : 'Audio'} Call`,
+        callOptions
+      )
+    );
+    return;
+  }
+
+  // Standard Notification Event
   const options = {
-    body: data.body,
+    body: data.body || 'New message on Aura',
     icon: data.icon || '/icons/icon-192.svg',
     badge: '/icons/icon-192.svg',
     vibrate: [200, 100, 200],
-    data: data.actionId || '/',
+    data: { url: data.url || data.actionId || '/' },
     actions: [
       { action: 'open', title: 'Open Aura' },
       { action: 'dismiss', title: 'Dismiss' }
@@ -87,21 +119,32 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification(data.title || 'Aura', options)
   );
 });
 
+// Notification Click & Action Router
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+
+  if (event.action === 'decline') {
+    return;
+  }
+
+  const targetUrl = event.notification.data?.url || '/';
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
+          if ('navigate' in client) {
+            client.navigate(targetUrl);
+          }
           return client.focus();
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow('/');
+        return self.clients.openWindow(targetUrl);
       }
     })
   );

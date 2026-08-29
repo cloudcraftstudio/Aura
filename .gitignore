@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 .aider*
+*.db-wal
+*.db-shm
+*.bak*
