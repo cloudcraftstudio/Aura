@@ -7,7 +7,7 @@ export interface UserProfile {
   email: string;
   avatarUrl: string;
   bannerUrl?: string;
-  bio: string;
+  bio?: string;
   status: UserStatus;
   statusMessage?: string;
   followersCount: number;

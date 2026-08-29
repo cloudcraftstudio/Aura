@@ -45,7 +45,7 @@ function MainApp() {
 
   React.useEffect(() => {
     const handleTabNav = (e: Event) => {
-      const customEvent = e as CustomEvent<{ tab: 'feed' | 'bible' | 'chat' | 'bookmarks' }>;
+      const customEvent = e as CustomEvent<{ tab: 'feed' | 'bible' | 'chat' | 'studio' }>;
       if (customEvent.detail?.tab) {
         setActiveTab(customEvent.detail.tab);
       }
@@ -171,6 +171,11 @@ function MainApp() {
           onOpenShare={() => {
             setIsProfileOpen(false);
             handleOpenShareModal('general');
+          }}
+          onStudyPassage={(ref) => {
+            setIsProfileOpen(false);
+            setActiveTab('bible');
+            window.dispatchEvent(new CustomEvent('navigate_bible_study', { detail: { reference: ref } }));
           }}
         />
       )}

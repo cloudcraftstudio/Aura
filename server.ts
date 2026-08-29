@@ -343,7 +343,7 @@ async function startServer() {
         : `You are AI Tutor King James, well versed on anything about the Bible. The user wants a study on: "${topic}". Use the King James Version (KJV) for all scripture references. Provide a full summary, historical context (who wrote it, time period, target audience), Hebrew/Greek bites (real definitions for context), comparison to now, how to apply it day-to-day, and a prayer.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.7-flash',
         contents: promptString,
         config: {
           responseMimeType: 'application/json',
@@ -407,7 +407,7 @@ async function startServer() {
       const prompt = `Read the following Bible passage with a wise, majestic, and authoritative voice, like King James himself: ${text}`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.1-flash-tts-preview",
         contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseModalities: ["AUDIO"],

@@ -148,16 +148,16 @@ export const StoriesReel: React.FC = () => {
 
   return (
     <div id="stories-reel" className="w-full mb-6 select-none">
-      <div className="flex items-center gap-2.5 sm:gap-3.5 overflow-x-auto pb-2 scrollbar-none py-1 px-0.5">
+      <div className="flex items-center gap-2.5 sm:gap-3.5 overflow-x-auto pt-1 pb-4 scrollbar-none px-1">
         {/* Facebook-style 'Create a story' Card */}
         <div
           id="create-story-card"
           onClick={() => setIsAddingStory(true)}
-          className="w-[110px] sm:w-[124px] h-[178px] sm:h-[195px] rounded-2xl overflow-hidden relative bg-[#090d20] border border-white/15 hover:border-blue-400/50 flex-shrink-0 cursor-pointer group shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02] transition-all duration-300 flex flex-col justify-between"
+          className="w-[114px] sm:w-[130px] h-[184px] sm:h-[200px] rounded-2xl overflow-hidden relative bg-[#090d20] border border-white/15 hover:border-blue-400/50 flex-shrink-0 cursor-pointer group shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02] transition-all duration-300 flex flex-col justify-between"
           title="Create a new 24-hour story"
         >
           {/* Top User Photo / Avatar Area */}
-          <div className="w-full h-[122px] sm:h-[134px] overflow-hidden relative bg-gradient-to-b from-blue-900/40 via-indigo-950/60 to-[#090d20] flex items-center justify-center">
+          <div className="w-full h-[124px] sm:h-[136px] overflow-hidden relative bg-gradient-to-b from-blue-900/40 via-indigo-950/60 to-[#090d20] flex items-center justify-center">
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
@@ -174,7 +174,7 @@ export const StoriesReel: React.FC = () => {
           </div>
 
           {/* Bottom Card Footer with Overlapping Circular Plus Button */}
-          <div className="flex-1 bg-[#070a1a] relative flex flex-col items-center justify-end pb-2 sm:pb-2.5 pt-3.5 px-1.5 border-t border-white/10">
+          <div className="flex-1 bg-[#070a1a] relative flex flex-col items-center justify-end pb-3 sm:pb-3.5 pt-3.5 px-1.5 border-t border-white/10">
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-blue-600 group-hover:bg-blue-500 text-white flex items-center justify-center shadow-lg border-[3px] border-[#070a1a] transition-transform group-hover:scale-110 active:scale-95">
               <Plus className="w-4 h-4 stroke-[3]" />
             </div>
@@ -196,7 +196,7 @@ export const StoriesReel: React.FC = () => {
               key="my-active-story"
               id="my-active-story-card"
               onClick={() => setSelectedStoryIndex(myStoryIndex)}
-              className="w-[110px] sm:w-[124px] h-[178px] sm:h-[195px] rounded-2xl overflow-hidden relative bg-slate-950 border-2 border-blue-500/80 hover:border-blue-400 flex-shrink-0 cursor-pointer group shadow-xl hover:shadow-blue-500/30 hover:scale-[1.02] transition-all duration-300"
+              className="w-[114px] sm:w-[130px] h-[184px] sm:h-[200px] rounded-2xl overflow-hidden relative bg-slate-950 border-2 border-blue-500/80 hover:border-blue-400 flex-shrink-0 cursor-pointer group shadow-xl hover:shadow-blue-500/30 hover:scale-[1.02] transition-all duration-300"
               title="Click to view your active story"
             >
               {/* Story Visual Media */}
@@ -233,11 +233,11 @@ export const StoriesReel: React.FC = () => {
               </button>
 
               {/* Bottom Scrim & Name */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent pt-12 pb-2.5 px-2.5 pointer-events-none z-10">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent pt-12 pb-3.5 px-2.5 pointer-events-none z-10">
                 <p className="text-xs font-bold text-white leading-tight drop-shadow-md">
                   Your Story
                 </p>
-                <span className="text-[9px] text-blue-300 font-semibold">
+                <span className="text-[9px] text-blue-300 font-semibold block mt-0.5">
                   {myStory.slides?.length || 1} {(myStory.slides?.length || 1) === 1 ? 'slide' : 'slides'}
                 </span>
               </div>
@@ -261,7 +261,7 @@ export const StoriesReel: React.FC = () => {
               key={story.id}
               id={`story-item-${story.id}`}
               onClick={() => setSelectedStoryIndex(index)}
-              className={`w-[110px] sm:w-[124px] h-[178px] sm:h-[195px] rounded-2xl overflow-hidden relative bg-slate-950 flex-shrink-0 cursor-pointer group shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02] transition-all duration-300 ${
+              className={`w-[114px] sm:w-[130px] h-[184px] sm:h-[200px] rounded-2xl overflow-hidden relative bg-slate-950 flex-shrink-0 cursor-pointer group shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02] transition-all duration-300 ${
                 isSeen
                   ? 'border border-white/15 hover:border-white/30'
                   : 'border-2 border-blue-500/80 hover:border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
@@ -298,7 +298,7 @@ export const StoriesReel: React.FC = () => {
               </div>
 
               {/* Bottom Scrim with Author Name */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent pt-12 pb-2.5 px-2.5 pointer-events-none z-10">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent pt-12 pb-3.5 px-2.5 pointer-events-none z-10">
                 <p className="text-xs font-bold text-white leading-tight drop-shadow-md line-clamp-2">
                   {story.userName}
                 </p>

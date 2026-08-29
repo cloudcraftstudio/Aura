@@ -216,4 +216,38 @@ export class BibleStudyDB {
     const stmt = this.db.prepare('SELECT * FROM sermons_podcasts WHERE series LIKE ? ORDER BY dateRecorded DESC');
     return stmt.all(`%${series}%`) as Sermon[];
   }
+
+  getSermonById(id: string): Sermon | null {
+    const stmt = this.db.prepare('SELECT * FROM sermons_podcasts WHERE id = ?');
+    return stmt.get(id) as Sermon | null;
+  }
+
+  updateSermon(id: string, updates: Partial<Sermon>): Sermon | null {
+    const existing = this.getSermonById(id);
+    if (!existing) return null;
+
+    const title = updates.title !== undefined ? updates.title : existing.title;
+    const speaker = updates.speaker !== undefined ? updates.speaker : existing.speaker;
+    const series = updates.series !== undefined ? updates.series : existing.series;
+    const scriptureRef = updates.scriptureRef !== undefined ? updates.scriptureRef : existing.scriptureRef;
+    const description = updates.description !== undefined ? updates.description : existing.description;
+    const mediaType = updates.mediaType !== undefined ? updates.mediaType : existing.mediaType;
+    const mediaUrl = updates.mediaUrl !== undefined ? updates.mediaUrl : existing.mediaUrl;
+    const duration = updates.duration !== undefined ? updates.duration : existing.duration;
+    const dateRecorded = updates.dateRecorded !== undefined ? updates.dateRecorded : existing.dateRecorded;
+    const courseLessonId = updates.courseLessonId !== undefined ? updates.courseLessonId : existing.courseLessonId;
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(
+      'UPDATE sermons_podcasts SET title = ?, speaker = ?, series = ?, scriptureRef = ?, description = ?, mediaType = ?, mediaUrl = ?, duration = ?, dateRecorded = ?, courseLessonId = ?, updatedAt = ? WHERE id = ?'
+    );
+    stmt.run(title, speaker || null, series || null, scriptureRef || null, description || null, mediaType || null, mediaUrl || null, duration || null, dateRecorded || null, courseLessonId || null, now, id);
+
+    return this.getSermonById(id);
+  }
+
+  deleteSermon(id: string): boolean {
+    const result = this.db.prepare('DELETE FROM sermons_podcasts WHERE id = ?').run(id);
+    return result.changes > 0;
+  }
 }

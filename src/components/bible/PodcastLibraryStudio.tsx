@@ -85,13 +85,17 @@ export function PodcastLibraryStudio({ courses }: { courses: Course[] }) {
       formData.append('scriptureRef', sermon.scriptureRef);
       formData.append('description', sermon.description);
 
-      const res = await fetch('/api/bible/sermons', {
+      const res = await fetch('/api/bible/media/upload', {
         method: 'POST',
         body: formData
       });
 
       if (res.ok) {
+        const data = await res.json();
         setSermons(prev => prev.filter(s => s.id !== sermon.id));
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        console.error('Upload failed:', errData);
       }
     } catch (error) {
       console.error('Upload failed:', error);

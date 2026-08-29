@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   Sliders,
   ChevronRight,
+  Heart,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../context/PermissionsContext';
@@ -28,11 +30,13 @@ import { Avatar } from '../common/Avatar';
 import { soundEffects } from '../../services/audio';
 import { compressImage } from '../../utils/imageCompressor';
 import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
+import { GospelTract } from './GospelTract';
 
 interface UserProfileModalProps {
   onClose: () => void;
   onTriggerMatrixSplash?: () => void;
   onOpenShare?: () => void;
+  onStudyPassage?: (ref: string) => void;
 }
 
 const AVATAR_PRESETS = [
@@ -50,6 +54,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onTriggerMatrixSplash,
   onOpenShare,
+  onStudyPassage,
 }) => {
   const { user, updateProfile, logout, openAuthModal } = useAuth();
   const {
@@ -62,6 +67,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     openSaveToHomeModal,
   } = usePermissions();
 
+  const [activeTab, setActiveTab] = useState<'profile' | 'gospel' | 'permissions'>('profile');
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [handle, setHandle] = useState(user?.handle || '');
@@ -219,9 +225,34 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       <div className="w-full max-w-xl m-auto rounded-3xl bg-[#090d22]/95 backdrop-blur-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-white">
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5 flex-shrink-0">
-          <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-            <User className="w-4 h-4 text-blue-400" /> Account Settings & Profile Card
-          </h3>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+              {activeTab === 'gospel' ? (
+                <Heart className="w-4 h-4 text-rose-400" />
+              ) : activeTab === 'permissions' ? (
+                <Sliders className="w-4 h-4 text-indigo-400" />
+              ) : (
+                <User className="w-4 h-4 text-blue-400" />
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-white leading-tight">
+                {activeTab === 'gospel'
+                  ? 'Gospel Tract • Plan of Salvation'
+                  : activeTab === 'permissions'
+                  ? 'Device Permissions & System'
+                  : 'Account Settings & Profile'}
+              </h3>
+              <p className="text-[10px] text-slate-400">
+                {activeTab === 'gospel'
+                  ? 'Discover eternal life in Jesus Christ & share the Good News'
+                  : activeTab === 'permissions'
+                  ? 'Manage camera, mic, alerts & home screen install'
+                  : 'Customize your Christian persona, cover banner & identity'}
+              </p>
+            </div>
+          </div>
+
           <button
             onClick={() => {
               stopCamera();
@@ -233,7 +264,162 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </button>
         </div>
 
-        {user ? (
+        {/* Modal Navigation Tabs */}
+        <div className="px-4 py-2 border-b border-white/10 bg-[#06091d] flex items-center gap-2 flex-shrink-0 overflow-x-auto scrollbar-none">
+          <button
+            type="button"
+            onClick={() => {
+              soundEffects.playTap();
+              setActiveTab('profile');
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'profile'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-400/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>Profile & Appearance</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              soundEffects.playTap();
+              setActiveTab('gospel');
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap relative ${
+              activeTab === 'gospel'
+                ? 'bg-gradient-to-r from-rose-600 to-indigo-600 text-white shadow-md shadow-rose-500/25 border border-rose-400/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <Heart className="w-3.5 h-3.5 fill-current text-rose-300" />
+            <span>Gospel Tract</span>
+            <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full bg-rose-500/40 text-rose-200 uppercase tracking-tight">
+              Good News
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              soundEffects.playTap();
+              setActiveTab('permissions');
+            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'permissions'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/25 border border-indigo-400/40'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Device & Permissions</span>
+          </button>
+        </div>
+
+        {/* Tab 1: Gospel Tract View */}
+        {activeTab === 'gospel' ? (
+          <div className="p-5 sm:p-6 overflow-y-auto flex-1 scrollbar-thin">
+            <GospelTract
+              onStudyPassage={(ref) => {
+                onClose();
+                onStudyPassage?.(ref);
+              }}
+            />
+          </div>
+        ) : activeTab === 'permissions' ? (
+          /* Tab 3: Device Permissions View */
+          <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 scrollbar-thin">
+            {/* Device Permissions & PWA App Card */}
+            <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs font-bold text-white">App Permissions & Device Access</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    openPermissionsModal();
+                  }}
+                  className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                >
+                  <span>Open Full Manager</span>
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-[11px]">
+                <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center text-center gap-1.5">
+                  <Video className="w-5 h-5 text-blue-400" />
+                  <span className="text-[10px] text-slate-300 font-medium">Camera</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${cameraStatus === 'granted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
+                    {cameraStatus === 'granted' ? 'Allowed' : 'Prompt'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center text-center gap-1.5">
+                  <Mic className="w-5 h-5 text-indigo-400" />
+                  <span className="text-[10px] text-slate-300 font-medium">Microphone</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${micStatus === 'granted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
+                    {micStatus === 'granted' ? 'Allowed' : 'Prompt'}
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-black/40 border border-white/10 flex flex-col items-center justify-center text-center gap-1.5">
+                  <Bell className="w-5 h-5 text-amber-400" />
+                  <span className="text-[10px] text-slate-300 font-medium">Notifications</span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${notificationStatus === 'granted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
+                    {notificationStatus === 'granted' ? 'Allowed' : 'Prompt'}
+                  </span>
+                </div>
+
+                <div
+                  onClick={() => {
+                    stopCamera();
+                    openSaveToHomeModal();
+                  }}
+                  className="p-3 rounded-xl bg-purple-950/30 border border-purple-500/30 flex flex-col items-center justify-center text-center gap-1.5 cursor-pointer hover:bg-purple-900/40 transition-colors"
+                >
+                  <Smartphone className="w-5 h-5 text-purple-400" />
+                  <span className="text-[10px] text-purple-200 font-medium">Home App</span>
+                  <span className="text-[9px] font-bold text-purple-300 underline">
+                    {isStandalone || pwaStatus === 'installed' ? 'Installed' : 'Install PWA'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Matrix Digital Rain Splash Trigger */}
+            {onTriggerMatrixSplash && (
+              <div className="p-4 rounded-2xl bg-black/40 border border-emerald-500/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+                    <span>Visual Matrix Rain Splash</span>
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  Experience the full-screen cyberpunk Matrix digital rain transition animation with green code drops.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    onClose();
+                    onTriggerMatrixSplash();
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Launch Matrix Digital Splash Screen</span>
+                </button>
+              </div>
+            )}
+          </div>
+        ) : user ? (
           <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 scrollbar-thin">
               {/* Live Preview Card */}

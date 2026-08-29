@@ -7,7 +7,7 @@ import { Avatar } from '../common/Avatar';
 import { useChat } from '../../context/ChatContext';
 
 interface NotificationToastContainerProps {
-  onNavigate?: (tab: 'feed' | 'chat' | 'bookmarks') => void;
+  onNavigate?: (tab: 'feed' | 'bible' | 'chat' | 'studio') => void;
 }
 
 export const NotificationToastContainer: React.FC<NotificationToastContainerProps> = ({ onNavigate }) => {
