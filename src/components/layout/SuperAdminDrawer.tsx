@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  X, 
+  X, Sun, 
   Sparkles, 
   BookOpen, 
   Heart, 
@@ -9,7 +9,8 @@ import {
   Share2, 
   LogOut, 
   Flame, 
-  MessageSquare
+  MessageSquare,
+  Play
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
@@ -131,11 +132,72 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
             </button>
 
             <button
-              onClick={() => handleAction(() => onNavigateTab?.('bible'))}
+              onClick={() => handleAction(() => {
+                try {
+                  localStorage.setItem('aura_study_initial_tab', 'study');
+                } catch {}
+                onNavigateTab?.('bible');
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'study' } }));
+                }, 50);
+              })}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
+            >
+              <div className="flex items-center gap-2.5">
+                <BookOpen className="w-4 h-4 text-emerald-400" />
+                <span>Holy Bible</span>
+              </div>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                KJV
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                onNavigateTab('devotional');
+                onClose();
+              }}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sun className="w-4 h-4 text-amber-400" />
+                <span>Daily Devotional</span>
+              </div>
+            </button>
+            <button
+              onClick={() =>
+                handleAction(() => {
+                  try {
+                    localStorage.setItem('aura_study_initial_tab', 'courses');
+                  } catch {}
+                  onNavigateTab?.('bible');
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'courses' } }));
+                  }, 50);
+                })
+              }
               className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
             >
-              <BookOpen className="w-4 h-4 text-emerald-400" />
-              <span>Scriptures, Sermons & Courses</span>
+              <BookOpen className="w-4 h-4 text-blue-400" />
+              <span>Courses</span>
+            </button>
+
+            <button
+              onClick={() =>
+                handleAction(() => {
+                  try {
+                    localStorage.setItem('aura_study_initial_tab', 'podcasts');
+                  } catch {}
+                  onNavigateTab?.('bible');
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'podcasts' } }));
+                  }, 50);
+                })
+              }
+              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
+            >
+              <Play className="w-4 h-4 text-purple-400" />
+              <span>Podcasts & Sermons</span>
             </button>
 
             <button

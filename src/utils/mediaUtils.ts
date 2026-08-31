@@ -150,22 +150,40 @@ export function extractVideosFromText(text: string): ExtractedVideo[] {
  * Parses plain text into formatted tokens containing plain strings and clickable links.
  */
 export interface TextToken {
-  type: 'text' | 'link' | 'mention' | 'hashtag';
+  type: 'text' | 'link' | 'mention' | 'hashtag' | 'bible-ref';
   value: string;
   url?: string;
 }
 
+const BIBLE_BOOKS = [
+  "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua", "Judges", "Ruth", 
+  "1 Samuel", "2 Samuel", "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra", 
+  "Nehemiah", "Esther", "Job", "Psalms", "Psalm", "Proverbs", "Ecclesiastes", "Song of Solomon", 
+  "Isaiah", "Jeremiah", "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel", "Amos", "Obadiah", 
+  "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah", "Haggai", "Zechariah", "Malachi", 
+  "Matthew", "Mark", "Luke", "John", "Acts", "Romans", "1 Corinthians", "2 Corinthians", 
+  "Galatians", "Ephesians", "Philippians", "Colossians", "1 Thessalonians", "2 Thessalonians", 
+  "1 Timothy", "2 Timothy", "Titus", "Philemon", "Hebrews", "James", "1 Peter", "2 Peter", 
+  "1 John", "2 John", "3 John", "Jude", "Revelation"
+];
+
+const BIBLE_TOPICS = ["Jesus", "Christ", "Holy Spirit", "God", "Bible"];
+
 export function parseRichText(text: string): TextToken[] {
   if (!text) return [];
 
-  // Match URLs, @mentions, and #hashtags
-  const tokenRegex = /(https?:\/\/[^\s]+|@[a-zA-Z0-9_]+|#[a-zA-Z0-9_]+)/g;
+  const standardPattern = `https?:\\/\\/[^\\s]+|@[a-zA-Z0-9_]+|#[a-zA-Z0-9_]+`;
+  const bookPattern = BIBLE_BOOKS.join("|");
+  const versePattern = `\\b(?:${bookPattern})\\s+\\d+:\\d+(?:-\\d+)?\\b`;
+  const topicPattern = `\\b(?:${BIBLE_TOPICS.join("|")})\\b`;
+
+  const tokenRegex = new RegExp(`(${standardPattern}|${versePattern}|${topicPattern})`, 'gi');
+
   const tokens: TextToken[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = tokenRegex.exec(text)) !== null) {
-    // Add text preceding the match
     if (match.index > lastIndex) {
       tokens.push({
         type: 'text',
@@ -175,7 +193,6 @@ export function parseRichText(text: string): TextToken[] {
 
     const matchedStr = match[0];
     if (matchedStr.startsWith('http://') || matchedStr.startsWith('https://')) {
-      // Clean trailing punctuation
       const cleanUrl = matchedStr.replace(/[.,;:!?)]+$/, '');
       const trailing = matchedStr.slice(cleanUrl.length);
 
@@ -199,6 +216,11 @@ export function parseRichText(text: string): TextToken[] {
     } else if (matchedStr.startsWith('#')) {
       tokens.push({
         type: 'hashtag',
+        value: matchedStr,
+      });
+    } else {
+      tokens.push({
+        type: 'bible-ref',
         value: matchedStr,
       });
     }

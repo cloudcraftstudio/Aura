@@ -7,7 +7,7 @@ import { Avatar } from '../common/Avatar';
 import { useChat } from '../../context/ChatContext';
 
 interface NotificationToastContainerProps {
-  onNavigate?: (tab: 'feed' | 'bible' | 'chat' | 'studio') => void;
+  onNavigate?: (tab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional') => void;
 }
 
 export const NotificationToastContainer: React.FC<NotificationToastContainerProps> = ({ onNavigate }) => {
@@ -32,32 +32,27 @@ export const NotificationToastContainer: React.FC<NotificationToastContainerProp
   const handleToastClick = (toast: AppNotification) => {
     if (toast.type === 'chat') {
       if (toast.actionId) {
-        // If actionId matches a conversation ID
         setActiveConversationId(toast.actionId);
       }
       window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'chat' } }));
-      if (onNavigate) {
-        onNavigate('chat');
-      }
+      if (onNavigate) onNavigate('chat');
     } else if (toast.type === 'call') {
       window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'chat' } }));
-      if (onNavigate) {
-        onNavigate('chat');
-      }
+      if (onNavigate) onNavigate('chat');
     } else if (toast.type === 'like' || toast.type === 'comment') {
       window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'feed' } }));
-      if (onNavigate) {
-        onNavigate('feed');
-      }
+      if (onNavigate) onNavigate('feed');
       if (toast.actionId) {
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('open_post', { detail: { postId: toast.actionId, openComments: toast.type === 'comment' } }));
         }, 100);
       }
+    } else if (toast.type === 'system' && toast.actionId === 'devotional-nav') {
+      window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'devotional' } }));
+      if (onNavigate) onNavigate('devotional');
     } else {
-      if (onNavigate) {
-        onNavigate('feed');
-      }
+      window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'feed' } }));
+      if (onNavigate) onNavigate('feed');
     }
     removeToast(toast.id);
   };

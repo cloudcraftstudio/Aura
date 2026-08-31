@@ -53,7 +53,7 @@ export function BibleStudy() {
         return 'prayers';
       }
     } catch {}
-    return 'courses';
+    return 'study';
   });
   const [courses, setCourses] = useState<Course[]>([]);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
@@ -100,9 +100,29 @@ export function BibleStudy() {
       }
     };
 
+    const handleNavigateBibleStudy = (e: Event) => {
+      const customEvent = e as CustomEvent<{ reference: string }>;
+      const reference = customEvent.detail?.reference;
+      if (reference) {
+        const match = reference.match(/^(\d?\s*[A-Za-z\s]+?)\s+(\d+):(\d+)/);
+        if (match) {
+          const book = match[1].trim();
+          const chapter = match[2];
+          const verse = match[3];
+          setSelectedBook(book);
+          setSelectedChapter(chapter);
+          setSelectedVerse(verse);
+          setActiveTab('study');
+        }
+      }
+    };
+
     window.addEventListener('switch_study_tab', handleSwitchStudyTab);
+    window.addEventListener('navigate_bible_study', handleNavigateBibleStudy);
+    
     return () => {
       window.removeEventListener('switch_study_tab', handleSwitchStudyTab);
+      window.removeEventListener('navigate_bible_study', handleNavigateBibleStudy);
     };
   }, []);
 
@@ -255,6 +275,17 @@ export function BibleStudy() {
       {/* Tab Navigation */}
       <div className="flex gap-4 mb-6 border-b border-blue-500/30 overflow-x-auto">
         <button
+          onClick={() => setActiveTab('study')}
+          className={`pb-3 px-4 font-semibold transition-colors whitespace-nowrap ${
+            activeTab === 'study'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <Sparkles className="inline mr-2 w-5 h-5" />
+          Bible
+        </button>
+        <button
           onClick={() => setActiveTab('courses')}
           className={`pb-3 px-4 font-semibold transition-colors whitespace-nowrap ${
             activeTab === 'courses'
@@ -265,18 +296,6 @@ export function BibleStudy() {
           <BookOpen className="inline mr-2 w-5 h-5" />
           Courses
         </button>
-        <button
-          onClick={() => setActiveTab('study')}
-          className={`pb-3 px-4 font-semibold transition-colors whitespace-nowrap ${
-            activeTab === 'study'
-              ? 'text-blue-400 border-b-2 border-blue-400'
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          <Sparkles className="inline mr-2 w-5 h-5" />
-          Study
-        </button>
-
         <button
           onClick={() => setActiveTab('podcasts')}
           className={`pb-3 px-4 font-semibold transition-colors whitespace-nowrap ${

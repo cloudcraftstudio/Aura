@@ -38,6 +38,7 @@ import { VideoEmbed } from '../common/VideoEmbed';
 import { RichTextRenderer } from '../common/RichTextRenderer';
 import { notificationService } from '../../services/notifications';
 import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
+import { UnsplashSearch } from '../common/UnsplashSearch';
 
 interface CreatePostModalProps {
   onClose: () => void;
@@ -268,7 +269,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             await mediaCache.saveMedia(id, file);
             setMediaUrls((prev) => [...prev, `localmedia://video/${id}`]);
           } else {
-            const compressedUrl = await compressImage(file, 1200, 1200, 0.85);
+            const compressedUrl = await compressImage(file, 800, 800, 0.6);
             setMediaUrls((prev) => [...prev, compressedUrl]);
           }
         } catch (err) {
@@ -714,42 +715,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </div>
               )}
 
-              {/* Curated Gallery Quick Selector */}
+              {/* Unsplash Gallery Quick Selector */}
               <div>
-                <p className="text-xs font-medium text-slate-400 mb-2">
-                  Or select aesthetic preset images:
-                </p>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                  {CURATED_IMAGES.map((img, i) => {
-                    const isAttached = mediaUrls.includes(img);
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => {
-                          soundEffects.playTap();
-                          setMediaUrls((prev) =>
-                            prev.includes(img) ? prev.filter((u) => u !== img) : [...prev, img]
-                          );
-                        }}
-                        className={`w-14 h-14 rounded-xl flex-shrink-0 overflow-hidden border cursor-pointer transition-all hover:scale-105 relative ${
-                          isAttached ? 'border-blue-400 ring-2 ring-blue-500/50' : 'border-white/10 hover:border-blue-400'
-                        }`}
-                      >
-                        <img
-                          src={img}
-                          alt="preset"
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                        {isAttached && (
-                          <div className="absolute inset-0 bg-blue-600/40 flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white font-bold" />
-                          </div>
-                        )}
-                      </div>
+                <UnsplashSearch
+                  onSelect={(url) => {
+                    soundEffects.playTap();
+                    setMediaUrls((prev) =>
+                      prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]
                     );
-                  })}
-                </div>
+                  }}
+                  placeholder="Search Unsplash for an image..."
+                />
               </div>
 
               {/* Additional Tags and Location */}

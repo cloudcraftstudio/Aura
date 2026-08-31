@@ -37,7 +37,7 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (p) =>
         p &&
         !['user_alex', 'user_maya', 'user_liam', 'user_elena'].includes(p.authorId) &&
-        !p.id.startsWith('post_')
+        !['post_1', 'post_2', 'post_3'].includes(p.id)
     );
   });
 
@@ -47,7 +47,7 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       (s) =>
         s &&
         !['user_alex', 'user_maya', 'user_liam', 'user_elena'].includes(s.userId) &&
-        !s.id.startsWith('story_')
+        !['story_1', 'story_2', 'story_3'].includes(s.id)
     );
   });
 

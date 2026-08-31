@@ -2,6 +2,7 @@ import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { parseRichText, extractVideosFromText } from '../../utils/mediaUtils';
 import { VideoEmbed } from './VideoEmbed';
+import { BiblePopover } from './BiblePopover';
 
 interface RichTextRendererProps {
   content: string;
@@ -80,6 +81,14 @@ export const RichTextRenderer: React.FC<RichTextRendererProps> = ({
               >
                 {token.value}
               </span>
+            );
+          }
+
+          if (token.type === 'bible-ref') {
+            return (
+              <BiblePopover key={idx} reference={token.value}>
+                {token.value}
+              </BiblePopover>
             );
           }
 

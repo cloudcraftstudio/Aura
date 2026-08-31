@@ -13,6 +13,7 @@ import { useSocial } from '../../context/SocialContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { StoryViewerModal } from './StoryViewerModal';
+import { UnsplashSearch } from '../common/UnsplashSearch';
 import { soundEffects } from '../../services/audio';
 import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 import { useAsyncMedia } from '../../utils/useAsyncMedia';
@@ -451,31 +452,15 @@ export const StoriesReel: React.FC = () => {
                 />
               </div>
 
-              {/* Presets */}
+              {/* Unsplash Search */}
               <div>
-                <p className="text-[11px] text-slate-400 mb-1.5 font-medium">Or choose a Christian Art preset:</p>
-                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-40 overflow-y-auto pr-1">
-                  {PRESET_STORY_IMAGES.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        soundEffects.playTap();
-                        setStoryImageUrl(item.url);
-                      }}
-                      className={`aspect-square rounded-xl overflow-hidden border cursor-pointer transition-all relative group ${
-                        storyImageUrl === item.url
-                          ? 'border-blue-400 ring-2 ring-blue-500/40 scale-105'
-                          : 'border-white/10 hover:border-white/40 opacity-75 hover:opacity-100'
-                      }`}
-                      title={item.name}
-                    >
-                      <img src={item.url} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      <div className="absolute inset-x-0 bottom-0 bg-black/75 px-1 py-0.5 text-[8px] text-white truncate text-center">
-                        {item.name}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <UnsplashSearch
+                  onSelect={(url) => {
+                    soundEffects.playTap();
+                    setStoryImageUrl(url);
+                  }}
+                  placeholder="Search Unsplash for an image..."
+                />
               </div>
 
               {/* Caption */}
@@ -515,7 +500,7 @@ export const StoriesReel: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={!storyImageUrl && PRESET_STORY_IMAGES.length === 0}
+                  disabled={!storyImageUrl}
                   className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-500/25 border border-blue-400/30 transition-all hover:scale-105"
                 >
                   Post Story

@@ -31,6 +31,7 @@ import { soundEffects } from '../../services/audio';
 import { compressImage } from '../../utils/imageCompressor';
 import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 import { GospelTract } from './GospelTract';
+import { UnsplashSearch } from '../common/UnsplashSearch';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -101,7 +102,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const processBannerFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
     try {
-      const compressed = await compressImage(file, 1200, 500, 0.85);
+      const compressed = await compressImage(file, 1200, 500, 0.7);
       soundEffects.playTap();
       setBannerUrl(compressed);
     } catch (e) {
@@ -492,46 +493,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   </button>
                 </div>
 
-                {/* Preset Banner Themes */}
+                {/* Unsplash Search */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-slate-300">Choose from {COVER_BANNER_PRESETS.length} Christian Preset Covers:</p>
-                    <span className="text-[10px] text-blue-400 font-medium">Instant One-Click Apply</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-56 overflow-y-auto pr-1">
-                    {COVER_BANNER_PRESETS.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          soundEffects.playTap();
-                          setBannerUrl(preset.url);
-                        }}
-                        className={`group relative h-16 rounded-xl overflow-hidden border-2 transition-all text-left flex flex-col justify-end p-1.5 ${
-                          bannerUrl === preset.url
-                            ? 'border-blue-400 ring-2 ring-blue-500/40 scale-[1.02] shadow-lg shadow-blue-500/20'
-                            : 'border-white/10 opacity-75 hover:opacity-100 hover:border-white/30'
-                        }`}
-                        title={preset.name}
-                      >
-                        <img
-                          src={preset.url}
-                          alt={preset.name}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
-                        <div className="relative z-10">
-                          <p className="text-[10px] font-bold text-white leading-tight truncate drop-shadow">
-                            {preset.name}
-                          </p>
-                          <p className="text-[8px] text-slate-300 leading-tight truncate">
-                            {preset.subtitle}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                  <UnsplashSearch
+                    onSelect={(url) => {
+                      soundEffects.playTap();
+                      setBannerUrl(url);
+                    }}
+                    placeholder="Search for a cover image..."
+                  />
                 </div>
               </div>
 

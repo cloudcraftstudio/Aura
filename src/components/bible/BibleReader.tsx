@@ -225,6 +225,39 @@ export function BibleReader({
     fetchChapter(selectedBook, selectedChapter);
   }, [selectedBook, selectedChapter]);
 
+  // Listen for navigation events
+  useEffect(() => {
+    const handleNavigateBible = (e: Event) => {
+      const customEvent = e as CustomEvent<{ reference: string }>;
+      const reference = customEvent.detail?.reference;
+      if (reference) {
+        const match = reference.match(/^(\d?\s*[A-Za-z\s]+?)\s+(\d+):(\d+)/);
+        if (match) {
+          const book = match[1].trim();
+          const chapter = match[2];
+          const verse = match[3];
+          setSelectedBook(book);
+          setSelectedChapter(chapter);
+          setSelectedVerse(verse);
+        }
+      }
+    };
+    window.addEventListener('navigate_bible_study', handleNavigateBible);
+    return () => window.removeEventListener('navigate_bible_study', handleNavigateBible);
+  }, []);
+
+  // Auto-scroll to selected verse when chapter loads or verse changes
+  useEffect(() => {
+    if (chapterData && selectedVerse) {
+      setTimeout(() => {
+        const el = document.getElementById(`verse-${selectedVerse}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+    }
+  }, [chapterData, selectedVerse]);
+
   // Navigate to previous chapter
   const handlePrevChapter = () => {
     const ch = parseInt(selectedChapter, 10);

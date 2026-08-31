@@ -90,7 +90,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   return (
     <article
       id={`post-card-${post.id}`}
-      className={`rounded-2xl bg-[#0b0f24]/90 backdrop-blur-xl border shadow-lg overflow-hidden transition-all duration-300 mb-4 ${
+      className={`rounded-2xl bg-[#0b0f24]/90 backdrop-blur-xl border shadow-lg transition-all duration-300 mb-4 ${
         isHighlighted
           ? 'border-blue-400/80 shadow-[0_0_30px_rgba(59,130,246,0.3)] ring-2 ring-blue-400/50'
           : 'border-white/10 hover:border-white/20'

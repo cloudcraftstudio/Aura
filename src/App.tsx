@@ -11,6 +11,8 @@ import { SocialFeed } from './components/feed/SocialFeed';
 import { ChatView } from './components/chat/ChatView';
 import { BookmarksView } from './components/bookmarks/BookmarksView';
 import { BibleStudy } from './components/bible/BibleStudy';
+import { DailyDevotionalTab } from './components/devotional/DailyDevotional';
+import { useDevotionalNotifications } from './hooks/useDevotionalNotifications';
 import { CourseStudio } from './components/bible/CourseStudio';
 import { VideoCallModal } from './components/call/VideoCallModal';
 import { IncomingCallBanner } from './components/call/IncomingCallBanner';
@@ -27,7 +29,8 @@ import { SaveToHomeModal } from './components/permissions/SaveToHomeModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 function MainApp() {
-  const [activeTab, setActiveTab] = useState<'feed' | 'bible' | 'chat' | 'studio'>('feed');
+  useDevotionalNotifications();
+  const [activeTab, setActiveTab] = useState<'feed' | 'bible' | 'chat' | 'studio' | 'devotional'>('feed');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -135,6 +138,7 @@ function MainApp() {
       >
         {activeTab === 'feed' && <SocialFeed />}
         {activeTab === 'bible' && <BibleStudy />}
+        {activeTab === 'devotional' && <DailyDevotionalTab />}
         {activeTab === 'chat' && <ChatView />}
         {activeTab === 'studio' && <CourseStudio />}
       </main>

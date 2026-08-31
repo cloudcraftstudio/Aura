@@ -506,7 +506,7 @@ export const StoryViewerModal: React.FC<StoryViewerModalProps> = ({
         <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/15 to-black/90 pointer-events-none" />
 
         {/* Top Header with Progress Bars and User Info */}
-        <div className="relative z-30 p-4 pt-3 space-y-3 pointer-events-auto">
+        <div className="relative z-30 p-4 pt-safe sm:pt-6 space-y-3 pointer-events-auto mt-2">
           {/* Segmented Progress Bars (one for each slide of current user) */}
           <div className="flex items-center gap-1.5 w-full">
             {slides.map((slide, idx) => (

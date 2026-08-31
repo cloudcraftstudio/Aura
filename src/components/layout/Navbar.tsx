@@ -30,8 +30,8 @@ import { DailyMotivationModal } from '../feed/DailyMotivationModal';
 import { UserStatus } from '../../types';
 
 interface NavbarProps {
-  activeTab: 'feed' | 'bible' | 'chat' | 'studio';
-  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional') => void;
   onOpenProfile: () => void;
   onOpenShare?: () => void;
   onOpenNotifications?: () => void;
@@ -138,7 +138,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span>Scripture</span>
+            <span>Holy Bible</span>
           </button>
 
           <button

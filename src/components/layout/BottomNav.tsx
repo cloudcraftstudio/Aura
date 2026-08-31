@@ -1,12 +1,12 @@
 import React from 'react';
-import { Home, MessageSquare, Bookmark, User, PlusCircle, Share2, BookOpen, Sparkles } from 'lucide-react';
+import { Home, Sun, MessageSquare, Bookmark, User, PlusCircle, Share2, BookOpen, Sparkles } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 
 interface BottomNavProps {
-  activeTab: 'feed' | 'bible' | 'chat' | 'studio';
-  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional') => void;
   onOpenProfile: () => void;
   onOpenCreatePost?: () => void;
   onOpenShare?: () => void;
@@ -54,6 +54,22 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           )}
         </button>
 
+        {/* Devotional Tab */}
+        <button
+          id="mobile-tab-devotional"
+          onClick={() => setActiveTab('devotional')}
+          className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all relative ${
+            activeTab === 'devotional'
+              ? 'text-amber-400 font-bold scale-105'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Sun className={`w-5 h-5 ${activeTab === 'devotional' ? 'stroke-[2.5px]' : ''}`} />
+          <span className="text-[10px] tracking-tight">Daily</span>
+          {activeTab === 'devotional' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 absolute -bottom-0.5" />
+          )}
+        </button>
         {/* Bible Tab */}
         <button
           id="mobile-tab-bible"
@@ -65,7 +81,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           }`}
         >
           <BookOpen className={`w-5 h-5 ${activeTab === 'bible' ? 'stroke-[2.5px]' : ''}`} />
-          <span className="text-[10px] tracking-tight">Scripture</span>
+          <span className="text-[10px] tracking-tight">Holy Bible</span>
           {activeTab === 'bible' && (
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
           )}

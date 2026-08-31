@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit3, Edit2, Trash2, Play, Loader, Video, Music } from 'lucide-react';
 import { LiveSermonStudio } from './LiveSermonStudio';
 import { PodcastLibraryStudio } from './PodcastLibraryStudio';
+import { UnsplashSearch } from '../common/UnsplashSearch';
 
 interface Course {
   id: string;
@@ -351,6 +352,15 @@ export function CourseStudio() {
 
           <div>
             <label className="block text-sm text-gray-400 mb-2">Cover Image</label>
+            <UnsplashSearch
+              onSelect={(url) => setCourseCoverPreview(url)}
+              placeholder="Search Unsplash for a cover image..."
+            />
+            <div className="flex items-center my-4">
+              <div className="flex-1 border-t border-blue-500/20"></div>
+              <span className="px-3 text-[10px] uppercase font-bold tracking-wider text-gray-500">OR UPLOAD</span>
+              <div className="flex-1 border-t border-blue-500/20"></div>
+            </div>
             <input
               type="file"
               accept="image/*"
@@ -358,8 +368,18 @@ export function CourseStudio() {
               className="w-full bg-blue-900/50 border border-blue-500/30 rounded px-3 py-2 text-white"
             />
             {courseCoverPreview && (
-              <div className="mt-3">
+              <div className="mt-3 relative group">
                 <img src={courseCoverPreview} alt="Cover preview" className="w-full h-40 object-cover rounded" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCourseCoverPreview('');
+                    setCourseCover(null);
+                  }}
+                  className="absolute top-2 right-2 bg-black/50 hover:bg-red-500 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             )}
           </div>
