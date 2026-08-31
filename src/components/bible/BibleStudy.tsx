@@ -1,5 +1,6 @@
 import { PrayerWall } from './PrayerWall';
 import { ScriptureLinker } from './ScriptureLinker';
+import { BibleReader } from './BibleReader';
 import React, { useState, useEffect } from 'react';
 import { BookOpen, LayoutGrid, List, Share2, ChevronDown, Loader, MessageCircle, Sparkles, Play } from 'lucide-react';
 
@@ -137,17 +138,25 @@ export function BibleStudy() {
     }
   };
 
-  const fetchStudyBreakdown = async () => {
+  const fetchStudyBreakdown = async (bookParam?: string, chapterParam?: string, verseParam?: string) => {
+    const targetBook = bookParam || selectedBook;
+    const targetChapter = chapterParam || selectedChapter;
+    const targetVerse = verseParam || selectedVerse;
+
+    setSelectedBook(targetBook);
+    setSelectedChapter(targetChapter);
+    setSelectedVerse(targetVerse);
+
     setStudyLoading(true);
     try {
-      const res = await fetch(`/api/bible/study?book=${encodeURIComponent(selectedBook)}&chapter=${selectedChapter}&verse=${selectedVerse}`);
+      const res = await fetch(`/api/bible/study?book=${encodeURIComponent(targetBook)}&chapter=${targetChapter}&verse=${targetVerse}`);
       if (!res.ok) {
         throw new Error(`Server returned ${res.status}`);
       }
       const data = await res.json();
       if (data && typeof data === 'object') {
         const safeData: StudyBreakdown = {
-          passageText: data.passageText || `"${selectedBook} ${selectedChapter}:${selectedVerse}" — King James Version`,
+          passageText: data.passageText || `"${targetBook} ${targetChapter}:${targetVerse}" — King James Version`,
           bookSummary: {
             author: data.bookSummary?.author || 'Biblical Author',
             era: data.bookSummary?.era || 'Biblical Antiquity',
@@ -155,7 +164,7 @@ export function BibleStudy() {
           },
           historicalContext: {
             mindsetThen: data.historicalContext?.mindsetThen || 'The original audience lived in deep reverence for God\'s covenant word.',
-            originalIssue: data.historicalContext?.originalIssue || `Spiritual guidance and truth in ${selectedBook} ${selectedChapter}:${selectedVerse}.`
+            originalIssue: data.historicalContext?.originalIssue || `Spiritual guidance and truth in ${targetBook} ${targetChapter}:${targetVerse}.`
           },
           thenVsNow: {
             then: data.thenVsNow?.then || 'Believers looked to God\'s promises for light and strength.',
@@ -175,7 +184,7 @@ export function BibleStudy() {
 
       // Fetch matching sermons on this passage from SermonIndex API
       try {
-        const sermonRes = await fetch(`/api/bible/sermonindex/scripture/${encodeURIComponent(selectedBook)}/${selectedChapter}/${selectedVerse}`);
+        const sermonRes = await fetch(`/api/bible/sermonindex/scripture/${encodeURIComponent(targetBook)}/${targetChapter}/${targetVerse}`);
         if (sermonRes.ok) {
           const sermonData = await sermonRes.json();
           if (Array.isArray(sermonData)) {
@@ -188,7 +197,7 @@ export function BibleStudy() {
     } catch (error) {
       console.warn('Using client fallback for study breakdown:', error);
       setStudyBreakdown({
-        passageText: `"${selectedBook} ${selectedChapter}:${selectedVerse}" — King James Version`,
+        passageText: `"${targetBook} ${targetChapter}:${targetVerse}" — King James Version`,
         bookSummary: {
           author: 'Biblical Writer',
           era: 'Ancient Era',
@@ -196,7 +205,7 @@ export function BibleStudy() {
         },
         historicalContext: {
           mindsetThen: 'The historical audience looked to God for salvation, hope, and covenant fellowship.',
-          originalIssue: `Seeking divine instruction and peace in ${selectedBook} ${selectedChapter}:${selectedVerse}.`
+          originalIssue: `Seeking divine instruction and peace in ${targetBook} ${targetChapter}:${targetVerse}.`
         },
         thenVsNow: {
           then: 'Scripture guided their faith and everyday life.',
@@ -207,7 +216,7 @@ export function BibleStudy() {
           'Bring your heartfelt prayers to God with faith.',
           'Walk in obedience and share Christ\'s love.'
         ],
-        prayer: `Heavenly Father, bless my study of ${selectedBook} ${selectedChapter}:${selectedVerse}. Grant me wisdom, discernment, and peace. In Jesus' name, Amen.`
+        prayer: `Heavenly Father, bless my study of ${targetBook} ${targetChapter}:${targetVerse}. Grant me wisdom, discernment, and peace. In Jesus' name, Amen.`
       });
     } finally {
       setStudyLoading(false);
@@ -479,205 +488,148 @@ export function BibleStudy() {
         </div>
       )}
 
-      {/* Study Engine Tab */}
+      {/* Study Engine Tab - Redesigned Church-Grade Bible Reader */}
       {activeTab === 'study' && (
         <div className="space-y-6">
-          {/* Testament & Book Selector */}
-          <div className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4">
-            <h3 className="font-bold text-lg text-blue-300 mb-4">Select Scripture</h3>
-            
-            {/* Testament Tabs */}
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => {
-                  setSelectedTestament('Old Testament');
-                  setSelectedBook(oldTestamentBooks[0]?.name ?? '');
-                }}
-                className={`px-4 py-2 rounded font-semibold transition-colors ${
-                  selectedTestament === 'Old Testament'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-blue-900/30 text-gray-300 hover:bg-blue-900/50'
-                }`}
-              >
-                Old Testament
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedTestament('New Testament');
-                  setSelectedBook(newTestamentBooks[0]?.name ?? '');
-                }}
-                className={`px-4 py-2 rounded font-semibold transition-colors ${
-                  selectedTestament === 'New Testament'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-blue-900/30 text-gray-300 hover:bg-blue-900/50'
-                }`}
-              >
-                New Testament
-              </button>
+          {/* Main Sharp Bible Reader & Search System */}
+          <BibleReader
+            initialBook={selectedBook}
+            initialChapter={selectedChapter}
+            initialVerse={selectedVerse}
+            onOpenStudyBreakdown={(book, chapter, verse) => {
+              fetchStudyBreakdown(book, chapter, verse);
+              const breakdownEl = document.getElementById('study-breakdown-section');
+              if (breakdownEl) {
+                breakdownEl.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            onShareToFeed={(verseRef, passageText) => {
+              fetch('/api/bible/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  verseRef,
+                  passageText,
+                  takeaway: `Reading and meditating on ${verseRef}`
+                })
+              })
+                .then(() => {
+                  window.dispatchEvent(new CustomEvent('open_share_modal', {
+                    detail: { type: 'general', initialContent: `"${passageText}" — ${verseRef} (KJV)` }
+                  }));
+                })
+                .catch(err => console.warn('Share error:', err));
+            }}
+          />
+
+          {/* Deep Study Breakdown Display */}
+          {studyLoading && (
+            <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-8 text-center space-y-3">
+              <Loader className="w-8 h-8 text-blue-400 animate-spin mx-auto" />
+              <p className="text-sm text-blue-200">
+                Opening Expository Study Breakdown for {selectedBook} {selectedChapter}:{selectedVerse}...
+              </p>
             </div>
+          )}
 
-            {/* Book Selector */}
-            <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-2">Book</label>
-              <select
-                value={selectedBook}
-                onChange={e => setSelectedBook(e.target.value)}
-                className="w-full bg-blue-900/50 border border-blue-500/30 rounded px-3 py-2 text-white"
-              >
-                {currentBooks.map(book => (
-                  <option key={book.name} value={book.name}>{book.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Featured Chapters & Verses */}
-            {selectedBook && getBookMetadata(selectedBook) && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-400 mb-2">Featured Chapters & Verses</p>
-                <div className="flex flex-wrap gap-2">
-                  {getBookMetadata(selectedBook)?.featured.chapters.map(ch => (
-                    <button
-                      key={`ch-${ch}`}
-                      onClick={() => setSelectedChapter(ch.toString())}
-                      className="px-3 py-1 bg-blue-600/50 hover:bg-blue-600 text-blue-200 rounded text-sm transition-colors"
-                    >
-                      Ch {ch}
-                    </button>
-                  ))}
-                  {getBookMetadata(selectedBook)?.featured.verses.map(v => (
-                    <button
-                      key={`v-${v}`}
-                      onClick={() => {
-                        const [ch, vs] = v.split(':');
-                        setSelectedChapter(ch);
-                        setSelectedVerse(vs.split('-')[0]);
-                      }}
-                      className="px-3 py-1 bg-indigo-600/50 hover:bg-indigo-600 text-indigo-200 rounded text-sm transition-colors"
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
+          {studyBreakdown && !studyLoading && (
+            <div id="study-breakdown-section" className="space-y-4 pt-4 border-t border-blue-500/20 animate-in fade-in duration-300">
+              <div className="flex items-center justify-between pb-2 border-b border-blue-500/20">
+                <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <span>Expository Study Breakdown: {selectedBook} {selectedChapter}:{selectedVerse}</span>
+                </h3>
+                <button
+                  onClick={() => setStudyBreakdown(null)}
+                  className="text-xs text-gray-400 hover:text-white px-2 py-1 bg-black/40 rounded-lg border border-white/10"
+                >
+                  Close Study Notes
+                </button>
               </div>
-            )}
 
-            {/* Chapter & Verse Inputs */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Chapter</label>
-                <input
-                  type="number"
-                  value={selectedChapter}
-                  onChange={e => setSelectedChapter(e.target.value)}
-                  className="w-full bg-blue-900/50 border border-blue-500/30 rounded px-3 py-2 text-white"
-                  min="1"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Verse</label>
-                <input
-                  type="number"
-                  value={selectedVerse}
-                  onChange={e => setSelectedVerse(e.target.value)}
-                  className="w-full bg-blue-900/50 border border-blue-500/30 rounded px-3 py-2 text-white"
-                  min="1"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={fetchStudyBreakdown}
-              disabled={studyLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 text-white font-bold py-2 rounded transition-colors"
-            >
-              {studyLoading ? 'Loading...' : 'Generate Study Breakdown'}
-            </button>
-          </div>
-
-          {/* Study Breakdown Display */}
-          {studyBreakdown && (
-            <div className="space-y-4">
               {/* Passage Text */}
-              <div className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4">
-                <h4 className="font-bold text-blue-300 mb-2">Passage</h4>
-                <p className="text-gray-200 italic">{studyBreakdown.passageText}</p>
+              <div className="bg-gradient-to-r from-blue-950/50 to-indigo-950/50 border border-blue-500/30 rounded-2xl p-5 shadow">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-blue-300 mb-1.5">Scripture Passage</h4>
+                <p className="text-slate-100 italic text-base sm:text-lg font-serif">{studyBreakdown.passageText}</p>
               </div>
 
               {/* Book Summary */}
-              <div className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4">
-                <h4 className="font-bold text-blue-300 mb-3">Book Summary</h4>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-400">Author</p>
-                    <p className="text-blue-200">{studyBreakdown.bookSummary?.author || 'Biblical Author'}</p>
+              <div className="bg-blue-950/30 border border-blue-500/30 rounded-2xl p-5">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-blue-300 mb-3">Book Overview</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                    <p className="text-xs text-gray-400">Author</p>
+                    <p className="text-blue-200 font-bold mt-0.5">{studyBreakdown.bookSummary?.author || 'Biblical Author'}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-400">Era</p>
-                    <p className="text-blue-200">{studyBreakdown.bookSummary?.era || 'Biblical Antiquity'}</p>
+                  <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                    <p className="text-xs text-gray-400">Historical Era</p>
+                    <p className="text-blue-200 font-bold mt-0.5">{studyBreakdown.bookSummary?.era || 'Biblical Antiquity'}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-400">Audience</p>
-                    <p className="text-blue-200">{studyBreakdown.bookSummary?.audience || "God's Covenant People"}</p>
+                  <div className="bg-black/30 p-3 rounded-xl border border-white/5">
+                    <p className="text-xs text-gray-400">Original Audience</p>
+                    <p className="text-blue-200 font-bold mt-0.5">{studyBreakdown.bookSummary?.audience || "God's Covenant People"}</p>
                   </div>
                 </div>
               </div>
 
               {/* Historical Context */}
-              <div className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4">
-                <h4 className="font-bold text-blue-300 mb-3">Historical Context</h4>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <p className="text-gray-400">Mindset Then</p>
-                    <p className="text-gray-200">{studyBreakdown.historicalContext?.mindsetThen || 'The audience looked to God for truth, protection, and hope.'}</p>
+              <div className="bg-blue-950/30 border border-blue-500/30 rounded-2xl p-5">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-blue-300 mb-3">Historical Context & Setting</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="bg-black/30 p-3.5 rounded-xl border border-white/5">
+                    <p className="text-xs text-blue-300 font-bold mb-1">Mindset of the Era</p>
+                    <p className="text-gray-200 leading-relaxed">{studyBreakdown.historicalContext?.mindsetThen || 'The audience looked to God for truth, protection, and hope.'}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-400">Original Issue</p>
-                    <p className="text-gray-200">{studyBreakdown.historicalContext?.originalIssue || 'Spiritual growth and obedience to God\'s command.'}</p>
+                  <div className="bg-black/30 p-3.5 rounded-xl border border-white/5">
+                    <p className="text-xs text-blue-300 font-bold mb-1">Original Issue Addressed</p>
+                    <p className="text-gray-200 leading-relaxed">{studyBreakdown.historicalContext?.originalIssue || 'Spiritual growth and obedience to God\'s command.'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Then vs Now */}
-              <div className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4">
-                <h4 className="font-bold text-blue-300 mb-3">Then vs Now</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-400 font-semibold mb-2">Then</p>
-                    <p className="text-gray-200">{studyBreakdown.thenVsNow?.then || 'Faithful believers relied on God\'s promises.'}</p>
+              <div className="bg-blue-950/30 border border-blue-500/30 rounded-2xl p-5">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-blue-300 mb-3">Then vs. Now (Timeless Application)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="bg-black/30 p-3.5 rounded-xl border border-white/5">
+                    <p className="text-xs text-amber-300 font-bold mb-1">Then (Biblical Audience)</p>
+                    <p className="text-gray-200 leading-relaxed">{studyBreakdown.thenVsNow?.then || 'Faithful believers relied on God\'s promises.'}</p>
                   </div>
-                  <div>
-                    <p className="text-gray-400 font-semibold mb-2">Now</p>
-                    <p className="text-gray-200">{studyBreakdown.thenVsNow?.now || 'We walk by the same eternal Word and Holy Spirit today.'}</p>
+                  <div className="bg-black/30 p-3.5 rounded-xl border border-white/5">
+                    <p className="text-xs text-emerald-300 font-bold mb-1">Now (Modern Believer)</p>
+                    <p className="text-gray-200 leading-relaxed">{studyBreakdown.thenVsNow?.now || 'We walk by the same eternal Word and Holy Spirit today.'}</p>
                   </div>
                 </div>
               </div>
 
               {/* Daily Application */}
-              <div className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4">
-                <h4 className="font-bold text-blue-300 mb-3">Daily Application</h4>
-                <ul className="space-y-2 text-sm">
+              <div className="bg-blue-950/30 border border-blue-500/30 rounded-2xl p-5">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-blue-300 mb-3">Daily Life Application</h4>
+                <ul className="space-y-2.5 text-sm">
                   {(studyBreakdown.dailyApplication || []).map((step, idx) => (
-                    <li key={idx} className="flex gap-3">
-                      <span className="text-blue-400 font-bold">{idx + 1}.</span>
-                      <span className="text-gray-200">{step}</span>
+                    <li key={idx} className="flex gap-3 items-start bg-black/20 p-2.5 rounded-xl border border-white/5">
+                      <span className="w-5 h-5 rounded-full bg-blue-500/30 text-blue-300 font-bold flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <span className="text-gray-200 leading-relaxed">{step}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
               {/* Prayer */}
-              <div className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4">
-                <h4 className="font-bold text-blue-300 mb-2">Closing Prayer</h4>
-                <p className="text-gray-200 italic">{studyBreakdown.prayer || 'Lord, guide my heart and walk in Thy truth. Amen.'}</p>
+              <div className="bg-gradient-to-r from-indigo-950/60 to-purple-950/40 border border-indigo-500/30 rounded-2xl p-5">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-300 mb-2">Guided Expository Prayer</h4>
+                <p className="text-gray-100 italic leading-relaxed">{studyBreakdown.prayer || 'Lord, guide my heart and walk in Thy truth. Amen.'}</p>
               </div>
 
               {/* Expository Sermons on this Scripture from SermonIndex API */}
               {matchingSermons && matchingSermons.length > 0 && (
-                <div className="bg-gradient-to-br from-[#0c133a] to-blue-950/60 border border-blue-500/40 rounded-2xl p-4 sm:p-5 space-y-3 shadow-xl">
+                <div className="bg-gradient-to-br from-[#0c133a] to-blue-950/60 border border-blue-500/40 rounded-2xl p-5 space-y-3 shadow-xl">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Play className="w-4 h-4 text-blue-400 fill-current" />
-                      <h4 className="font-bold text-white text-sm sm:text-base">
+                      <h4 className="font-bold text-white text-base">
                         Expository Sermons on {selectedBook} {selectedChapter}:{selectedVerse}
                       </h4>
                     </div>
@@ -686,7 +638,7 @@ export function BibleStudy() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    Listen to historic and contemporary preachers open and expound this exact passage of Scripture:
+                    Listen to historic and contemporary preachers expound this passage:
                   </p>
 
                   <div className="space-y-2.5">
@@ -712,7 +664,7 @@ export function BibleStudy() {
                           onClick={() => {
                             setActiveTab('podcasts');
                           }}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all flex items-center gap-1 flex-shrink-0 shadow"
+                          className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all flex items-center gap-1 flex-shrink-0 shadow"
                         >
                           <Play className="w-3 h-3 fill-current" />
                           <span>Listen</span>
@@ -726,10 +678,10 @@ export function BibleStudy() {
               {/* Share Button */}
               <button
                 onClick={handleShare}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg text-sm"
               >
-                <Share2 className="w-5 h-5" />
-                Share to Feed
+                <Share2 className="w-4 h-4" />
+                <span>Share Verse & Notes to Feed</span>
               </button>
             </div>
           )}

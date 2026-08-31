@@ -440,7 +440,7 @@ export const PermissionsModal: React.FC = () => {
                     await caches.delete(key);
                   }
                 }
-                window.location.reload(true);
+                window.location.reload();
               }}
               className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 flex-shrink-0 active:scale-95"
             >

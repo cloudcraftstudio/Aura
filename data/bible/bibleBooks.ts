@@ -75,6 +75,16 @@ export const BIBLE_BOOKS = {
       verses: ['6:11-40', '13:1-25', '16:4-30']
     }
   },
+  'Ruth': {
+    testament: 'Old Testament',
+    category: 'History',
+    author: 'Samuel',
+    chapters: 4,
+    featured: {
+      chapters: [1, 2, 4],
+      verses: ['1:16-17', '2:12', '4:14-17']
+    }
+  },
   '1 Samuel': {
     testament: 'Old Testament',
     category: 'History',

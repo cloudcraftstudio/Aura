@@ -1,14 +1,4 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-
-  const formatSafeTime = (ts: any, fallback = 'Recent') => {
-    try {
-      if (isNaN(d.getTime())) return fallback;
-      return formatDistanceToNow(d, { addSuffix: true });
-    } catch {
-      return fallback;
-    }
-  };
-
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -411,7 +401,7 @@ export const ChatView: React.FC = () => {
                       key={contact.id}
                       onClick={() => {
                         const storyIdx = (stories || []).findIndex(
-                          (s) => s.userId === contact.id || s.user?.id === contact.id || s.user?.name === contact.name
+                          (s) => s.userId === contact.id || s.userName === contact.name
                         );
                         if (storyIdx !== -1) {
                           setSelectedStoryIndex(storyIdx);
@@ -1087,7 +1077,6 @@ export const ChatView: React.FC = () => {
       {/* Story Viewer Modal for Chat Carousel Stories */}
       {selectedStoryIndex !== null && stories && stories.length > 0 && (
         <StoryViewerModal
-          stories={stories}
           initialStoryIndex={selectedStoryIndex}
           onClose={() => setSelectedStoryIndex(null)}
         />

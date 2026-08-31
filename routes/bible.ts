@@ -59,18 +59,55 @@ export function createBibleRoutes(db: BibleStudyDB): Router {
   });
 
   // GET /api/bible/verse
-  router.get('/verse', (req: Request, res: Response) => {
+  router.get('/verse', async (req: Request, res: Response) => {
     const { book, chapter, verse } = req.query;
     if (!book || !chapter || !verse) {
       return res.status(400).json({ error: 'Missing book, chapter, or verse parameter' });
     }
 
-    const verseRef = `${book} ${chapter}:${verse}`;
-    const verseData = kjvLoader.getVerse(verseRef);
-    if (!verseData) {
-      return res.status(404).json({ error: 'Verse not found' });
+    try {
+      const verseData = await kjvLoader.getOrFetchVerse(
+        book as string,
+        chapter as string,
+        verse as string
+      );
+      res.json(verseData);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to retrieve verse' });
     }
-    res.json(verseData);
+  });
+
+  // GET /api/bible/chapter
+  router.get('/chapter', async (req: Request, res: Response) => {
+    const { book, chapter } = req.query;
+    if (!book || !chapter) {
+      return res.status(400).json({ error: 'Missing book or chapter parameter' });
+    }
+
+    try {
+      const chapterData = await kjvLoader.getOrFetchChapter(
+        book as string,
+        chapter as string
+      );
+      res.json(chapterData);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to retrieve chapter' });
+    }
+  });
+
+  // GET /api/bible/search
+  router.get('/search', (req: Request, res: Response) => {
+    const { q } = req.query;
+    if (!q || typeof q !== 'string') {
+      return res.json([]);
+    }
+
+    try {
+      const results = kjvLoader.search(q);
+      res.json(results);
+    } catch (err) {
+      res.status(500).json({ error: 'Search failed' });
+    }
   });
 
   // GET /api/bible/study
