@@ -322,10 +322,10 @@ export const StoriesReel: React.FC = () => {
 
       {/* Add Story Modal */}
       {isAddingStory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
-          <div className="w-full max-w-md rounded-[32px] bg-[#070a1a]/95 backdrop-blur-3xl border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-white">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 pb-24 sm:p-4 sm:pb-4 bg-black/80 backdrop-blur-2xl animate-fade-in">
+          <div className="w-full max-w-md rounded-[32px] bg-[#070a1a]/95 backdrop-blur-3xl border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-[85vh] text-white">
             {/* Header */}
-            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-white/5 shrink-0">
               <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-blue-400" /> Share 24-Hour Story
               </h3>
@@ -337,7 +337,7 @@ export const StoriesReel: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateStory} className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+            <form onSubmit={handleCreateStory} className="p-5 sm:p-6 pb-8 overflow-y-auto space-y-4 flex-1">
               {/* Hidden file input */}
               <input
                 ref={fileInputRef}

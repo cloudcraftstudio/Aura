@@ -10,3 +10,9 @@ coverage/
 *.db-wal
 *.db-shm
 *.bak*
+
+# Database & Uploads
+data/*.json
+public/uploads/*
+!public/uploads/.gitkeep
+

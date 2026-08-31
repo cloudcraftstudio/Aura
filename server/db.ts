@@ -214,367 +214,47 @@ export interface DatabaseSchema {
 
 const SEED_USERS: DBUser[] = [
   {
-    id: 'user_alex',
-    name: 'Alex Rivera',
-    handle: 'alexrivera',
-    email: 'alex.rivera@aura.social',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    id: 'user_tex',
+    name: 'Tex',
+    handle: 'tex',
+    email: 'lightsouttattootex@gmail.com',
+    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=lightsouttattootex@gmail.com',
     bannerUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-    bio: 'Product Designer & Visual Creator ✦ Exploring generative art & cyber-minimalism ✨',
+    bio: 'Lights Out Tattoo ✦ Real-time Social & Calling ✨',
     status: 'online',
-    statusMessage: 'Designing the future 🎨',
-    followersCount: 1420,
-    followingCount: 380,
+    statusMessage: 'Online & Active',
+    followersCount: 0,
+    followingCount: 0,
     isVerified: true,
-    joinedAt: '2024-01-15',
+    joinedAt: '2024-01-01',
+    authProvider: 'google',
   },
   {
-    id: 'user_maya',
-    name: 'Maya Chen',
-    handle: 'mayachen',
-    email: 'maya.chen@aura.social',
-    avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-    bannerUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80',
-    bio: 'Creative Technologist 💻 Building WebRTC spatial audio & interactive installations 🌊',
-    status: 'online',
-    statusMessage: 'Deep in code 🎧',
-    followersCount: 2890,
-    followingCount: 512,
-    isVerified: true,
-    joinedAt: '2023-11-20',
-  },
-  {
-    id: 'user_liam',
-    name: 'Liam Vance',
-    handle: 'liamvance',
-    email: 'liam.vance@aura.social',
-    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80',
+    id: 'user_kimberly',
+    name: 'Kimberly',
+    handle: 'kimberly',
+    email: 'kimberly@lightsouttattoo.site',
+    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=kimberly',
     bannerUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&auto=format&fit=crop&q=80',
-    bio: 'Landscape & Night Sky Photographer 🌌 Tokyo / SF / Reyjavik ✈️',
-    status: 'busy',
-    statusMessage: 'Shooting Aurora Borealis',
-    followersCount: 5410,
-    followingCount: 620,
+    bio: 'Active member on Aura 🌟',
+    status: 'online',
+    statusMessage: 'Active',
+    followersCount: 0,
+    followingCount: 0,
     isVerified: true,
-    joinedAt: '2024-02-01',
-  },
-  {
-    id: 'user_elena',
-    name: 'Elena Rostova',
-    handle: 'elenarostova',
-    email: 'elena.rostova@aura.social',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
-    bannerUrl: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200&auto=format&fit=crop&q=80',
-    bio: 'Sound Designer & AI Musician 🎹 Synthesizing atmospheric soundscapes 🪐',
-    status: 'away',
-    statusMessage: 'In the recording studio',
-    followersCount: 3150,
-    followingCount: 410,
-    isVerified: false,
-    joinedAt: '2024-03-10',
+    joinedAt: '2024-01-01',
+    authProvider: 'email',
   },
 ];
 
-const SEED_POSTS: DBPost[] = [
-  {
-    id: 'post_1',
-    authorId: 'user_liam',
-    authorName: 'Liam Vance',
-    authorHandle: 'liamvance',
-    authorAvatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80',
-    content: 'Caught the breathtaking northern lights dancing over the glaciers last night in Iceland. Nature never ceases to amaze me! 🌌❄️✨',
-    mediaUrls: [
-      'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1000&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=1000&auto=format&fit=crop&q=80',
-    ],
-    tags: ['photography', 'aurora', 'travel', 'nightsky'],
-    location: 'Vatnajökull, Iceland',
-    likesCount: 342,
-    likedByUserIds: ['user_alex', 'user_maya'],
-    commentsCount: 2,
-    comments: [
-      {
-        id: 'c1',
-        postId: 'post_1',
-        authorId: 'user_alex',
-        authorName: 'Alex Rivera',
-        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-        content: 'These colors are pure magic Liam! What shutter speed were you using?',
-        createdAt: Date.now() - 1000 * 60 * 30,
-        likesCount: 12,
-        likedByUserIds: ['user_liam'],
-      },
-      {
-        id: 'c2',
-        postId: 'post_1',
-        authorId: 'user_maya',
-        authorName: 'Maya Chen',
-        authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-        content: 'Looks ethereal! Adding this location to my travel bucket list immediately.',
-        createdAt: Date.now() - 1000 * 60 * 15,
-        likesCount: 8,
-        likedByUserIds: [],
-      },
-    ],
-    sharesCount: 45,
-    savedByUserIds: ['user_alex'],
-    createdAt: Date.now() - 1000 * 60 * 45,
-  },
-  {
-    id: 'post_2',
-    authorId: 'user_maya',
-    authorName: 'Maya Chen',
-    authorHandle: 'mayachen',
-    authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-    content: 'Just launched our real-time WebRTC audio visualizer! Crystal-clear latency under 45ms and 3D spatial panning 🚀 Check out the studio demo preview!',
-    mediaUrls: [
-      'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1000&auto=format&fit=crop&q=80',
-    ],
-    tags: ['webrtc', 'audio', 'tech', 'coding'],
-    location: 'San Francisco, CA',
-    likesCount: 519,
-    likedByUserIds: ['user_alex', 'user_liam', 'user_elena'],
-    commentsCount: 1,
-    comments: [
-      {
-        id: 'c3',
-        postId: 'post_2',
-        authorId: 'user_elena',
-        authorName: 'Elena Rostova',
-        authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
-        content: 'The spatial audio fidelity is stunning. Amazing work Maya!',
-        createdAt: Date.now() - 1000 * 60 * 120,
-        likesCount: 14,
-        likedByUserIds: ['user_maya'],
-      },
-    ],
-    sharesCount: 88,
-    savedByUserIds: ['user_maya'],
-    createdAt: Date.now() - 1000 * 60 * 180,
-  },
-  {
-    id: 'post_3',
-    authorId: 'user_elena',
-    authorName: 'Elena Rostova',
-    authorHandle: 'elenarostova',
-    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
-    content: 'Just discovered this incredible 4K cinematic documentary exploring lush landscapes and wildlife in Costa Rica! 🌿🦜 Watch the full video here:\nhttps://www.youtube.com/watch?v=LXb3EKWsInQ\n\nThe soundtrack and color grading are purely mesmerizing.',
-    mediaUrls: [],
-    tags: ['cinematography', 'nature', 'documentary', 'sounddesign'],
-    location: 'Manuel Antonio, Costa Rica',
-    likesCount: 428,
-    likedByUserIds: ['user_alex', 'user_liam'],
-    commentsCount: 2,
-    comments: [
-      {
-        id: 'c4',
-        postId: 'post_3',
-        authorId: 'user_alex',
-        authorName: 'Alex Rivera',
-        authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-        content: 'The audio depth and color balance in this video are next level!',
-        createdAt: Date.now() - 1000 * 60 * 60,
-        likesCount: 19,
-        likedByUserIds: ['user_elena'],
-      },
-      {
-        id: 'c5',
-        postId: 'post_3',
-        authorId: 'user_liam',
-        authorName: 'Liam Vance',
-        authorAvatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80',
-        content: 'Bookmarking this for lighting inspiration on my next film shoot! 🎬',
-        createdAt: Date.now() - 1000 * 60 * 40,
-        likesCount: 11,
-        likedByUserIds: [],
-      },
-    ],
-    sharesCount: 64,
-    savedByUserIds: ['user_alex'],
-    createdAt: Date.now() - 1000 * 60 * 240,
-  },
-];
+const SEED_POSTS: DBPost[] = [];
 
-const SEED_STORIES: DBStory[] = [
-  {
-    id: 'story_1',
-    userId: 'user_maya',
-    userName: 'Maya Chen',
-    userAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
-    mediaUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
-    caption: 'Sunset stroll along the coast after a long sprint 🌅',
-    createdAt: Date.now() - 1000 * 60 * 90,
-    seenByUserIds: ['user_alex'],
-    slides: [
-      {
-        id: 'maya_slide_1',
-        mediaUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&auto=format&fit=crop&q=80',
-        caption: 'Sunset stroll along the coast after a long sprint 🌅',
-        createdAt: Date.now() - 1000 * 60 * 90,
-      },
-      {
-        id: 'maya_slide_2',
-        mediaUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80',
-        caption: 'Deep focus coding setup with ambient backlight 💻⚡️',
-        createdAt: Date.now() - 1000 * 60 * 60,
-      },
-      {
-        id: 'maya_slide_3',
-        mediaUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&auto=format&fit=crop&q=80',
-        caption: 'Night skyline reflections across the bay bridge 🌉✨',
-        createdAt: Date.now() - 1000 * 60 * 30,
-      },
-    ],
-  },
-  {
-    id: 'story_2',
-    userId: 'user_liam',
-    userName: 'Liam Vance',
-    userAvatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80',
-    mediaUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop&q=80',
-    caption: 'Setting up tripods before the alpine storm hits 🏔️❄️',
-    createdAt: Date.now() - 1000 * 60 * 180,
-    seenByUserIds: [],
-    slides: [
-      {
-        id: 'liam_slide_1',
-        mediaUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&auto=format&fit=crop&q=80',
-        caption: 'Setting up tripods before the alpine storm hits 🏔️❄️',
-        createdAt: Date.now() - 1000 * 60 * 180,
-      },
-      {
-        id: 'liam_slide_2',
-        mediaUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80',
-        caption: 'Milky Way rising above the granite canyon 🌌✨',
-        createdAt: Date.now() - 1000 * 60 * 120,
-      },
-      {
-        id: 'liam_slide_3',
-        mediaUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
-        caption: 'Golden hour mist breaking through the pines 🌲☀️',
-        createdAt: Date.now() - 1000 * 60 * 45,
-      },
-    ],
-  },
-  {
-    id: 'story_3',
-    userId: 'user_elena',
-    userName: 'Elena Rostova',
-    userAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
-    mediaUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=80',
-    caption: 'Live performance rehearsals under laser lighting! ⚡️',
-    createdAt: Date.now() - 1000 * 60 * 240,
-    seenByUserIds: [],
-    slides: [
-      {
-        id: 'elena_slide_1',
-        mediaUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=80',
-        caption: 'Live performance rehearsals under laser lighting! ⚡️',
-        createdAt: Date.now() - 1000 * 60 * 240,
-      },
-      {
-        id: 'elena_slide_2',
-        mediaUrl: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=800&auto=format&fit=crop&q=80',
-        caption: 'Analog synthesizer patches & modular oscillator racks 🎹🎛️',
-        createdAt: Date.now() - 1000 * 60 * 150,
-      },
-      {
-        id: 'elena_slide_3',
-        mediaUrl: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&auto=format&fit=crop&q=80',
-        caption: 'Soundcheck complete! Doors opening in 30 mins 🎤🔥',
-        createdAt: Date.now() - 1000 * 60 * 50,
-      },
-    ],
-  },
-];
+const SEED_STORIES: DBStory[] = [];
 
-const SEED_CONVERSATIONS: DBConversation[] = [
-  {
-    id: 'conv_alex_maya',
-    isGroup: false,
-    participantIds: ['user_alex', 'user_maya'],
-    participants: [SEED_USERS[0], SEED_USERS[1]],
-    unreadCount: 0,
-    createdAt: Date.now() - 1000 * 60 * 60 * 24,
-    updatedAt: Date.now() - 1000 * 60 * 10,
-    lastMessage: {
-      id: 'm_last',
-      conversationId: 'conv_alex_maya',
-      senderId: 'user_maya',
-      senderName: 'Maya Chen',
-      senderAvatar: SEED_USERS[1].avatarUrl,
-      content: 'Let’s jump on a quick WebRTC call to review the audio setup!',
-      timestamp: Date.now() - 1000 * 60 * 10,
-      isRead: true,
-    },
-  },
-  {
-    id: 'conv_alex_liam',
-    isGroup: false,
-    participantIds: ['user_alex', 'user_liam'],
-    participants: [SEED_USERS[0], SEED_USERS[2]],
-    unreadCount: 1,
-    createdAt: Date.now() - 1000 * 60 * 60 * 48,
-    updatedAt: Date.now() - 1000 * 60 * 40,
-    lastMessage: {
-      id: 'm_last_2',
-      conversationId: 'conv_alex_liam',
-      senderId: 'user_liam',
-      senderName: 'Liam Vance',
-      senderAvatar: SEED_USERS[2].avatarUrl,
-      content: 'Just uploaded raw TIFF files from the glacier!',
-      timestamp: Date.now() - 1000 * 60 * 40,
-      isRead: false,
-    },
-  },
-];
+const SEED_CONVERSATIONS: DBConversation[] = [];
 
-const SEED_MESSAGES: Record<string, DBMessage[]> = {
-  conv_alex_maya: [
-    {
-      id: 'm1',
-      conversationId: 'conv_alex_maya',
-      senderId: 'user_alex',
-      senderName: 'Alex Rivera',
-      senderAvatar: SEED_USERS[0].avatarUrl,
-      content: 'Hey Maya! The new frosted glass interface looks spectacular.',
-      timestamp: Date.now() - 1000 * 60 * 35,
-      isRead: true,
-    },
-    {
-      id: 'm2',
-      conversationId: 'conv_alex_maya',
-      senderId: 'user_maya',
-      senderName: 'Maya Chen',
-      senderAvatar: SEED_USERS[1].avatarUrl,
-      content: 'Thanks Alex! The backdrop blur and WebRTC audio stream are syncing flawlessly.',
-      timestamp: Date.now() - 1000 * 60 * 25,
-      isRead: true,
-    },
-    {
-      id: 'm3',
-      conversationId: 'conv_alex_maya',
-      senderId: 'user_maya',
-      senderName: 'Maya Chen',
-      senderAvatar: SEED_USERS[1].avatarUrl,
-      content: 'Let’s jump on a quick WebRTC call to review the audio setup!',
-      timestamp: Date.now() - 1000 * 60 * 10,
-      isRead: true,
-    },
-  ],
-  conv_alex_liam: [
-    {
-      id: 'm4',
-      conversationId: 'conv_alex_liam',
-      senderId: 'user_liam',
-      senderName: 'Liam Vance',
-      senderAvatar: SEED_USERS[2].avatarUrl,
-      content: 'Just uploaded raw TIFF files from the glacier!',
-      timestamp: Date.now() - 1000 * 60 * 40,
-      isRead: false,
-    },
-  ],
-};
+const SEED_MESSAGES: Record<string, DBMessage[]> = {};
+
 
 class JSONDatabase {
   private dbPath: string;
@@ -602,12 +282,77 @@ class JSONDatabase {
   }
 
   private loadData(): DatabaseSchema {
+    const dummyIds = new Set(['user_alex', 'user_maya', 'user_liam', 'user_elena', 'user_daphne', 'user_skylor']);
+    const dummyHandles = new Set(['alexrivera', 'mayachen', 'liamvance', 'elenarostova']);
+    const dummyEmailDomains = ['@aura.social'];
+    const dummyEmails = new Set(['tex@lightsouttattoo.site', 'skylor@lightsouttattoo.site']);
+
+    const isDummyUser = (u: any) => {
+      if (!u) return true;
+      if (dummyIds.has(u.id)) return true;
+      if (dummyHandles.has(u.handle)) return true;
+      if (u.email && (dummyEmails.has(u.email.toLowerCase()) || dummyEmailDomains.some(d => u.email.toLowerCase().endsWith(d)))) return true;
+      return false;
+    };
+
     try {
       if (fs.existsSync(this.dbPath)) {
         const raw = fs.readFileSync(this.dbPath, 'utf-8');
         const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.users) && Array.isArray(parsed.posts)) {
-          return parsed;
+        if (parsed && Array.isArray(parsed.users)) {
+          // Filter out dummy users
+          const cleanUsers = parsed.users.filter((u: any) => !isDummyUser(u));
+
+          // Ensure SEED_USERS (Tex, Daphne, Kimberly, Skylor) are always present
+          SEED_USERS.forEach((seedUser) => {
+            const idx = cleanUsers.findIndex((u: any) => u.id === seedUser.id || u.email.toLowerCase() === seedUser.email.toLowerCase());
+            if (idx === -1) {
+              cleanUsers.push({ ...seedUser, status: 'online' });
+            } else {
+              // Ensure online status
+              cleanUsers[idx].status = 'online';
+            }
+          });
+
+          // Clean posts
+          const cleanPosts = (parsed.posts || []).filter((p: any) => !dummyIds.has(p.authorId) && !['post_1', 'post_2', 'post_3'].includes(p.id));
+
+          // Clean stories
+          const cleanStories = (parsed.stories || []).filter((s: any) => !dummyIds.has(s.userId) && !['story_1', 'story_2', 'story_3'].includes(s.id));
+
+          // Clean conversations
+          const cleanConversations = (parsed.conversations || []).filter((c: any) => {
+            if (['conv_alex_maya', 'conv_alex_liam', 'conv_design_circle'].includes(c.id)) return false;
+            if (Array.isArray(c.participantIds) && c.participantIds.some((pid: string) => dummyIds.has(pid))) return false;
+            return true;
+          });
+
+          // Clean messages
+          const cleanMessages: Record<string, DBMessage[]> = {};
+          if (parsed.messages && typeof parsed.messages === 'object') {
+            for (const [convId, msgs] of Object.entries(parsed.messages)) {
+              if (['conv_alex_maya', 'conv_alex_liam', 'conv_design_circle'].includes(convId)) continue;
+              if (Array.isArray(msgs)) {
+                cleanMessages[convId] = (msgs as DBMessage[]).filter((m) => !dummyIds.has(m.senderId));
+              }
+            }
+          }
+
+          const sanitized: DatabaseSchema = {
+            users: cleanUsers,
+            posts: cleanPosts,
+            stories: cleanStories,
+            conversations: cleanConversations,
+            messages: cleanMessages,
+            system: parsed.system || {
+              version: '2.0.0',
+              lastBackup: Date.now(),
+              createdAt: Date.now(),
+            },
+          };
+
+          this.saveDataDirect(sanitized);
+          return sanitized;
         }
       }
     } catch (e) {

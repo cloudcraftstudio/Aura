@@ -33,15 +33,30 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const KNOWN_GOOGLE_STORAGE_KEY = 'aura_known_google_accounts';
+const DUMMY_USER_IDS = new Set(['user_alex', 'user_maya', 'user_liam', 'user_elena', 'user_daphne', 'user_skylor']);
+const DUMMY_EMAILS = new Set(['tex@lightsouttattoo.site', 'skylor@lightsouttattoo.site']);
+
+const isForbiddenUser = (u: any) => {
+  if (!u) return true;
+  if (DUMMY_USER_IDS.has(u.id)) return true;
+  if (u.email && (DUMMY_EMAILS.has(u.email.toLowerCase()) || u.email.toLowerCase().endsWith('@aura.social'))) return true;
+  return false;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
-    return offlineStorage.load<UserProfile[]>('aura_all_users', DEMO_USERS);
+    const raw = offlineStorage.load<UserProfile[]>('aura_all_users', DEMO_USERS);
+    return (raw || []).filter((u) => !isForbiddenUser(u));
   });
 
   const [user, setUser] = useState<UserProfile | null>(() => {
     const saved = offlineStorage.load<UserProfile | null>(STORAGE_KEYS.CURRENT_USER, null);
-    return saved || null;
+    if (!saved) return null;
+    if (isForbiddenUser(saved)) {
+      offlineStorage.save(STORAGE_KEYS.CURRENT_USER, null);
+      return null;
+    }
+    return saved;
   });
 
   const [isOnline, setIsOnline] = useState<boolean>(offlineStorage.getIsOnline());
@@ -106,14 +121,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchUsers = async () => {
     const serverUsers = await api.getUsers();
     if (serverUsers && serverUsers.length > 0) {
-      setAllUsers(serverUsers);
-      offlineStorage.save('aura_all_users', serverUsers);
+      const cleanUsers = serverUsers.filter((u) => !isForbiddenUser(u));
+      setAllUsers(cleanUsers);
+      offlineStorage.save('aura_all_users', cleanUsers);
       setIsServerConnected(true);
 
       // If user is currently signed in, ensure latest state is synced from server
       setUser((currentUser) => {
         if (!currentUser) return null;
-        const fresh = serverUsers.find((u) => u.id === currentUser.id || u.email.toLowerCase() === currentUser.email.toLowerCase());
+        if (isForbiddenUser(currentUser)) {
+          return null;
+        }
+        const fresh = cleanUsers.find((u) => u.id === currentUser.id || u.email.toLowerCase() === currentUser.email.toLowerCase());
         return fresh ? { ...currentUser, ...fresh } : currentUser;
       });
     }
@@ -344,7 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginAsUser = (userId: string) => {
-    const found = allUsers.find((u) => u.id === userId) || DEMO_USERS.find((u) => u.id === userId);
+    const found = allUsers.find((u) => u.id === userId);
     if (found) {
       setUser(found);
       notificationService.notify({
@@ -481,6 +500,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('aura_token');
+    localStorage.removeItem('aura_cached_conversations');
+    localStorage.removeItem('aura_cached_posts');
+    localStorage.removeItem('aura_cached_stories');
     setUser(null);
     setIsAuthModalOpen(true);
   };

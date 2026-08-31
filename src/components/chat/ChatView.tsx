@@ -241,25 +241,34 @@ export const ChatView: React.FC = () => {
 
   const getRecipient = (conv: Conversation) => {
     if (!conv || conv.isGroup) return null;
-    const parts = Array.isArray(conv?.participants) ? conv.participants : [];
-    let fallback = parts.find((p) => p?.id !== user?.id) || parts[0];
-
-    // If participants array is empty, resolve target from participantIds
-    if (!fallback && Array.isArray(conv?.participantIds)) {
+    
+    // Always prefer looking up the fresh user by participantIds to avoid stale data
+    let fallback = null;
+    if (Array.isArray(conv.participantIds)) {
       const otherId = conv.participantIds.find((pid) => pid && pid !== user?.id) || conv.participantIds[0];
       if (otherId) {
         fallback = (allUsers || []).find((u) => u.id === otherId);
       }
     }
+    
+    if (!fallback) {
+      // Safety check for participants array
+      const parts = Array.isArray(conv?.participants) ? conv.participants.filter(Boolean) : [];
+      // Find the other participant in the conversation object
+      fallback = parts.find((p) => p && p.id !== user?.id) || parts[0];
+    }
 
-    if (!fallback) return null;
-    const live = (allUsers || []).find((u) => u?.id === fallback?.id || (fallback?.handle && u?.handle === fallback?.handle) || (fallback?.name && u?.name === fallback?.name));
+    if (!fallback) return { name: 'Unknown User', avatarUrl: '' } as any;
+
+    // Merge with live data from allUsers if available
+    const live = (allUsers || []).find((u) => u?.id === fallback?.id);
     const merged = live ? { ...fallback, ...live } : fallback;
 
     // Standardize avatar property fallback
     if (merged && !merged.avatarUrl) {
       merged.avatarUrl = (merged as any).avatar || (merged as any).avatar_url;
     }
+    
     return merged;
   };
 

@@ -196,7 +196,7 @@ export const VideoCallModal: React.FC = () => {
         drag
         dragConstraints={{ left: 10, right: window.innerWidth - 300, top: 10, bottom: window.innerHeight - 200 }}
         id="pip-call-widget"
-        className="fixed bottom-20 right-4 sm:right-6 z-50 w-72 rounded-[24px] overflow-hidden bg-[#05060f]/95 border border-white/20 shadow-2xl backdrop-blur-2xl text-white cursor-move"
+        className="fixed bottom-20 right-4 sm:right-6 z-[9999] w-72 rounded-[24px] overflow-hidden bg-[#05060f]/95 border border-white/20 shadow-2xl backdrop-blur-2xl text-white cursor-move"
       >
         <div className="relative aspect-video bg-slate-950 flex items-center justify-center overflow-hidden">
           {remoteStream && isConnected ? (
@@ -273,7 +273,7 @@ export const VideoCallModal: React.FC = () => {
   return (
     <div
       id="video-call-modal"
-      className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 md:p-6 bg-black/90 backdrop-blur-2xl animate-fade-in select-none"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-1 sm:p-3 md:p-6 bg-black/90 backdrop-blur-2xl animate-fade-in select-none"
     >
       {/* Hidden audio element to guarantee remote peer audio output */}
       <audio ref={remoteAudioRef} autoPlay playsInline />

@@ -252,6 +252,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsScreenSharing(false);
     setIsAudioMuted(false);
     setIsVideoMuted(false);
+    
+    if (webrtcRef.current) {
+      try {
+        webrtcRef.current.endCall(false); // don't broadcast, just cleanup local WebRTC to kill ghost audio
+      } catch (e) {}
+    }
   };
 
   // Start Call to Target User

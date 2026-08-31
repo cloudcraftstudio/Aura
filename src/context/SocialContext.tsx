@@ -32,33 +32,51 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { user } = useAuth();
 
   const [posts, setPosts] = useState<SocialPost[]>(() => {
-    return offlineStorage.load<SocialPost[]>(STORAGE_KEYS.POSTS, INITIAL_POSTS);
+    const loaded = offlineStorage.load<SocialPost[]>(STORAGE_KEYS.POSTS, []);
+    return (loaded || []).filter(
+      (p) =>
+        p &&
+        !['user_alex', 'user_maya', 'user_liam', 'user_elena'].includes(p.authorId) &&
+        !p.id.startsWith('post_')
+    );
   });
 
   const [stories, setStories] = useState<UserStory[]>(() => {
-    return offlineStorage.load<UserStory[]>(STORAGE_KEYS.STORIES, INITIAL_STORIES);
+    const loaded = offlineStorage.load<UserStory[]>(STORAGE_KEYS.STORIES, []);
+    return (loaded || []).filter(
+      (s) =>
+        s &&
+        !['user_alex', 'user_maya', 'user_liam', 'user_elena'].includes(s.userId) &&
+        !s.id.startsWith('story_')
+    );
   });
 
   const [savedPostIds, setSavedPostIds] = useState<string[]>(() => {
-    return offlineStorage.load<string[]>(STORAGE_KEYS.BOOKMARKS, ['post_1']);
+    return offlineStorage.load<string[]>(STORAGE_KEYS.BOOKMARKS, []).filter((id) => !id.startsWith('post_'));
   });
 
   // Fetch posts & stories from server API with smart real-time merging
   const refreshFeed = async () => {
     try {
       const [serverPosts, serverStories] = await Promise.all([api.getPosts(), api.getStories()]);
-      if (serverPosts && serverPosts.length > 0) {
+      if (Array.isArray(serverPosts)) {
+        const cleanServerPosts = serverPosts.filter(
+          (p) =>
+            p &&
+            !['user_alex', 'user_maya', 'user_liam', 'user_elena'].includes(p.authorId) &&
+            !['post_1', 'post_2', 'post_3'].includes(p.id)
+        );
         setPosts((prevPosts) => {
           // Merge server posts with any optimistic local posts
           const serverMap = new Map<string, SocialPost>();
-          serverPosts.forEach((sp) => serverMap.set(sp.id, sp));
+          cleanServerPosts.forEach((sp) => serverMap.set(sp.id, sp));
 
           // Include any pending offline posts that are not yet on the server
           const merged: SocialPost[] = [];
           const seenIds = new Set<string>();
 
           // Server posts take canonical precedence for comments and likes
-          serverPosts.forEach((sp) => {
+          cleanServerPosts.forEach((sp) => {
             seenIds.add(sp.id);
             merged.push(sp);
           });
@@ -72,17 +90,24 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
           return merged;
         });
-        offlineStorage.save(STORAGE_KEYS.POSTS, serverPosts);
+        offlineStorage.save(STORAGE_KEYS.POSTS, cleanServerPosts);
       }
 
-      if (serverStories && serverStories.length > 0) {
-        setStories(serverStories);
-        offlineStorage.save(STORAGE_KEYS.STORIES, serverStories);
+      if (Array.isArray(serverStories)) {
+        const cleanStories = serverStories.filter(
+          (s) =>
+            s &&
+            !['user_alex', 'user_maya', 'user_liam', 'user_elena'].includes(s.userId) &&
+            !['story_1', 'story_2', 'story_3'].includes(s.id)
+        );
+        setStories(cleanStories);
+        offlineStorage.save(STORAGE_KEYS.STORIES, cleanStories);
       }
     } catch (err) {
       console.warn('Feed refresh error:', err);
     }
   };
+
 
   useEffect(() => {
     refreshFeed();
