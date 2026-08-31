@@ -3,7 +3,8 @@ import { UserStatus } from '../../types';
 
 interface AvatarProps {
   src?: string;
-  name: string;
+  name?: string;
+  alt?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   status?: UserStatus;
   className?: string;
@@ -29,21 +30,28 @@ const statusClasses: Record<UserStatus, string> = {
 export const Avatar: React.FC<AvatarProps> = ({
   src,
   name,
+  alt,
   size = 'md',
   status,
   className = '',
   onClick,
 }) => {
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const displayName = (name || alt || 'User').trim();
+  const initials = displayName
+    ? displayName
+        .split(' ')
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'U';
+
+  const safeId = displayName.toLowerCase().replace(/\s+/g, '-');
 
   return (
     <div
-      id={`avatar-${name.toLowerCase().replace(/\s+/g, '-')}`}
+      id={`avatar-${safeId}`}
       onClick={onClick}
       className={`relative inline-flex flex-shrink-0 items-center justify-center rounded-full overflow-visible ${sizeClasses[size]} ${
         onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''

@@ -1,3 +1,4 @@
+import webpush from "web-push";
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -62,9 +63,21 @@ async function startServer() {
     const user = db.getUserById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
     const { passwordHash, ...safeUser } = user;
+    res.json(safeUser);
+  });
+
+  app.put('/api/users/:id', (req, res) => {
     const updated = db.updateUser(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: 'User not found' });
-    res.json(updated);
+    const { passwordHash, ...safeUser } = updated;
+    res.json(safeUser);
+  });
+
+  app.patch('/api/users/:id', (req, res) => {
+    const updated = db.updateUser(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    const { passwordHash, ...safeUser } = updated;
+    res.json(safeUser);
   });
 
   app.put('/api/users/:id/status', (req, res) => {
@@ -236,6 +249,82 @@ async function startServer() {
     res.json(reactions);
   });
 
+
+  // --- Web Push / Notification Setup ---
+  const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "BBAX1ipe_zcn6CoRkoW9a9cw65QRsBKRXKdhdzqxrY00PqpetVxtI7SJ7-ZTcQLozOzIwsL-Sg9D7U-qfERMxZs";
+  const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "OCB5cJ_HHQhpQX5kcRdf4jr_hMBhnGPdsV52v2M76SA";
+  const VAPID_MAILTO = process.env.VAPID_MAILTO || "mailto:admin@cloudcraftstudio.com";
+
+  webpush.setVapidDetails(VAPID_MAILTO, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+
+  const authDb = new Database(path.join(process.cwd(), "data", "auth.db"));
+  authDb.exec(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_user_id ON push_subscriptions(user_id);
+  `);
+
+  // Return Public Key to Client
+  app.get("/api/push/vapid-key", (req, res) => {
+    res.json({ publicKey: VAPID_PUBLIC_KEY });
+  });
+
+  // Save Subscription from Client Device
+  app.post("/api/push/subscribe", (req, res) => {
+    const { userId, subscription } = req.body;
+    if (!userId || !subscription || !subscription.endpoint || !subscription.keys) {
+      return res.status(400).json({ error: "userId and subscription keys required" });
+    }
+    try {
+      const stmt = authDb.prepare(`
+        INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(endpoint) DO UPDATE SET
+          user_id = excluded.user_id,
+          p256dh = excluded.p256dh,
+          auth = excluded.auth,
+          created_at = excluded.created_at
+      `);
+      stmt.run(userId, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, Date.now());
+      res.status(201).json({ success: true });
+    } catch (err) {
+      console.error("Failed to save push subscription:", err);
+      res.status(500).json({ error: "Failed to store subscription" });
+    }
+  });
+
+  // Helper to send push to a user
+  const sendPushToUser = async (userId: string, payload: any) => {
+    try {
+      const subs = authDb.prepare("SELECT * FROM push_subscriptions WHERE user_id = ?").all(userId) as any[];
+      for (const sub of subs) {
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.p256dh,
+            auth: sub.auth,
+          },
+        };
+        webpush.sendNotification(pushSubscription, JSON.stringify(payload), {
+          urgency: "high",
+          TTL: 60,
+        }).catch((err: any) => {
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            authDb.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(sub.endpoint);
+          }
+        });
+      }
+    } catch (err) {
+      console.error("Error dispatching push notifications:", err);
+    }
+  };
+
   // --- Calls & WebRTC Signaling API ---
   app.post('/api/calls', (req, res) => {
     const { callerId, callerName, callerAvatar, receiverId, receiverName, receiverAvatar, isVideo, roomId } = req.body;
@@ -282,7 +371,7 @@ async function startServer() {
         const directConv = convs.find(
           (c) =>
             !c.isGroup &&
-            c.participantIds.includes(session.callerId) &&
+            Array.isArray(c.participantIds) && c.participantIds.includes(session.callerId) &&
             c.participantIds.includes(session.receiverId)
         );
         if (directConv) {

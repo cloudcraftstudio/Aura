@@ -16,11 +16,10 @@ export const ActiveUsersBar: React.FC<ActiveUsersBarProps> = ({ onOpenProfile })
   const { startCall } = useCall();
   const { startDirectConversation } = useChat();
 
-  // Filter users who are currently online or active (exclude current user)
-  const onlineUsers = allUsers.filter((u) => {
-    if (currentUser && u.id === currentUser.id) return false;
-    return u.status === 'online' || u.status === 'busy';
-  });
+  // Filter online users and place current user first
+  const onlineUsers = allUsers
+    .filter((u) => u.status === 'online' || u.status === 'busy')
+    .sort((a, b) => (currentUser && a.id === currentUser.id ? -1 : currentUser && b.id === currentUser.id ? 1 : 0));
 
   if (onlineUsers.length === 0) {
     return null;

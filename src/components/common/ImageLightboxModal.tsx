@@ -31,9 +31,11 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   const [isZoomed, setIsZoomed] = useState(false);
 
   useEffect(() => {
-    setCurrentIndex(Math.max(0, Math.min(initialIndex, images.length - 1)));
-    setIsZoomed(false);
-  }, [initialIndex, images]);
+    if (isOpen) {
+      setCurrentIndex(Math.max(0, Math.min(initialIndex, (images?.length || 1) - 1)));
+      setIsZoomed(false);
+    }
+  }, [isOpen, initialIndex]);
 
   const handleNext = useCallback(
     (e?: React.MouseEvent) => {

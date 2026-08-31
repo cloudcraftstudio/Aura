@@ -123,6 +123,26 @@ export class BibleStudyDB {
     return result.changes > 0;
   }
 
+  updateCourse(id: string, updates: { title?: string; description?: string; coverImage?: string; category?: string; level?: string }): Course | null {
+    const course = this.getCourse(id);
+    if (!course) return null;
+
+    const title = updates.title !== undefined ? updates.title : course.title;
+    const description = updates.description !== undefined ? updates.description : course.description;
+    const coverImage = updates.coverImage !== undefined ? updates.coverImage : course.coverImage;
+    const category = updates.category !== undefined ? updates.category : course.category;
+    const level = updates.level !== undefined ? updates.level : course.level;
+    const updatedAt = new Date().toISOString();
+
+    this.db.prepare(`
+      UPDATE courses
+      SET title = ?, description = ?, coverImage = ?, category = ?, level = ?, updatedAt = ?
+      WHERE id = ?
+    `).run(title, description, coverImage, category, level, updatedAt, id);
+
+    return this.getCourse(id);
+  }
+
   deleteCourse(id: string): boolean {
     this.db.prepare('DELETE FROM lessons WHERE courseId = ?').run(id);
     const result = this.db.prepare('DELETE FROM courses WHERE id = ?').run(id);

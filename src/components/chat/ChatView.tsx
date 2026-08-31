@@ -1,4 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+
+  const formatSafeTime = (ts: any, fallback = 'Recent') => {
+    try {
+      if (isNaN(d.getTime())) return fallback;
+      return formatDistanceToNow(d, { addSuffix: true });
+    } catch {
+      return fallback;
+    }
+  };
+
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -23,12 +33,38 @@ import {
   Home,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+
+// Safe date formatters to avoid 'Invalid time value' crashes
+const safeDistanceToNow = (ts: any) => {
+  if (!ts) return 'Just now';
+  try {
+    const d = typeof ts === 'number' || typeof ts === 'string' ? new Date(ts) : ts;
+    if (isNaN(d.getTime())) return 'Just now';
+    return formatDistanceToNow(d, { addSuffix: false });
+  } catch {
+    return 'Just now';
+  }
+};
+
+const safeFormatTime = (ts: any, pattern = 'HH:mm') => {
+  if (!ts) return '';
+  try {
+    const d = typeof ts === 'number' || typeof ts === 'string' ? new Date(ts) : ts;
+    if (isNaN(d.getTime())) return '';
+    return format(d, pattern);
+  } catch {
+    return '';
+  }
+};
+
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCall } from '../../context/CallContext';
 import { ChatMessage, UserProfile, Conversation } from '../../types';
 import { Avatar } from '../common/Avatar';
 import { ImageLightboxModal } from '../common/ImageLightboxModal';
+import { StoryViewerModal } from '../stories/StoryViewerModal';
+import { useSocial } from '../../context/SocialContext';
 import { RichTextRenderer } from '../common/RichTextRenderer';
 
 const QUICK_EMOJIS = ['👍', '❤️', '🔥', '😂', '🚀', '✨'];
@@ -49,6 +85,8 @@ export const ChatView: React.FC = () => {
 
   const { user, allUsers } = useAuth();
   const { startCall } = useCall();
+  const { stories } = useSocial();
+  const [selectedStoryIndex, setSelectedStoryIndex] = useState<number | null>(null);
 
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -193,9 +231,10 @@ export const ChatView: React.FC = () => {
 
   const handleStartCall = (isVideo: boolean) => {
     if (!activeConversation || !user) return;
-    const targetUser = activeConversation.participants.find((p) => p.id !== user.id);
-    if (targetUser) {
-      startCall(targetUser, isVideo);
+    const target = getRecipient(activeConversation) || (activeConversation.participants || []).find((p) => p?.id !== user?.id);
+    if (target) {
+      const fullProfile = (allUsers || []).find((u) => u.id === target.id) || target;
+      startCall(fullProfile as any, isVideo);
     }
   };
 
@@ -211,19 +250,39 @@ export const ChatView: React.FC = () => {
   };
 
   const getRecipient = (conv: Conversation) => {
-    if (conv.isGroup) return null;
-    return conv.participants.find((p) => p.id !== user?.id) || conv.participants[0];
+    if (!conv || conv.isGroup) return null;
+    const parts = Array.isArray(conv?.participants) ? conv.participants : [];
+    let fallback = parts.find((p) => p?.id !== user?.id) || parts[0];
+
+    // If participants array is empty, resolve target from participantIds
+    if (!fallback && Array.isArray(conv?.participantIds)) {
+      const otherId = conv.participantIds.find((pid) => pid && pid !== user?.id) || conv.participantIds[0];
+      if (otherId) {
+        fallback = (allUsers || []).find((u) => u.id === otherId);
+      }
+    }
+
+    if (!fallback) return null;
+    const live = (allUsers || []).find((u) => u?.id === fallback?.id || (fallback?.handle && u?.handle === fallback?.handle) || (fallback?.name && u?.name === fallback?.name));
+    const merged = live ? { ...fallback, ...live } : fallback;
+
+    // Standardize avatar property fallback
+    if (merged && !merged.avatarUrl) {
+      merged.avatarUrl = (merged as any).avatar || (merged as any).avatar_url;
+    }
+    return merged;
   };
 
   const filteredConversations = conversations.filter((c) => {
+    const q = (searchQuery || "").toLowerCase().trim();
+    if (!q) return true;
     if (c.isGroup) {
-      return c.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      return (c.name || "").toLowerCase().includes(q);
     }
     const other = getRecipient(c);
-    return (
-      other?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      other?.handle.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const nameMatch = Boolean(other?.name && other.name.toLowerCase().includes(q));
+    const handleMatch = Boolean(other?.handle && other.handle.toLowerCase().includes(q));
+    return nameMatch || handleMatch;
   });
 
   return (
@@ -304,6 +363,86 @@ export const ChatView: React.FC = () => {
           </div>
         </div>
 
+          {/* Facebook-Style Active Live Users & Stories Tray */}
+          <div id="chat-stories-active-tray" className="pt-1 pb-2 border-b border-white/10">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Active Now & Stories
+              </span>
+              <span className="text-[10px] text-blue-400 font-semibold">
+                {allUsers.filter((u) => u.id !== user?.id).length} online
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none">
+              {/* Tex / My Story Avatar */}
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('open_create_story_modal'));
+                }}
+                className="flex flex-col items-center gap-1 flex-shrink-0 group focus:outline-none"
+                title="Add to Your Story"
+              >
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 group-hover:scale-105 transition-transform">
+                    <Avatar
+                      src={user?.avatarUrl}
+                      name={user?.name || 'You'}
+                      size="md"
+                      className="w-full h-full rounded-full border-2 border-[#090d22] object-cover"
+                    />
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-blue-600 rounded-full border-2 border-[#090d22] flex items-center justify-center text-white text-[10px] font-black">
+                    +
+                  </div>
+                </div>
+                <span className="text-[10px] font-medium text-slate-300 max-w-[52px] truncate text-center">
+                  Your Story
+                </span>
+              </button>
+
+              {/* Real Active Contacts (Daphne, Skylor, Kimberly, etc.) */}
+              {allUsers
+                .filter((u) => u.id !== user?.id)
+                .map((contact) => {
+                  return (
+                    <button
+                      key={contact.id}
+                      onClick={() => {
+                        const storyIdx = (stories || []).findIndex(
+                          (s) => s.userId === contact.id || s.user?.id === contact.id || s.user?.name === contact.name
+                        );
+                        if (storyIdx !== -1) {
+                          setSelectedStoryIndex(storyIdx);
+                        } else {
+                          startDirectConversation(contact);
+                          setMobileShowChatRoom(true);
+                        }
+                      }}
+                      className="flex flex-col items-center gap-1 flex-shrink-0 group focus:outline-none"
+                      title={"Chat with " + contact.name}
+                    >
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-emerald-400 to-teal-500 group-hover:scale-105 transition-transform shadow-lg shadow-emerald-500/20">
+                          <Avatar
+                            src={contact.avatarUrl}
+                            name={contact.name}
+                            size="md"
+                            className="w-full h-full rounded-full border-2 border-[#090d22] object-cover"
+                          />
+                        </div>
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#090d22]" />
+                      </div>
+                      <span className="text-[10px] font-medium text-slate-300 group-hover:text-white max-w-[54px] truncate text-center">
+                        {(contact.name || 'User').split(' ')[0]}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+
         {/* Conversations List */}
         <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3 space-y-1.5">
           {filteredConversations.length === 0 ? (
@@ -340,7 +479,7 @@ export const ChatView: React.FC = () => {
                       </p>
                       {conv.lastMessage && (
                         <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                          {formatDistanceToNow(conv.lastMessage.timestamp, { addSuffix: false })}
+                          {safeDistanceToNow(conv.lastMessage?.timestamp)}
                         </span>
                       )}
                     </div>
@@ -637,7 +776,7 @@ export const ChatView: React.FC = () => {
                               isMe ? 'text-blue-200 justify-end' : 'text-slate-400'
                             }`}
                           >
-                            <span>{format(msg.timestamp, 'HH:mm')}</span>
+                            <span>{safeFormatTime(msg?.timestamp, 'HH:mm')}</span>
                             {isMe && <CheckCheck className="w-3 h-3 text-blue-200" />}
                           </div>
 
@@ -942,6 +1081,15 @@ export const ChatView: React.FC = () => {
           images={[lightboxImage]}
           initialIndex={0}
           onClose={() => setLightboxImage(null)}
+        />
+      )}
+
+      {/* Story Viewer Modal for Chat Carousel Stories */}
+      {selectedStoryIndex !== null && stories && stories.length > 0 && (
+        <StoryViewerModal
+          stories={stories}
+          initialStoryIndex={selectedStoryIndex}
+          onClose={() => setSelectedStoryIndex(null)}
         />
       )}
     </div>

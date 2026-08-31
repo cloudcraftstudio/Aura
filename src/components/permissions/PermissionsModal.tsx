@@ -41,6 +41,15 @@ export const PermissionsModal: React.FC = () => {
   } = usePermissions();
 
   const [isTestingCamera, setIsTestingCamera] = useState(false);
+  useEffect(() => {
+    const handleOpenModal = () => {
+      setIsTestingCamera(true);
+    };
+    window.addEventListener('open_permissions_modal', handleOpenModal);
+    return () => {
+      window.removeEventListener('open_permissions_modal', handleOpenModal);
+    };
+  }, []);
   const [isTestingMic, setIsTestingMic] = useState(false);
   const [micVolumeLevel, setMicVolumeLevel] = useState<number>(0);
   const [activeCameraStream, setActiveCameraStream] = useState<MediaStream | null>(null);
@@ -407,6 +416,37 @@ export const PermissionsModal: React.FC = () => {
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
+          </div>
+
+          
+          {/* PWA Cache Refresh & Reload Tool */}
+          <div className="p-3.5 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-white">App Cache & Updates</h4>
+              <p className="text-[10px] text-slate-400">Clear stale service worker cache and reload latest build</p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                if ('serviceWorker' in navigator) {
+                  const registrations = await navigator.serviceWorker.getRegistrations();
+                  for (let reg of registrations) {
+                    await reg.unregister();
+                  }
+                }
+                if ('caches' in window) {
+                  const keys = await caches.keys();
+                  for (let key of keys) {
+                    await caches.delete(key);
+                  }
+                }
+                window.location.reload(true);
+              }}
+              className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 flex-shrink-0 active:scale-95"
+            >
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <span>Refresh App</span>
+            </button>
           </div>
 
           {/* Troubleshoot / Browser Settings Helper */}

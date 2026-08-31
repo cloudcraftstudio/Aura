@@ -73,9 +73,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     try {
       const result = await registerWithEmail(email.trim(), username.trim(), password.trim(), name.trim());
       if (result.success) {
-        setOtpEmail(email.trim());
-        setScreen('otp');
-        setOtpCode('');
+        onClose();
       } else {
         setErrorMessage(result.error || 'Registration failed.');
       }

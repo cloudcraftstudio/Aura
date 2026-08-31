@@ -708,7 +708,9 @@ class JSONDatabase {
 
     // Update in conversations participant lists as well
     this.data.conversations.forEach((conv) => {
-      conv.participants = conv.participants.map((p) => (p.id === id ? updated : p));
+      if (Array.isArray(conv.participants)) {
+        if (Array.isArray(conv.participants)) { conv.participants = conv.participants.map((p) => (p.id === id ? updated : p)); }
+      }
     });
 
     this.scheduleSave();
@@ -857,11 +859,14 @@ class JSONDatabase {
 
     for (const story of active) {
       const existing = userStoryMap.get(story.userId);
-      // Ensure this story's slides array is well-formed
+      
+      // Ensure this raw story entry's slides array is well-formed
       let currentStorySlides: DBStorySlide[] = [];
       if (story.slides && story.slides.length > 0) {
+        // If it already has slides, use them directly (this might be a previously aggregated result or a newly added slide bundle)
         currentStorySlides = [...story.slides];
       } else if (story.mediaUrl) {
+        // If it's an old individual story entry, create a single slide for it
         currentStorySlides = [
           {
             id: `slide_${story.id}`,
@@ -873,43 +878,57 @@ class JSONDatabase {
       }
 
       if (!existing) {
-        // First entry for this user
+        // First entry for this user, create the core bundle
         userStoryMap.set(story.userId, {
           ...story,
           slides: currentStorySlides,
         });
       } else {
-        // Merge slides into existing user story bundle
-        const existingSlideIds = new Set(existing.slides?.map((s) => s.id) || []);
-        const existingSlideUrls = new Set(existing.slides?.map((s) => s.mediaUrl) || []);
+        // Merge this entry='s slides into the existing user story bundle
+        if (!existing.slides) existing.slides = []; // Safety check
+        
+        const existingSlideIds = new Set(existing.slides.map((s) => s.id));
+        const existingSlideUrls = new Set(existing.slides.map((s) => s.mediaUrl));
 
         for (const slide of currentStorySlides) {
+          // Check BOTH ID and URL to prevent duplicates from overlapping raw data structures
           if (!existingSlideIds.has(slide.id) && !existingSlideUrls.has(slide.mediaUrl)) {
             existingSlideIds.add(slide.id);
             existingSlideUrls.add(slide.mediaUrl);
-            existing.slides?.push(slide);
+            existing.slides.push(slide);
           }
         }
 
         // Sort slides chronologically
-        existing.slides?.sort((a, b) => a.createdAt - b.createdAt);
+        existing.slides.sort((a, b) => a.createdAt - b.createdAt);
 
-        // Update latest mediaUrl/caption/createdAt
+        // Update latest mediaUrl/caption/createdAt so the reel thumbnail/info shows the new story
         if (story.createdAt >= existing.createdAt) {
           existing.mediaUrl = story.mediaUrl;
           existing.caption = story.caption;
           existing.createdAt = story.createdAt;
         }
 
-        // Merge seen users
-        const combinedSeen = Array.from(new Set([...existing.seenByUserIds, ...story.seenByUserIds]));
-        existing.seenByUserIds = combinedSeen;
+        // Merge seen users efficiently
+        if (story.seenByUserIds && story.seenByUserIds.length > 0) {
+          if (!existing.seenByUserIds) existing.seenByUserIds = [];
+          const combinedSeen = Array.from(new Set([...existing.seenByUserIds, ...story.seenByUserIds]));
+          existing.seenByUserIds = combinedSeen;
+        }
       }
     }
 
     const consolidatedStories = Array.from(userStoryMap.values());
-    this.data.stories = consolidatedStories;
-    this.scheduleSave();
+    
+    // CRITICAL: We DO NOT overwrite the raw this.data.stories here. 
+    // getStories() should be non-destructive to the raw data structure.
+    // Overwriting it with aggregated results can drop slides when individual 
+    // entries that *contain* the slides fall off the 24h cutoff, 
+    // depending on which object is processed first.
+    // The consolidation will happen naturally every time getStories() is called.
+
+    // this.data.stories = consolidatedStories; // DELETED: We do not overwrite raw data.
+    // this.scheduleSave(); // DELETED: We do not save an aggregated view as raw data.
 
     return consolidatedStories;
   }
@@ -1017,7 +1036,7 @@ class JSONDatabase {
   // --- Conversations & Messages ---
   public getConversations(userId?: string): DBConversation[] {
     if (!userId) return this.data.conversations;
-    return this.data.conversations.filter((c) => c.participantIds.includes(userId));
+    return this.data.conversations.filter((c) => Array.isArray(c.participantIds) && (Array.isArray(c.participantIds) && (Array.isArray(c.participantIds) && (Array.isArray(c?.participantIds) && c.participantIds.includes(userId)))));
   }
 
   public getConversationById(id: string): DBConversation | undefined {

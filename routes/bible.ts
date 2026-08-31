@@ -135,6 +135,18 @@ export function createBibleRoutes(db: BibleStudyDB): Router {
     }
   });
 
+  router.put('/courses/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { title, description, coverImage, category, level } = req.body;
+    try {
+      const updated = db.updateCourse(id, { title, description, coverImage, category, level });
+      if (!updated) return res.status(404).json({ error: 'Course not found' });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to update course' });
+    }
+  });
+
   router.delete('/courses/:id', (req: Request, res: Response) => {
     try {
       const deleted = db.deleteCourse(req.params.id);

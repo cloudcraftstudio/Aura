@@ -246,19 +246,40 @@ class SoundEffectsService {
       this.initCtx();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.linearRampToValueAtTime(160, now + 0.35);
-      gain.gain.setValueAtTime(0.16, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.connect(gain);
-      gain.connect(this.ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.35);
+
+      // Authentic Mario death / game over melody (Call Terminated)
+      const deathNotes = [
+        { note: 587.33, start: 0.00, dur: 0.13 }, // D5
+        { note: 554.37, start: 0.15, dur: 0.13 }, // C#5
+        { note: 523.25, start: 0.30, dur: 0.13 }, // C5
+        { note: 493.88, start: 0.45, dur: 0.22 }, // B4
+        // pause
+        { note: 349.23, start: 0.75, dur: 0.13 }, // F4
+        { note: 369.99, start: 0.90, dur: 0.13 }, // F#4
+        { note: 349.23, start: 1.05, dur: 0.13 }, // F4
+        { note: 329.63, start: 1.20, dur: 0.16 }, // E4
+        { note: 293.66, start: 1.38, dur: 0.16 }, // D4
+        { note: 261.63, start: 1.58, dur: 0.35 }, // C4
+      ];
+
+      deathNotes.forEach(({ note, start, dur }) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(note, now + start);
+
+        gain.gain.setValueAtTime(0.18, now + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now + start);
+        osc.stop(now + start + dur);
+      });
     } catch (e) {
-      console.warn('Call ended audio error:', e);
+      console.warn("Mario game over audio error:", e);
     }
   }
 
@@ -357,6 +378,51 @@ class SoundEffectsService {
       console.warn('Level up tone error:', e);
     }
   }
+  // Super Mario Bros iconic death / game over melody (when call terminates)
+  public playMarioGameOver() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Iconic sequence of notes with rhythmic timing
+      const deathNotes = [
+        { note: 587.33, start: 0.00, dur: 0.14 }, // D5
+        { note: 554.37, start: 0.16, dur: 0.14 }, // C#5
+        { note: 523.25, start: 0.32, dur: 0.14 }, // C5
+        { note: 493.88, start: 0.48, dur: 0.22 }, // B4
+        // short rest
+        { note: 349.23, start: 0.80, dur: 0.14 }, // F4
+        { note: 369.99, start: 0.96, dur: 0.14 }, // F#4
+        { note: 349.23, start: 1.12, dur: 0.14 }, // F4
+        { note: 329.63, start: 1.28, dur: 0.18 }, // E4
+        { note: 293.66, start: 1.48, dur: 0.18 }, // D4
+        { note: 261.63, start: 1.70, dur: 0.35 }, // C4
+      ];
+
+      deathNotes.forEach(({ note, start, dur }) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(note, now + start);
+
+        gain.gain.setValueAtTime(0.14, now + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now + start);
+        osc.stop(now + start + dur);
+      });
+    } catch (e) {
+      console.warn("Mario game over tone error:", e);
+    }
+  }
+
 }
 
 export const soundEffects = new SoundEffectsService();
+export const audioService = soundEffects;
+

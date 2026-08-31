@@ -1,3 +1,4 @@
+import { SuperAdminDrawer } from './SuperAdminDrawer';
 import React, { useState } from 'react';
 import {
   Sparkles,
@@ -44,6 +45,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenNotifications,
 }) => {
   const { user, allUsers, loginAsUser, isOnline, openAuthModal, isServerConnected } = useAuth();
+
+  const isTexAdmin =
+    user?.handle?.toLowerCase() === 'tex' ||
+    user?.email?.toLowerCase().includes('lightsouttattootex') ||
+    user?.email?.toLowerCase().includes('tex@aura.social');
   const { conversations } = useChat();
   const { unreadCount, openNotifications } = useNotifications();
   const {
@@ -58,6 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
   const [isMotivationOpen, setIsMotivationOpen] = useState(false);
+  const [isSuperDrawerOpen, setIsSuperDrawerOpen] = useState(false);
 
   React.useEffect(() => {
     const handleOpenMotivation = () => setIsMotivationOpen(true);
@@ -152,18 +159,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
           </button>
 
-          <button
-            id="tab-studio"
-            onClick={() => setActiveTab('studio')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'studio'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Studio</span>
-          </button>
+          {isTexAdmin && (
+            <button
+              id="tab-studio"
+              onClick={() => setActiveTab('studio')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                activeTab === 'studio'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Studio</span>
+            </button>
+          )}
         </nav>
 
         {/* Right Action Suite */}
@@ -219,7 +228,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
 
-          {/* Quick Persona Switcher Menu (Desktop) */}
+          {/* Quick Persona Switcher Menu (Desktop - Restricted to Admin Tex) */}
+          {(user?.handle === 'tex' || user?.email === 'lightsouttattootex@gmail.com') && (
           <div className="relative hidden md:block">
             <button
               id="switch-persona-btn"
@@ -262,6 +272,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
+          )}
 
           {/* Daily Motivation Word & Inspiration Toggle Button */}
           <button
@@ -300,9 +311,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           {user ? (
             <button
               id="profile-trigger-btn"
-              onClick={onOpenProfile}
+              onClick={() => setIsSuperDrawerOpen(true)}
               className="p-0.5 rounded-full ring-2 ring-blue-500/50 hover:ring-blue-400 transition-all active:scale-95 flex-shrink-0"
-              title="Open Account & Settings"
+              title="Open Command Hub & Shortcuts"
             >
               <Avatar src={user.avatarUrl} name={user.name} size="md" status={user.status} />
             </button>
@@ -322,6 +333,17 @@ export const Navbar: React.FC<NavbarProps> = ({
       <DailyMotivationModal
         isOpen={isMotivationOpen}
         onClose={() => setIsMotivationOpen(false)}
+      />
+          {/* Super Admin Command Slide-Out Drawer */}
+      <SuperAdminDrawer
+        isOpen={isSuperDrawerOpen}
+        onClose={() => setIsSuperDrawerOpen(false)}
+        onOpenPermissions={openPermissionsModal}
+        onOpenProfile={onOpenProfile}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab as any);
+          setIsSuperDrawerOpen(false);
+        }}
       />
     </header>
   );

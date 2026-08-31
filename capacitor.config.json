@@ -1,0 +1,9 @@
+{
+  "appId": "com.aura.social",
+  "appName": "Aura",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true
+  }
+}

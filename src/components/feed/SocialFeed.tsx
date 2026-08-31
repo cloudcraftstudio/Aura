@@ -117,11 +117,74 @@ export const SocialFeed: React.FC = () => {
         ))}
       </div>
 
-      {/* Feed Posts Stream */}
+      {/* Feed Posts Stream with Interleaved Drift Cards */}
       <div className="space-y-4">
-        {filteredPosts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
+        {filteredPosts.map((post, index) => {
+          // Interleave a Prayer Wall drift card every 4 posts
+          const showPrayerDrift = index > 0 && index % 4 === 0;
+          // Interleave a Bible Study drift card every 7 posts
+          const showStudyDrift = index > 0 && index % 7 === 0;
+
+          return (
+            <React.Fragment key={post.id}>
+              <PostCard post={post} />
+
+              {showPrayerDrift && (
+                <div className="rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900/90 to-amber-950/30 border border-amber-500/30 p-4 shadow-xl space-y-2.5 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-wider border border-amber-500/30">
+                      🙏 Prayer Wall Activity
+                    </span>
+                    <span className="text-[10px] text-slate-400">Community Request</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">"Lord, grant strength, peace, and guidance today."</h4>
+                    <p className="text-xs text-slate-300 mt-1 line-clamp-2">
+                      Recent prayer request shared on the sanctuary wall. Lift up our brothers and sisters in faith.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end pt-1">
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'bible' } }));
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow transition-all flex items-center gap-1.5"
+                    >
+                      <span>Pray Now</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {showStudyDrift && (
+                <div className="rounded-2xl bg-gradient-to-r from-blue-950/40 via-slate-900/90 to-indigo-950/30 border border-blue-500/30 p-4 shadow-xl space-y-2.5 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase tracking-wider border border-blue-500/30">
+                      📖 Bible Study & Expositions
+                    </span>
+                    <span className="text-[10px] text-slate-400">Featured Lesson</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">The Book of Hebrews: Anchor of the Soul</h4>
+                    <p className="text-xs text-slate-300 mt-1 line-clamp-2">
+                      Dive into verse-by-verse notes, historical context, and daily application questions.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end pt-1">
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('navigate_tab', { detail: { tab: 'bible' } }));
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow transition-all flex items-center gap-1.5"
+                    >
+                      <span>Join Study</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {/* Invite Friends & Share App Card at end of feed */}

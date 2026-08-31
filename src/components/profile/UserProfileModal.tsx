@@ -71,7 +71,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [handle, setHandle] = useState(user?.handle || '');
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=tex');
   const [bannerUrl, setBannerUrl] = useState(user?.bannerUrl || COVER_BANNER_PRESETS[0].url);
   const [statusMessage, setStatusMessage] = useState(user?.statusMessage || '');
   const [status, setStatus] = useState<UserStatus>(user?.status || 'online');

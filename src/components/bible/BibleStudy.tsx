@@ -1,6 +1,8 @@
+import { PrayerWall } from './PrayerWall';
+import { ScriptureLinker } from './ScriptureLinker';
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Share2, ChevronDown, Loader, MessageCircle, Sparkles, Play } from 'lucide-react';
-import { KingJamesTutor } from './KingJamesTutor';
+import { BookOpen, LayoutGrid, List, Share2, ChevronDown, Loader, MessageCircle, Sparkles, Play } from 'lucide-react';
+
 import { PodcastFeed } from './PodcastFeed';
 import { getBooksByTestament, getBookMetadata } from '../../data/bibleBooks';
 
@@ -8,6 +10,9 @@ interface Course {
   id: string;
   title: string;
   description?: string;
+  coverImage?: string;
+  category?: string;
+  level?: string;
 }
 
 interface Lesson {
@@ -39,12 +44,22 @@ interface StudyBreakdown {
 }
 
 export function BibleStudy() {
-  const [activeTab, setActiveTab] = useState<'courses' | 'study' | 'ask' | 'podcasts'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'study' | 'podcasts' | 'prayers'>(() => {
+    try {
+      const saved = localStorage.getItem('aura_study_initial_tab');
+      if (saved === 'prayer' || saved === 'prayers') {
+        localStorage.removeItem('aura_study_initial_tab');
+        return 'prayers';
+      }
+    } catch {}
+    return 'courses';
+  });
   const [courses, setCourses] = useState<Course[]>([]);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [expandedLesson, setExpandedLesson] = useState<string | null>(null);
   const [courseLessons, setCourseLessons] = useState<Record<string, Lesson[]>>({});
   const [loading, setLoading] = useState(false);
+  const [courseViewMode, setCourseViewMode] = useState<'grid' | 'list'>('grid');
 
   // Study Engine state
   const [selectedTestament, setSelectedTestament] = useState<'Old Testament' | 'New Testament'>('New Testament');
@@ -54,6 +69,8 @@ export function BibleStudy() {
   const [studyBreakdown, setStudyBreakdown] = useState<StudyBreakdown | null>(null);
   const [matchingSermons, setMatchingSermons] = useState<any[]>([]);
   const [studyLoading, setStudyLoading] = useState(false);
+  const [bibleFontSize, setBibleFontSize] = useState<number>(18);
+  const [isQuickNavOpen, setIsQuickNavOpen] = useState(false);
 
   // Tutor state
   const [isTutorOpen, setIsTutorOpen] = useState(false);
@@ -71,6 +88,21 @@ export function BibleStudy() {
 
   useEffect(() => {
     fetchCourses();
+
+    const handleSwitchStudyTab = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tab: string }>;
+      const target = customEvent.detail?.tab;
+      if (target === 'prayer' || target === 'prayers') {
+        setActiveTab('prayers');
+      } else if (target === 'courses' || target === 'study' || target === 'podcasts') {
+        setActiveTab(target as any);
+      }
+    };
+
+    window.addEventListener('switch_study_tab', handleSwitchStudyTab);
+    return () => {
+      window.removeEventListener('switch_study_tab', handleSwitchStudyTab);
+    };
   }, []);
 
   const fetchCourses = async () => {
@@ -209,18 +241,7 @@ export function BibleStudy() {
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-6">
       {/* King James Tutor Modal */}
-      <KingJamesTutor
-        isOpen={isTutorOpen}
-        onClose={() => setIsTutorOpen(false)}
-        isOnboarding={!hasCompletedOnboarding}
-        onOnboardingComplete={() => {
-          try {
-            localStorage.setItem('bible_onboarding_complete', 'true');
-          } catch {}
-          setHasCompletedOnboarding(true);
-          setIsTutorOpen(false);
-        }}
-      />
+      {/* King James Modal Removed */}
 
       {/* Tab Navigation */}
       <div className="flex gap-4 mb-6 border-b border-blue-500/30 overflow-x-auto">
@@ -246,17 +267,7 @@ export function BibleStudy() {
           <Sparkles className="inline mr-2 w-5 h-5" />
           Study
         </button>
-        <button
-          onClick={() => setActiveTab('ask')}
-          className={`pb-3 px-4 font-semibold transition-colors whitespace-nowrap ${
-            activeTab === 'ask'
-              ? 'text-blue-400 border-b-2 border-blue-400'
-              : 'text-gray-400 hover:text-gray-300'
-          }`}
-        >
-          <MessageCircle className="inline mr-2 w-5 h-5" />
-          Ask King James
-        </button>
+
         <button
           onClick={() => setActiveTab('podcasts')}
           className={`pb-3 px-4 font-semibold transition-colors whitespace-nowrap ${
@@ -268,31 +279,115 @@ export function BibleStudy() {
           <Play className="inline mr-2 w-5 h-5" />
           Podcasts & Sermons
         </button>
+        <button
+          onClick={() => setActiveTab('prayers')}
+          className={`pb-3 px-4 font-semibold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'prayers'
+              ? 'text-rose-400 border-b-2 border-rose-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <span>🙏</span>
+          <span>Prayer Wall</span>
+        </button>
       </div>
 
       {/* Courses Tab */}
       {activeTab === 'courses' && (
         <div className="space-y-4">
+          {/* Header Controls: View Toggle */}
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs font-semibold text-slate-400 tracking-wide uppercase">
+              {courses.length} Available {courses.length === 1 ? 'Course' : 'Courses'}
+            </p>
+            <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-white/10">
+              <button
+                onClick={() => setCourseViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-all ${
+                  courseViewMode === 'grid'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setCourseViewMode('list')}
+                className={`p-1.5 rounded-lg transition-all ${
+                  courseViewMode === 'list'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader className="w-6 h-6 animate-spin text-blue-400" />
             </div>
           ) : (
-            courses.map(course => (
-              <div key={course.id} className="bg-blue-950/30 border border-blue-500/30 rounded-lg overflow-hidden">
+            <div className={courseViewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-4'}>
+              {courses.map(course => (
+              <div key={course.id} className="bg-slate-900/60 backdrop-blur-md border border-white/10 hover:border-blue-500/40 rounded-2xl overflow-hidden shadow-lg transition-all">
+                {/* Course Cover Image Banner */}
+                {course.coverImage ? (
+                  <div className="relative w-full h-44 bg-slate-950 overflow-hidden">
+                    <img
+                      src={course.coverImage}
+                      alt={course.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/30" />
+                    <div className="absolute bottom-2 left-3 flex items-center gap-1.5">
+                      {course.category && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-600/90 text-white px-2 py-0.5 rounded-md shadow">
+                          {course.category}
+                        </span>
+                      )}
+                      {course.level && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-600/90 text-white px-2 py-0.5 rounded-md shadow">
+                          {course.level}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-24 bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-purple-900/40 p-3 flex items-end justify-between border-b border-white/5">
+                    <div className="flex items-center gap-1.5">
+                      {course.category && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-600/80 text-white px-2 py-0.5 rounded-md">
+                          {course.category}
+                        </span>
+                      )}
+                      {course.level && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-600/80 text-white px-2 py-0.5 rounded-md">
+                          {course.level}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={() => fetchLessons(course.id)}
-                  className="w-full p-4 flex items-center justify-between hover:bg-blue-900/20 transition-colors"
+                  className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors text-left"
                 >
-                  <div className="text-left">
-                    <h3 className="font-bold text-lg text-blue-300">{course.title}</h3>
-                    <p className="text-sm text-gray-400">{course.description}</p>
+                  <div className="text-left flex-1 min-w-0 pr-3">
+                    <h3 className="font-bold text-base sm:text-lg text-white truncate">{course.title}</h3>
+                    <p className="text-xs sm:text-sm text-slate-400 line-clamp-2 mt-1">{course.description}</p>
                   </div>
-                  <ChevronDown
-                    className={`w-5 h-5 text-blue-400 transition-transform ${
-                      expandedCourse === course.id ? 'rotate-180' : ''
-                    }`}
-                  />
+                  <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                    <ChevronDown
+                      className={`w-4 h-4 text-blue-400 transition-transform ${
+                        expandedCourse === course.id ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </div>
                 </button>
 
                 {expandedCourse === course.id && courseLessons[course.id] && (
@@ -314,7 +409,20 @@ export function BibleStudy() {
                             {lesson.notes && (
                               <div>
                                 <p className="text-sm text-gray-400 font-semibold">Notes:</p>
-                                <p className="text-sm text-gray-200">{lesson.notes}</p>
+                                <p className="text-sm text-gray-200 leading-relaxed"><ScriptureLinker text={lesson.notes} onOpenStudy={(ref) => {
+                                const spaceIdx = ref.lastIndexOf(' ');
+                                if (spaceIdx !== -1) {
+                                  const b = ref.slice(0, spaceIdx).trim();
+                                  const rest = ref.slice(spaceIdx + 1).trim();
+                                  const parts = rest.split(':');
+                                  const c = parts[0] || '1';
+                                  const v = parts[1] ? parts[1].split('-')[0] : '1';
+                                  setSelectedBook(b);
+                                  setSelectedChapter(c);
+                                  setSelectedVerse(v);
+                                }
+                                setActiveTab('study');
+                              }} /></p>
                               </div>
                             )}
                             
@@ -365,6 +473,8 @@ export function BibleStudy() {
                 )}
               </div>
             ))
+              }
+            </div>
           )}
         </div>
       )}
@@ -626,27 +736,6 @@ export function BibleStudy() {
         </div>
       )}
 
-      {/* Ask King James Tab */}
-      {activeTab === 'ask' && (
-        <div className="space-y-4">
-          <KingJamesTutor
-            isInline={true}
-            onStudyVerse={(verseRef) => {
-              const spaceIdx = verseRef.lastIndexOf(' ');
-              if (spaceIdx === -1) return;
-              const book = verseRef.slice(0, spaceIdx);
-              const [chapter, verse] = verseRef.slice(spaceIdx + 1).split(':');
-              if (!book || !chapter) return;
-              setSelectedBook(book);
-              setSelectedChapter(chapter);
-              setSelectedVerse(verse?.split('-')[0] || '1');
-              setActiveTab('study');
-            }}
-          />
-        </div>
-      )}
-
-      {/* Podcasts & Sermons Tab */}
       {activeTab === 'podcasts' && (
         <PodcastFeed onStudyPassage={(scriptureRef) => {
           const spaceIdx = scriptureRef.lastIndexOf(' ');
@@ -660,6 +749,13 @@ export function BibleStudy() {
           setActiveTab('study');
         }} />
       )}
-    </div>
+          {/* Prayer Wall Tab */}
+      {activeTab === 'prayers' && (
+        <div className="space-y-4">
+          <PrayerWall />
+        </div>
+      )}
+
+</div>
   );
 }

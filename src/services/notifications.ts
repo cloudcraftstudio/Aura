@@ -100,6 +100,54 @@ class NotificationService {
 
     return notification;
   }
+  // Helper to convert VAPID public key
+  private urlBase64ToUint8Array(base64String: string) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  // Register device for Android / Mobile background Push Notifications
+  public async registerPushSubscription(userId: string) {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      return null;
+    }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+
+      if (!sub) {
+        const res = await fetch("/api/push/vapid-key");
+        const { publicKey } = await res.json();
+        if (!publicKey) return null;
+
+        const convertedKey = this.urlBase64ToUint8Array(publicKey);
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedKey,
+        });
+      }
+
+      // Send subscription to server
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, subscription: sub.toJSON() }),
+      });
+
+      console.log("Device successfully subscribed to background push notifications!");
+      return sub;
+    } catch (err) {
+      console.warn("Background push registration failed:", err);
+      return null;
+    }
+  }
+
 }
 
 export const notificationService = new NotificationService();

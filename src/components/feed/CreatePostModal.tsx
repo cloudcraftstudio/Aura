@@ -269,11 +269,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             setMediaUrls((prev) => [...prev, `localmedia://video/${id}`]);
           } else {
             const compressedUrl = await compressImage(file, 1200, 1200, 0.85);
-            // Convert data URL back to Blob for IndexedDB to save localStorage space
-            const res = await fetch(compressedUrl);
-            const blob = await res.blob();
-            await mediaCache.saveMedia(id, blob);
-            setMediaUrls((prev) => [...prev, `localmedia://image/${id}`]);
+            setMediaUrls((prev) => [...prev, compressedUrl]);
           }
         } catch (err) {
           console.warn('Error processing uploaded file:', err);

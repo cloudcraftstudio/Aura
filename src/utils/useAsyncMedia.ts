@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { mediaCache } from '../services/mediaCache';
 
 export function useAsyncMedia(src: string) {
-  const [resolvedSrc, setResolvedSrc] = useState<string>(src);
+  const [resolvedSrc, setResolvedSrc] = useState<string>(src && src.startsWith('localmedia://') ? '' : src);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -18,16 +18,21 @@ export function useAsyncMedia(src: string) {
         if (blob) {
           objectUrl = URL.createObjectURL(blob);
           setResolvedSrc(objectUrl);
+          setError(false);
         } else {
+          setResolvedSrc('');
           setError(true);
         }
       }).catch(() => {
-        if (isMounted) setError(true);
+        if (isMounted) {
+          setResolvedSrc('');
+          setError(true);
+        }
       }).finally(() => {
         if (isMounted) setLoading(false);
       });
     } else {
-      setResolvedSrc(src);
+      setResolvedSrc(src || '');
       setLoading(false);
     }
 

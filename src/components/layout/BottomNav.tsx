@@ -22,6 +22,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const { conversations, activeConversation } = useChat();
   const { user, openAuthModal } = useAuth();
 
+  const isTexAdmin =
+    user?.handle?.toLowerCase() === 'tex' ||
+    user?.email?.toLowerCase().includes('lightsouttattootex') ||
+    user?.email?.toLowerCase().includes('tex@aura.social');
+
   // If in chat tab on mobile and viewing an open conversation, hide BottomNav to keep input area fully visible & accessible
   if (activeTab === 'chat' && activeConversation) {
     return null;
@@ -91,21 +96,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         </button>
 
         {/* Studio Tab */}
-        <button
-          id="mobile-tab-studio"
-          onClick={() => setActiveTab('studio')}
-          className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all relative ${
-            activeTab === 'studio'
-              ? 'text-blue-400 font-bold scale-105'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Sparkles className={`w-5 h-5 ${activeTab === 'studio' ? 'stroke-[2.5px]' : ''}`} />
-          <span className="text-[10px] tracking-tight">Studio</span>
-          {activeTab === 'studio' && (
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
-          )}
-        </button>
+        {isTexAdmin && (
+          <button
+            id="mobile-tab-studio"
+            onClick={() => setActiveTab('studio')}
+            className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all relative ${
+              activeTab === 'studio'
+                ? 'text-blue-400 font-bold scale-105'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className={`w-5 h-5 ${activeTab === 'studio' ? 'stroke-[2.5px]' : ''}`} />
+            <span className="text-[10px] tracking-tight">Studio</span>
+            {activeTab === 'studio' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
+            )}
+          </button>
+        )}
 
         {/* Account / Profile Button */}
         <button
