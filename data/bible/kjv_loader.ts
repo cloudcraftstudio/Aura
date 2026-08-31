@@ -76,16 +76,19 @@ class KJVLoader {
       this.bible[cleanBook] = {};
     }
 
-    // Check if we already have this chapter cached with verses
-    if (this.bible[cleanBook][chNum.toString()] && Object.keys(this.bible[cleanBook][chNum.toString()]).length > 0) {
-      const versesObj = this.bible[cleanBook][chNum.toString()];
-      const versesList = Object.entries(versesObj)
-        .map(([vStr, text]) => ({ verse: parseInt(vStr, 10), text: text as string }))
-        .sort((a, b) => a.verse - b.verse);
-      
-      // If we have at least 1 verse, return
-      if (versesList.length > 0) {
-        return { reference, book: cleanBook, chapter: chNum, verses: versesList };
+    // Check if we already have a complete chapter cached with verses
+    const cachedChapter = this.bible[cleanBook]?.[chNum.toString()];
+    if (cachedChapter && typeof cachedChapter === 'object') {
+      const keys = Object.keys(cachedChapter);
+      // If we have a robust set of verses (more than 4 verses, or all verses for short passages), return cache
+      if (keys.length >= 5 || (keys.length > 0 && ['2 John', '3 John', 'Philemon', 'Jude', 'Obadiah'].includes(cleanBook))) {
+        const versesList = Object.entries(cachedChapter)
+          .map(([vStr, text]) => ({ verse: parseInt(vStr, 10), text: (text as string).replace(/\r?\n|\r/g, ' ').replace(/\s+/g, ' ').trim() }))
+          .sort((a, b) => a.verse - b.verse);
+        
+        if (versesList.length > 0) {
+          return { reference, book: cleanBook, chapter: chNum, verses: versesList };
+        }
       }
     }
 
@@ -94,7 +97,7 @@ class KJVLoader {
       const queryRef = `${cleanBook} ${chNum}`;
       const url = `https://bible-api.com/${encodeURIComponent(queryRef)}?translation=kjv`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
 
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -107,11 +110,14 @@ class KJVLoader {
 
           for (const v of data.verses) {
             const vNum = v.verse;
-            const vText = (v.text || '').trim();
-            chapterObj[vNum.toString()] = vText;
-            versesList.push({ verse: vNum, text: vText });
+            const cleanText = (v.text || '').replace(/\r?\n|\r/g, ' ').replace(/\s+/g, ' ').trim();
+            chapterObj[vNum.toString()] = cleanText;
+            versesList.push({ verse: vNum, text: cleanText });
           }
 
+          if (!this.bible[cleanBook]) {
+            this.bible[cleanBook] = {};
+          }
           this.bible[cleanBook][chNum.toString()] = chapterObj;
           this.saveCache();
 
@@ -122,11 +128,11 @@ class KJVLoader {
       console.warn(`Bible API fetch error for ${cleanBook} ${chNum}:`, err);
     }
 
-    // Fallback: if already had partial verses or generate standard verses
+    // Fallback: if already had partial verses, return them
     const existing = this.bible[cleanBook]?.[chNum.toString()] || {};
     if (Object.keys(existing).length > 0) {
       const versesList = Object.entries(existing)
-        .map(([vStr, text]) => ({ verse: parseInt(vStr, 10), text: text as string }))
+        .map(([vStr, text]) => ({ verse: parseInt(vStr, 10), text: (text as string).replace(/\r?\n|\r/g, ' ').replace(/\s+/g, ' ').trim() }))
         .sort((a, b) => a.verse - b.verse);
       return { reference, book: cleanBook, chapter: chNum, verses: versesList };
     }

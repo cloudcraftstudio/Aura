@@ -132,6 +132,8 @@ export function BibleReader({
   const [showPreferences, setShowPreferences] = useState<boolean>(false);
   const [activeVerseAction, setActiveVerseAction] = useState<number | null>(null);
 
+  const [isLibraryCollapsed, setIsLibraryCollapsed] = useState<boolean>(true);
+
   // Audio Playback
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const [audioLoadingVerse, setAudioLoadingVerse] = useState<number | null>(null);
@@ -532,108 +534,137 @@ export function BibleReader({
       {/* Main Testament & All 66 Books Toggle Navigation Card */}
       <div className="bg-gradient-to-br from-[#0c1432] via-[#091024] to-[#040817] border border-blue-500/30 rounded-2xl p-4 sm:p-5 shadow-2xl space-y-4">
         {/* Testament Toggle Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-blue-500/20">
-          <div>
-            <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
-              <BookMarked className="w-5 h-5 text-blue-400" />
-              <span>Holy Scriptures</span>
-              <span className="text-xs font-normal text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
-                King James Version
-              </span>
-            </h3>
-            <p className="text-xs text-blue-300/80">
-              Browse all 66 canonical books or open any chapter instantly
-            </p>
-          </div>
-
-          {/* Old Testament / New Testament High-Contrast Toggle Switch */}
-          <div className="flex bg-black/60 p-1 rounded-xl border border-blue-500/40 self-start sm:self-auto shadow-inner">
-            <button
-              onClick={() => {
-                setSelectedTestament('Old Testament');
-                setSelectedCategory('All');
-              }}
-              className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
-                selectedTestament === 'Old Testament'
-                  ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg ring-1 ring-amber-400/50'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <span>Old Testament</span>
-              <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full">39</span>
-            </button>
-            <button
-              onClick={() => {
-                setSelectedTestament('New Testament');
-                setSelectedCategory('All');
-              }}
-              className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
-                selectedTestament === 'New Testament'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg ring-1 ring-blue-400/50'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <span>New Testament</span>
-              <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full">27</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Biblical Category Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider mr-1 flex items-center gap-1 flex-shrink-0">
-            <Filter className="w-3 h-3 text-blue-400" />
-            <span>Section:</span>
-          </span>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 ${
-                selectedCategory === cat
-                  ? 'bg-blue-500 text-white shadow-md'
-                  : 'bg-black/40 text-blue-200/80 hover:bg-blue-900/40 border border-white/5'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* All Books Display Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 max-h-72 overflow-y-auto pr-1">
-          {filteredBooks.map(book => {
-            const isCurrent = selectedBook === book.name;
-            return (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-blue-500/20">
+          <div className="flex-1">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+                <BookMarked className="w-5 h-5 text-blue-400" />
+                <span>Holy Scriptures</span>
+                <span className="text-xs font-normal text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-full border border-blue-500/30">
+                  KJV
+                </span>
+              </h3>
               <button
-                key={book.name}
-                onClick={() => {
-                  setSelectedBook(book.name);
-                  setSelectedChapter('1');
-                  setSelectedVerse('1');
-                }}
-                className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between group ${
-                  isCurrent
-                    ? 'bg-blue-600/40 border-blue-400 text-white shadow-lg ring-2 ring-blue-500/40'
-                    : 'bg-black/30 hover:bg-blue-950/40 border-blue-500/20 hover:border-blue-400/60 text-gray-200'
-                }`}
+                onClick={() => setIsLibraryCollapsed(!isLibraryCollapsed)}
+                className="sm:hidden p-1.5 bg-blue-900/40 text-blue-300 rounded-lg border border-blue-500/30 hover:bg-blue-600/40"
               >
-                <div className="flex items-center justify-between gap-1 mb-1">
-                  <span className="text-xs font-bold truncate group-hover:text-blue-300 transition-colors">
-                    {book.name}
-                  </span>
-                  <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-mono">
-                    {book.chapters} ch
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-gray-400">
-                  <span className="truncate">{book.category}</span>
-                  <span className="text-blue-400/80 font-mono group-hover:translate-x-0.5 transition-transform">→</span>
-                </div>
+                {isLibraryCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               </button>
-            );
-          })}
+            </div>
+            {!isLibraryCollapsed && (
+              <p className="text-xs text-blue-300/80 mt-1">
+                Browse all 66 canonical books or open any chapter instantly
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Old Testament / New Testament High-Contrast Toggle Switch */}
+            {!isLibraryCollapsed && (
+              <div className="flex bg-black/60 p-1 rounded-xl border border-blue-500/40 self-start sm:self-auto shadow-inner">
+                <button
+                  onClick={() => {
+                    setSelectedTestament('Old Testament');
+                    setSelectedCategory('All');
+                  }}
+                  className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                    selectedTestament === 'Old Testament'
+                      ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-lg ring-1 ring-amber-400/50'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span>Old</span>
+                  <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full">39</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedTestament('New Testament');
+                    setSelectedCategory('All');
+                  }}
+                  className={`px-4 py-2 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                    selectedTestament === 'New Testament'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg ring-1 ring-blue-400/50'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <span>New</span>
+                  <span className="text-[10px] bg-black/40 px-1.5 py-0.5 rounded-full">27</span>
+                </button>
+              </div>
+            )}
+            
+            <button
+              onClick={() => setIsLibraryCollapsed(!isLibraryCollapsed)}
+              className="hidden sm:flex p-1.5 bg-blue-900/40 text-blue-300 rounded-lg border border-blue-500/30 hover:bg-blue-600/40"
+            >
+              {isLibraryCollapsed ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+
+        {!isLibraryCollapsed && (
+          <>
+            {/* Biblical Category Filter Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none animate-in fade-in slide-in-from-top-2 duration-300">
+              <span className="text-[11px] text-gray-400 font-bold uppercase tracking-wider mr-1 flex items-center gap-1 flex-shrink-0">
+                <Filter className="w-3 h-3 text-blue-400" />
+                <span>Section:</span>
+              </span>
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all whitespace-nowrap flex-shrink-0 ${
+                    selectedCategory === cat
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : 'bg-black/40 text-blue-200/80 hover:bg-blue-900/40 border border-white/5'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* All Books Display Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 max-h-72 overflow-y-auto pr-1 animate-in fade-in slide-in-from-top-2 duration-300">
+              {filteredBooks.map(book => {
+                const isCurrent = selectedBook === book.name;
+                return (
+                  <button
+                    key={book.name}
+                    onClick={() => {
+                      setSelectedBook(book.name);
+                      setSelectedChapter('1');
+                      setSelectedVerse('1');
+                      // Auto-collapse after selection on mobile
+                      if (window.innerWidth < 768) {
+                        setIsLibraryCollapsed(true);
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl text-left border transition-all flex flex-col justify-between group ${
+                      isCurrent
+                        ? 'bg-blue-600/40 border-blue-400 text-white shadow-lg ring-2 ring-blue-500/40'
+                        : 'bg-black/30 hover:bg-blue-950/40 border-blue-500/20 hover:border-blue-400/60 text-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-xs font-bold truncate group-hover:text-blue-300 transition-colors">
+                        {book.name}
+                      </span>
+                      <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded font-mono">
+                        {book.chapters} ch
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-gray-400">
+                      <span className="truncate">{book.category}</span>
+                      <span className="text-blue-400/80 font-mono group-hover:translate-x-0.5 transition-transform">→</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Search Results Overlay */}
