@@ -4,6 +4,7 @@
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {
+    "url": "https://webcraftstudio.cloud",
     "cleartext": true
   }
 }

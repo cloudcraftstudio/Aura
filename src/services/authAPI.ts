@@ -2,7 +2,8 @@
  * Auth API Integration - Minimal wrapper for new auth endpoints
  */
 
-const API_BASE = '/api/auth';
+import { getApiBase } from "./api";
+const API_BASE = `${getApiBase()}/auth`;
 
 export interface AuthToken {
   token: string;

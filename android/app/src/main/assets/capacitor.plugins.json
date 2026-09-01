@@ -1,0 +1,6 @@
+[
+	{
+		"pkg": "@capgo/capacitor-incoming-call-kit",
+		"classpath": "app.capgo.incomingcallkit.IncomingCallKitPlugin"
+	}
+]

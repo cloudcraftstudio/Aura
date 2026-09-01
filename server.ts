@@ -417,6 +417,47 @@ async function startServer() {
     res.json(signals);
   });
 
+  // --- Unsplash Image Proxy ---
+  app.get('/api/unsplash/search', async (req, res) => {
+    try {
+      const query = (req.query.query as string) || '';
+      const accessKey = process.env.UNSPLASH_ACCESS_KEY || process.env.VITE_UNSPLASH_ACCESS_KEY;
+      if (!accessKey) {
+        return res.status(200).json({ results: [], noKey: true });
+      }
+
+      const endpoint = query.trim()
+        ? `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=24&orientation=landscape`
+        : `https://api.unsplash.com/photos/random?count=24&orientation=landscape`;
+
+      const response = await fetch(endpoint, {
+        headers: {
+          Authorization: `Client-ID ${accessKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Unsplash upstream error' });
+      }
+
+      const data = await response.json();
+      const photos = query.trim() ? data.results : data;
+      const results = Array.isArray(photos)
+        ? photos.map((p: any) => ({
+            id: p.id,
+            url: p.urls.regular,
+            thumb: p.urls.small,
+            author: p.user?.name || 'Unsplash Creator',
+          }))
+        : [];
+
+      return res.json({ results });
+    } catch (err: any) {
+      console.error('Unsplash proxy error:', err);
+      return res.status(500).json({ error: 'Failed to fetch from Unsplash' });
+    }
+  });
+
   // --- AI TUTOR (KING JAMES) API ---
   app.post('/api/bible-study/generate', async (req, res) => {
     try {

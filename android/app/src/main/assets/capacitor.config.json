@@ -1,0 +1,10 @@
+{
+	"appId": "com.aura.social",
+	"appName": "Aura",
+	"webDir": "dist",
+	"bundledWebRuntime": false,
+	"server": {
+		"url": "https://webcraftstudio.cloud",
+		"cleartext": true
+	}
+}

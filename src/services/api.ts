@@ -1,15 +1,19 @@
-import { UserProfile, SocialPost, UserStory, Conversation, ChatMessage, PostComment } from '../types';
+import { UserProfile, SocialPost, UserStory, Conversation, ChatMessage, PostComment } from "../types";
 
-const API_BASE = '/api';
+export const getApiBase = () => {
+  return "https://webcraftstudio.cloud/api";
+};
 
 class ApiService {
   private isServerAvailable: boolean = true;
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T | null> {
     try {
-      const res = await fetch(`${API_BASE}${endpoint}`, {
+      const base = getApiBase();
+      const url = `${base}${endpoint}`;
+      const res = await fetch(url, {
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...options.headers,
         },
         ...options,
@@ -29,7 +33,7 @@ class ApiService {
 
   // --- Users & Auth ---
   public async getUsers(): Promise<UserProfile[] | null> {
-    return this.request<UserProfile[]>('/users');
+    return this.request<UserProfile[]>("/users");
   }
 
   public async getUser(id: string): Promise<UserProfile | null> {
@@ -37,117 +41,117 @@ class ApiService {
   }
 
   public async checkEmail(email: string): Promise<{ exists: boolean; hasPassword?: boolean; name?: string; avatarUrl?: string; handle?: string; authProvider?: string } | null> {
-    return this.request<{ exists: boolean; hasPassword?: boolean; name?: string; avatarUrl?: string; handle?: string; authProvider?: string }>('/auth/check-email', {
-      method: 'POST',
+    return this.request<{ exists: boolean; hasPassword?: boolean; name?: string; avatarUrl?: string; handle?: string; authProvider?: string }>("/auth/check-email", {
+      method: "POST",
       body: JSON.stringify({ email }),
     });
   }
 
   public async register(name: string, email: string, handle?: string, avatarUrl?: string, bio?: string, password?: string): Promise<UserProfile | null> {
-    return this.request<UserProfile>('/auth/register', {
-      method: 'POST',
+    return this.request<UserProfile>("/auth/register", {
+      method: "POST",
       body: JSON.stringify({ name, email, handle, avatarUrl, bio, password }),
     });
   }
 
   public async login(emailOrUsername: string, password: string): Promise<{ token: string; user: any } | null> {
-    return this.request<{ token: string; user: any }>('/auth/login', {
-      method: 'POST',
+    return this.request<{ token: string; user: any }>("/auth/login", {
+      method: "POST",
       body: JSON.stringify({ emailOrUsername, password }),
     });
   }
 
   public async registerNewUser(email: string, username: string, password: string, displayName?: string): Promise<{ user: any } | null> {
-    return this.request<{ user: any }>('/auth/register', {
-      method: 'POST',
+    return this.request<{ user: any }>("/auth/register", {
+      method: "POST",
       body: JSON.stringify({ email, username, password, displayName }),
     });
   }
 
   public async verifyEmail(email: string, code: string): Promise<{ token: string; user: any } | null> {
-    return this.request<{ token: string; user: any }>('/auth/verify-email', {
-      method: 'POST',
+    return this.request<{ token: string; user: any }>("/auth/verify-email", {
+      method: "POST",
       body: JSON.stringify({ email, code }),
     });
   }
 
   public async resendVerificationCode(email: string): Promise<{ message: string } | null> {
-    return this.request<{ message: string }>('/auth/resend-code', {
-      method: 'POST',
+    return this.request<{ message: string }>("/auth/resend-code", {
+      method: "POST",
       body: JSON.stringify({ email }),
     });
   }
 
   public async getCurrentUser(token: string): Promise<{ user: any } | null> {
-    return this.request<{ user: any }>('/auth/me', {
-      method: 'GET',
+    return this.request<{ user: any }>("/auth/me", {
+      method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
   }
 
   public async logout(): Promise<{ message: string } | null> {
-    return this.request<{ message: string }>('/auth/logout', {
-      method: 'POST',
+    return this.request<{ message: string }>("/auth/logout", {
+      method: "POST",
     });
   }
 
   public async setPassword(userId: string, newPassword: string, currentPassword?: string): Promise<UserProfile | null> {
-    return this.request<UserProfile>('/auth/set-password', {
-      method: 'POST',
+    return this.request<UserProfile>("/auth/set-password", {
+      method: "POST",
       body: JSON.stringify({ userId, newPassword, currentPassword }),
     });
   }
 
   public async googleAuth(name: string, email: string, avatarUrl?: string, googleId?: string): Promise<UserProfile | null> {
-    return this.request<UserProfile>('/auth/google', {
-      method: 'POST',
+    return this.request<UserProfile>("/auth/google", {
+      method: "POST",
       body: JSON.stringify({ name, email, avatarUrl, googleId }),
     });
   }
 
   public async updateProfile(id: string, updates: Partial<UserProfile>): Promise<UserProfile | null> {
     return this.request<UserProfile>(`/users/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(updates),
     });
   }
 
   public async setUserStatus(id: string, status: string, statusMessage?: string): Promise<UserProfile | null> {
     return this.request<UserProfile>(`/users/${id}/status`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify({ status, statusMessage }),
     });
   }
 
   public async followUser(targetUserId: string, currentUserId: string): Promise<{ isFollowing: boolean; targetFollowersCount: number; currentFollowingCount: number } | null> {
     return this.request<{ isFollowing: boolean; targetFollowersCount: number; currentFollowingCount: number }>(`/users/${targetUserId}/follow`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ currentUserId }),
     });
   }
 
   // --- Posts ---
   public async getPosts(): Promise<SocialPost[] | null> {
-    return this.request<SocialPost[]>('/posts');
+    return this.request<SocialPost[]>("/posts");
   }
 
   public async createPost(postData: Partial<SocialPost>): Promise<SocialPost | null> {
-    return this.request<SocialPost>('/posts', {
-      method: 'POST',
+    return this.request<SocialPost>("/posts", {
+      method: "POST",
       body: JSON.stringify(postData),
     });
   }
 
   public async deletePost(postId: string): Promise<boolean> {
     const res = await this.request<{ success: boolean }>(`/posts/${postId}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
     return Boolean(res?.success);
   }
 
   public async editPost(postId: string, updates: any): Promise<SocialPost | null> {
     const res = await this.request<{ post: SocialPost }>(`/posts/${postId}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(updates),
     });
     return res?.post || null;
@@ -155,40 +159,40 @@ class ApiService {
 
   public async likePost(postId: string, userId: string): Promise<{ likesCount: number; likedByUserIds: string[] } | null> {
     return this.request<{ likesCount: number; likedByUserIds: string[] }>(`/posts/${postId}/like`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ userId }),
     });
   }
 
   public async addComment(postId: string, authorId: string, content: string): Promise<PostComment | null> {
     return this.request<PostComment>(`/posts/${postId}/comment`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ authorId, content }),
     });
   }
 
   public async bookmarkPost(postId: string, userId: string): Promise<{ savedByUserIds: string[] } | null> {
     return this.request<{ savedByUserIds: string[] }>(`/posts/${postId}/bookmark`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ userId }),
     });
   }
 
   // --- Stories ---
   public async getStories(): Promise<UserStory[] | null> {
-    return this.request<UserStory[]>('/stories');
+    return this.request<UserStory[]>("/stories");
   }
 
   public async createStory(userId: string, mediaUrl: string, caption?: string): Promise<UserStory | null> {
-    return this.request<UserStory>('/stories', {
-      method: 'POST',
+    return this.request<UserStory>("/stories", {
+      method: "POST",
       body: JSON.stringify({ userId, mediaUrl, caption }),
     });
   }
 
   public async markStorySeen(storyId: string, userId: string): Promise<boolean> {
     const res = await this.request<{ success: boolean }>(`/stories/${storyId}/view`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ userId }),
     });
     return Boolean(res?.success);
@@ -196,7 +200,7 @@ class ApiService {
 
   public async deleteStory(storyId: string, userId: string): Promise<boolean> {
     const res = await this.request<{ success: boolean }>(`/stories/${storyId}`, {
-      method: 'DELETE',
+      method: "DELETE",
       body: JSON.stringify({ userId }),
     });
     return Boolean(res?.success);
@@ -204,7 +208,7 @@ class ApiService {
 
   public async deleteStorySlide(storyId: string, slideId: string, userId: string): Promise<UserStory | null> {
     const res = await this.request<{ story: UserStory | null }>(`/stories/${storyId}/slides/${slideId}`, {
-      method: 'DELETE',
+      method: "DELETE",
       body: JSON.stringify({ userId }),
     });
     return res?.story || null;
@@ -212,12 +216,12 @@ class ApiService {
 
   // --- Conversations & Messages ---
   public async getConversations(userId?: string): Promise<Conversation[] | null> {
-    return this.request<Conversation[]>(`/conversations${userId ? `?userId=${userId}` : ''}`);
+    return this.request<Conversation[]>(`/conversations${userId ? `?userId=${userId}` : ""}`);
   }
 
   public async createConversation(creatorId: string, participantIds: string[], isGroup?: boolean, name?: string): Promise<Conversation | null> {
-    return this.request<Conversation>('/conversations', {
-      method: 'POST',
+    return this.request<Conversation>("/conversations", {
+      method: "POST",
       body: JSON.stringify({ creatorId, participantIds, isGroup, name }),
     });
   }
@@ -227,26 +231,26 @@ class ApiService {
   }
 
   public async sendMessage(messageData: Partial<ChatMessage>): Promise<ChatMessage | null> {
-    return this.request<ChatMessage>('/messages', {
-      method: 'POST',
+    return this.request<ChatMessage>("/messages", {
+      method: "POST",
       body: JSON.stringify(messageData),
     });
   }
 
   public async addReaction(conversationId: string, messageId: string, emoji: string, userId: string): Promise<Record<string, string[]> | null> {
     return this.request<Record<string, string[]>>(`/messages/${conversationId}/${messageId}/reaction`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ emoji, userId }),
     });
   }
 
   // --- System ---
   public async getSystemInfo(): Promise<any> {
-    return this.request<any>('/system/info');
+    return this.request<any>("/system/info");
   }
 
   public async exportDatabase(): Promise<any> {
-    return this.request<any>('/system/export-db');
+    return this.request<any>("/system/export-db");
   }
 }
 
