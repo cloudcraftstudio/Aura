@@ -97,7 +97,8 @@ export function CourseStudio() {
           title: courseTitle,
           description: courseDesc,
           category: courseCategory,
-          level: courseLevel
+          level: courseLevel,
+          coverImage: courseCoverPreview || ""
         })
       });
 
@@ -264,7 +265,7 @@ export function CourseStudio() {
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-6">
+    <div className="w-full max-w-6xl mx-auto px-4 pt-6 pb-40 sm:pb-32">
       {/* Section Navigation */}
       <div className="flex gap-4 mb-6 border-b border-blue-500/30 overflow-x-auto">
         <button

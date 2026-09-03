@@ -1,20 +1,27 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  X, Sun, 
-  Sparkles, 
-  BookOpen, 
-  Heart, 
-  Sliders, 
-  Share2, 
-  LogOut, 
-  Flame, 
+import {
+  X,
+  Sun,
+  Sparkles,
+  BookOpen,
+  Heart,
+  Sliders,
+  Share2,
+  LogOut,
+  Flame,
   MessageSquare,
-  Play
+  Play,
+  SunMedium,
+  Smartphone,
+  Mic,
+  Cpu,
+  GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { soundEffects } from '../../services/audio';
+import { usePermissions } from '../../context/PermissionsContext';
 
 interface SuperAdminDrawerProps {
   isOpen: boolean;
@@ -32,6 +39,7 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
   onOpenPermissions
 }) => {
   const { user, logout } = useAuth();
+  const { openPermissionsModal, openSaveToHomeModal, isStandalone, pwaStatus } = usePermissions();
 
   if (!isOpen) return null;
 
@@ -39,6 +47,8 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
     user?.handle?.toLowerCase() === 'tex' ||
     user?.email?.toLowerCase().includes('lightsouttattootex') ||
     user?.email?.toLowerCase().includes('tex@aura.social');
+
+  const isAppInstalled = isStandalone || pwaStatus === 'installed';
 
   const handleAction = (cb: () => void) => {
     soundEffects.playTap();
@@ -48,13 +58,11 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] overflow-hidden flex justify-end pointer-events-auto">
-      {/* Dimmed Backdrop */}
       <div
         onClick={onClose}
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
       />
 
-      {/* Drawer Panel */}
       <div className="relative z-20 w-full max-w-xs sm:max-w-sm h-[100dvh] bg-[#070919] border-l border-white/10 shadow-2xl flex flex-col p-4 sm:p-5 overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -63,7 +71,7 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-wide">Aura Super Menu</h2>
+              <h2 className="text-sm font-bold text-white tracking-wide">Aura Command Hub</h2>
               <p className="text-[10px] text-slate-400">Navigation & Tools</p>
             </div>
           </div>
@@ -99,9 +107,9 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
           </div>
         )}
 
-        {/* Navigation Sections */}
+        {/* Navigation & Tools Sections */}
         <div className="mt-4 space-y-3 flex-1">
-          {/* Admin Exclusive: Master Studio */}
+          {/* Admin Studio */}
           {isTexAdmin && (
             <div className="space-y-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400 px-2 mb-1.5">
@@ -112,12 +120,30 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
                 className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-300 hover:bg-blue-600/20 transition-all text-xs font-semibold"
               >
                 <Sparkles className="w-4 h-4 text-blue-400" />
-                <span>Master Studio & Archive</span>
+                <span>Master Studio & Course Builder</span>
               </button>
             </div>
           )}
 
-          {/* Community & Content */}
+          {/* Quick Inspirations & Tools */}
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 px-2 mb-1.5">
+              Spiritual & Daily Tools
+            </p>
+            <button
+              onClick={() => {
+                soundEffects.playLikeSparkle();
+                window.dispatchEvent(new CustomEvent('open_daily_motivation'));
+                onClose();
+              }}
+              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 hover:bg-amber-500/20 transition-all text-xs font-semibold"
+            >
+              <SunMedium className="w-4 h-4 text-amber-400" />
+              <span>Daily Motivation Word</span>
+            </button>
+          </div>
+
+          {/* Community & Feeds */}
           <div className="space-y-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1.5">
               Community & Feeds
@@ -131,95 +157,81 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
               <span>Community Feed & Stories</span>
             </button>
 
+            
+            {/* Dedicated Bible Reader */}
             <button
               onClick={() => handleAction(() => {
-                try {
-                  localStorage.setItem('aura_study_initial_tab', 'study');
-                } catch {}
+                try { localStorage.setItem('aura_study_initial_tab', 'reader'); } catch {}
                 onNavigateTab?.('bible');
                 setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'study' } }));
+                  window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'reader' } }));
                 }, 50);
               })}
               className="w-full flex items-center justify-between p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
             >
               <div className="flex items-center gap-2.5">
                 <BookOpen className="w-4 h-4 text-emerald-400" />
-                <span>Holy Bible</span>
+                <span>The Word (Reader)</span>
               </div>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 KJV
               </span>
             </button>
 
+            {/* Dedicated Pulpit & Sermons */}
             <button
-              onClick={() => {
-                onNavigateTab('devotional');
-                onClose();
-              }}
-              className="w-full flex items-center justify-between p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
-            >
-              <div className="flex items-center gap-2.5">
-                <Sun className="w-4 h-4 text-amber-400" />
-                <span>Daily Devotional</span>
-              </div>
-            </button>
-            <button
-              onClick={() =>
-                handleAction(() => {
-                  try {
-                    localStorage.setItem('aura_study_initial_tab', 'courses');
-                  } catch {}
-                  onNavigateTab?.('bible');
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'courses' } }));
-                  }, 50);
-                })
-              }
+              onClick={() => handleAction(() => {
+                try { localStorage.setItem('aura_study_initial_tab', 'pulpit'); } catch {}
+                onNavigateTab?.('bible');
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'pulpit' } }));
+                }, 50);
+              })}
               className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
             >
-              <BookOpen className="w-4 h-4 text-blue-400" />
+              <Mic className="w-4 h-4 text-purple-400" />
+              <span>Pulpit & Sermons</span>
+            </button>
+
+            {/* Dedicated Study Engine */}
+            <button
+              onClick={() => handleAction(() => {
+                try { localStorage.setItem('aura_study_initial_tab', 'study'); } catch {}
+                onNavigateTab?.('bible');
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'study' } }));
+                }, 50);
+              })}
+              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
+            >
+              <Cpu className="w-4 h-4 text-amber-400" />
+              <span>Study Engine</span>
+            </button>
+
+            {/* Dedicated Courses */}
+            <button
+              onClick={() => handleAction(() => {
+                try { localStorage.setItem('aura_study_initial_tab', 'courses'); } catch {}
+                onNavigateTab?.('bible');
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'courses' } }));
+                }, 50);
+              })}
+              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
+            >
+              <GraduationCap className="w-4 h-4 text-blue-400" />
               <span>Courses</span>
             </button>
 
+            {/* Dedicated Prayer Wall */}
             <button
-              onClick={() =>
-                handleAction(() => {
-                  try {
-                    localStorage.setItem('aura_study_initial_tab', 'podcasts');
-                  } catch {}
-                  onNavigateTab?.('bible');
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'podcasts' } }));
-                  }, 50);
-                })
-              }
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
-            >
-              <Play className="w-4 h-4 text-purple-400" />
-              <span>Podcasts & Sermons</span>
-            </button>
-
-            <button
-              onClick={() => handleAction(() => onNavigateTab?.('chat'))}
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
-            >
-              <MessageSquare className="w-4 h-4 text-indigo-400" />
-              <span>Real-Time Messenger</span>
-            </button>
-
-            <button
-              onClick={() =>
-                handleAction(() => {
-                  try {
-                    localStorage.setItem('aura_study_initial_tab', 'prayers');
-                  } catch {}
-                  onNavigateTab?.('bible');
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'prayers' } }));
-                  }, 50);
-                })
-              }
+              onClick={() => handleAction(() => {
+                try { localStorage.setItem('aura_study_initial_tab', 'prayers'); } catch {}
+                onNavigateTab?.('bible');
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('switch_study_tab', { detail: { tab: 'prayers' } }));
+                }, 50);
+              })}
               className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
             >
               <Heart className="w-4 h-4 text-rose-400" />
@@ -227,11 +239,21 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
             </button>
           </div>
 
-          {/* Quick Tools & Shortcuts */}
+          {/* Tools & Device Settings */}
           <div className="space-y-1 pt-2 border-t border-white/10">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1.5">
-              Tools & Sharing
+              Tools & Settings
             </p>
+
+            {!isAppInstalled && (
+              <button
+                onClick={() => handleAction(() => openSaveToHomeModal())}
+                className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-purple-300 hover:bg-purple-600/20 transition-all text-xs font-semibold"
+              >
+                <Smartphone className="w-4 h-4 text-purple-400" />
+                <span>Install Aura App</span>
+              </button>
+            )}
 
             <button
               onClick={() =>
@@ -248,29 +270,26 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
             <button
               onClick={() =>
                 handleAction(() => {
-                  if (onOpenPermissions) {
-                    onOpenPermissions();
-                  } else {
-                    window.dispatchEvent(new CustomEvent('open_permissions_modal'));
-                  }
+                  if (onOpenPermissions) onOpenPermissions();
+                  else openPermissionsModal();
                 })
               }
               className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
             >
               <Sliders className="w-4 h-4 text-cyan-400" />
-              <span>App Permissions & Audio/Video Setup</span>
+              <span>Audio/Video & Notifications Setup</span>
             </button>
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer */}
         <div className="pt-3 border-t border-white/10 mt-auto">
           <button
             onClick={() => handleAction(() => logout())}
             className="w-full flex items-center gap-2 p-2.5 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-all text-xs font-semibold"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sign Out of Account</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </div>

@@ -133,7 +133,7 @@ function MainApp() {
       {/* Main Content Area */}
       <main
         className={`relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden ${
-          activeTab === 'chat' ? 'p-0 sm:p-2 md:p-4' : 'pb-20 md:pb-6 overflow-y-auto'
+          activeTab === 'chat' ? 'p-0 sm:p-2 md:p-4' : 'pb-36 sm:pb-24 md:pb-12 overflow-y-auto'
         }`}
       >
         {activeTab === 'feed' && <SocialFeed />}

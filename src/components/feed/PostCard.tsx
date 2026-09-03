@@ -264,12 +264,20 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                   />
                 ) : (
                   <>
-                    <AsyncMedia
-                      mediaType="image"
-                      src={nativeMedia[0]}
-                      alt="Post media"
-                      className="w-full max-h-[520px] object-cover transition-transform duration-300 group-hover:scale-[1.01]"
-                    />
+                    <div className="relative w-full max-h-[560px] flex items-center justify-center bg-black/90 overflow-hidden">
+                      <AsyncMedia
+                        mediaType="image"
+                        src={nativeMedia[0]}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover blur-xl opacity-35 scale-110 pointer-events-none"
+                      />
+                      <AsyncMedia
+                        mediaType="image"
+                        src={nativeMedia[0]}
+                        alt="Post media"
+                        className="relative z-10 w-full max-h-[560px] object-contain transition-transform duration-300 group-hover:scale-[1.005]"
+                      />
+                    </div>
                     <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                       <span className="px-3.5 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-xs font-semibold text-white border border-white/20 shadow-xl">
                         Click to View Full Size
@@ -471,6 +479,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
           initialIndex={selectedPhotoIndex}
           caption={post.content}
           authorName={post.authorName}
+          authorAvatar={post.authorAvatar}
+          authorHandle={post.authorHandle}
+          createdAt={post.createdAt}
           onClose={() => setSelectedPhotoIndex(null)}
         />
       )}

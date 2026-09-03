@@ -214,36 +214,68 @@ export interface DatabaseSchema {
 
 const SEED_USERS: DBUser[] = [
   {
-    id: 'user_tex',
-    name: 'Tex',
-    handle: 'tex',
-    email: 'lightsouttattootex@gmail.com',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=lightsouttattootex@gmail.com',
-    bannerUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-    bio: 'Lights Out Tattoo ✦ Real-time Social & Calling ✨',
-    status: 'online',
-    statusMessage: 'Online & Active',
-    followersCount: 0,
-    followingCount: 0,
+    id: "user_tex",
+    name: "Tex",
+    handle: "tex",
+    email: "lightsouttattootex@gmail.com",
+    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=lightsouttattootex@gmail.com",
+    bannerUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
+    bio: "Lights Out Tattoo ✦ Real-time Social & Calling ✨",
+    status: "online",
+    statusMessage: "Online & Active",
+    followersCount: 3,
+    followingCount: 3,
     isVerified: true,
-    joinedAt: '2024-01-01',
-    authProvider: 'google',
+    joinedAt: "2026-08-01",
+    authProvider: "google",
   },
   {
-    id: 'user_kimberly',
-    name: 'Kimberly',
-    handle: 'kimberly',
-    email: 'kimberly@lightsouttattoo.site',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=kimberly',
-    bannerUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&auto=format&fit=crop&q=80',
-    bio: 'Active member on Aura 🌟',
-    status: 'online',
-    statusMessage: 'Active',
-    followersCount: 0,
-    followingCount: 0,
+    id: "user_kimberly",
+    name: "Kimberly Coffman",
+    handle: "kimberly",
+    email: "savdbygrace360@gmail.com",
+    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=savdbygrace360@gmail.com",
+    bannerUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&auto=format&fit=crop&q=80",
+    bio: "Walking in Faith ✨",
+    status: "online",
+    statusMessage: "Active",
+    followersCount: 3,
+    followingCount: 3,
     isVerified: true,
-    joinedAt: '2024-01-01',
-    authProvider: 'email',
+    joinedAt: "2026-08-01",
+    authProvider: "email",
+  },
+  {
+    id: "user_skylor",
+    name: "Skylor Bright",
+    handle: "skylor",
+    email: "skylorbright07@gmail.com",
+    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=skylorbright07@gmail.com",
+    bannerUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80",
+    bio: "Connected on Aura",
+    status: "online",
+    statusMessage: "Active",
+    followersCount: 3,
+    followingCount: 3,
+    isVerified: true,
+    joinedAt: "2026-08-01",
+    authProvider: "email",
+  },
+  {
+    id: "user_daphne",
+    name: "Daphne Coffman",
+    handle: "babyred",
+    email: "tex@lightsouttattoo.site",
+    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=tex@lightsouttattoo.site",
+    bannerUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1200&auto=format&fit=crop&q=80",
+    bio: "Exploring Scripture 📖",
+    status: "online",
+    statusMessage: "Active",
+    followersCount: 3,
+    followingCount: 3,
+    isVerified: true,
+    joinedAt: "2026-08-01",
+    authProvider: "email",
   },
 ];
 
@@ -282,10 +314,10 @@ class JSONDatabase {
   }
 
   private loadData(): DatabaseSchema {
-    const dummyIds = new Set(['user_alex', 'user_maya', 'user_liam', 'user_elena', 'user_daphne', 'user_skylor']);
+    const dummyIds = new Set(['user_alex', 'user_maya', 'user_liam', 'user_elena']);
     const dummyHandles = new Set(['alexrivera', 'mayachen', 'liamvance', 'elenarostova']);
     const dummyEmailDomains = ['@aura.social'];
-    const dummyEmails = new Set(['tex@lightsouttattoo.site', 'skylor@lightsouttattoo.site']);
+    const dummyEmails = new Set(['alex.rivera@gmail.com', 'pistolpete@cmail.com']);
 
     const isDummyUser = (u: any) => {
       if (!u) return true;
@@ -372,6 +404,10 @@ class JSONDatabase {
       },
     };
 
+    if (fs.existsSync(this.dbPath) && fs.statSync(this.dbPath).size > 100) {
+      console.error("FATAL: Refusing to overwrite existing database with blank seed data.");
+      return this.data || initial;
+    }
     this.saveDataDirect(initial);
     return initial;
   }
@@ -525,13 +561,38 @@ class JSONDatabase {
   }
 
   public deletePost(id: string): boolean {
-    const initialLen = this.data.posts.length;
-    this.data.posts = this.data.posts.filter((p) => p.id !== id);
-    if (this.data.posts.length !== initialLen) {
-      this.scheduleSave();
-      return true;
+    if (!id || typeof id !== "string" || id.trim() === "" || id === "undefined" || id === "null") {
+      console.warn("[SECURITY] Aborted invalid post deletion with empty/malformed ID:", id);
+      return false;
     }
-    return false;
+
+    const initialLen = this.data.posts.length;
+    const targetPost = this.data.posts.find((p) => p.id === id);
+    if (!targetPost) {
+      console.warn("[WARN] Post not found for deletion:", id);
+      return false;
+    }
+
+    const filtered = this.data.posts.filter((p) => p.id !== id);
+    const diff = initialLen - filtered.length;
+
+    if (diff !== 1) {
+      console.error(`[CRITICAL] Deletion bounds check failed! Expected diff of 1, got ${diff}. Aborting to protect database.`);
+      return false;
+    }
+
+    // Create automatic rollback snapshot prior to destructive write
+    try {
+      const snapPath = `${this.dbPath}.bak.pre_delete_${Date.now()}`;
+      fs.copyFileSync(this.dbPath, snapPath);
+    } catch (e) {
+      console.warn("Could not write pre-deletion snapshot:", e);
+    }
+
+    this.data.posts = filtered;
+    this.scheduleSave();
+    console.log(`[AUDIT] Successfully deleted single post ${id}. Remaining posts: ${filtered.length}`);
+    return true;
   }
 
   public toggleLikePost(postId: string, userId: string): { likesCount: number; likedByUserIds: string[] } | null {

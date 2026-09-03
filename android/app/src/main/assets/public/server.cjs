@@ -21,11 +21,166 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// services/youtubeFeedService.ts
+var import_https = __toESM(require("https"), 1);
+var MONITORED_CHANNELS = [
+  {
+    name: "Lighthouse Baptist Church",
+    handle: "@lighthousewinc",
+    channelId: "UC-rPauVwKrxsFn05cecsF-w",
+    speaker: "Pastor Luke Shope",
+    speakerTitle: "Lighthouse Baptist Church \u2022 Winchester, VA",
+    featured: true,
+    defaultCover: "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Tyler Gaulden",
+    handle: "@TylerGaulden",
+    channelId: "UCunY7TdNYdO_8tgZqNpUYfA",
+    speaker: "Tyler Gaulden",
+    speakerTitle: "Evangelist & Speaker",
+    defaultCover: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Steven Furtick",
+    handle: "@stevenfurtick",
+    channelId: "UCIQqvZbHSwX0yKNVK1MyYjQ",
+    speaker: "Steven Furtick",
+    speakerTitle: "Elevation Church",
+    defaultCover: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Scott Pauley",
+    handle: "@ETJ",
+    channelId: "UCJ-nK4Wv807yYZrRGEufnig",
+    speaker: "Scott Pauley",
+    speakerTitle: "Enjoying The Journey",
+    defaultCover: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Dr. Tony Evans",
+    handle: "@drtonyevans",
+    channelId: "UCCWRy-Q4ejmtHpmQJJYJd6A",
+    speaker: "Dr. Tony Evans",
+    speakerTitle: "The Urban Alternative",
+    defaultCover: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Fargo Baptist Church",
+    handle: "@FargoBaptistChurch",
+    channelId: "UC-GMRbrd4dY8iiid8czVxWw",
+    speaker: "Fargo Baptist Church",
+    speakerTitle: "Fargo, ND",
+    defaultCover: "https://images.unsplash.com/photo-1507692049790-de58290a4334?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Our Daily Bread",
+    handle: "@ourdailybread",
+    channelId: "UCsOZjmfxUh94dQPzrgIRrLA",
+    speaker: "Our Daily Bread",
+    speakerTitle: "Ministries Worldwide",
+    defaultCover: "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Lilly Grove Missionary Baptist Church",
+    handle: "@lillygrovembc",
+    channelId: "UCwibXBbhAZNTqYeEyeHpwaw",
+    speaker: "Lilly Grove Baptist",
+    speakerTitle: "Houston, TX",
+    defaultCover: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Alfred Street Baptist Church",
+    handle: "@AlfredStreetBaptistChurch",
+    channelId: "UCKFkEcTQsLP7j6DFo-O4xrg",
+    speaker: "Alfred Street Baptist",
+    speakerTitle: "Alexandria, VA",
+    defaultCover: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    name: "Reformers Unanimous",
+    handle: "@RURecoveryProgram",
+    channelId: "UCDmfM_p5-je826nxz8UX5_g",
+    speaker: "RU Recovery Ministries",
+    speakerTitle: "Faith-Based Addiction Recovery",
+    defaultCover: "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=800&auto=format&fit=crop&q=80"
+  }
+];
+var cachedFeed = [];
+var lastFetch = 0;
+var TTL = 10 * 60 * 1e3;
+function fetchXml(url) {
+  return new Promise((resolve, reject) => {
+    import_https.default.get(url, { headers: { "User-Agent": "Mozilla/5.0 AuraApp/1.0" } }, (res) => {
+      if (res.statusCode && res.statusCode >= 400) return reject(new Error(String(res.statusCode)));
+      let body = "";
+      res.on("data", (chunk) => body += chunk);
+      res.on("end", () => resolve(body));
+    }).on("error", reject);
+  });
+}
+function parseXml(xml, ch) {
+  const list = [];
+  const entries = xml.match(/<entry>([\s\S]*?)<\/entry>/g) || [];
+  for (const entry of entries) {
+    const vidMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/);
+    const titleMatch = entry.match(/<title>(.*?)<\/title>/);
+    const pubMatch = entry.match(/<published>(.*?)<\/published>/);
+    const descMatch = entry.match(/<media:description>([\s\S]*?)<\/media:description>/);
+    if (!vidMatch || !titleMatch) continue;
+    const youtubeId = vidMatch[1].trim();
+    const title = titleMatch[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1").trim();
+    const publishedAt = pubMatch ? pubMatch[1].trim() : (/* @__PURE__ */ new Date()).toISOString();
+    const summary = descMatch ? descMatch[1].slice(0, 200).trim() + "..." : "";
+    list.push({
+      id: `yt-${youtubeId}`,
+      title,
+      speaker: ch.speaker,
+      speakerSlug: ch.handle.replace("@", "").toLowerCase(),
+      speakerTitle: ch.speakerTitle,
+      summary: summary || `Broadcast from ${ch.name}`,
+      mediaType: "video",
+      format: "video",
+      source: "community",
+      featured: !!ch.featured,
+      youtubeId,
+      mediaUrl: "",
+      thumbnailUrl: `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`,
+      publishedAt,
+      topics: [{ name: "Sermon", slug: "sermon" }]
+    });
+  }
+  return list;
+}
+async function getLiveMinistryFeed() {
+  const now = Date.now();
+  if (cachedFeed.length > 0 && now - lastFetch < TTL) {
+    return cachedFeed;
+  }
+  const promises = MONITORED_CHANNELS.map(async (ch) => {
+    try {
+      const xml = await fetchXml(`https://www.youtube.com/feeds/videos.xml?channel_id=${ch.channelId}`);
+      return parseXml(xml, ch);
+    } catch {
+      return [];
+    }
+  });
+  const results = await Promise.all(promises);
+  const homeChurch = results[0] || [];
+  const others = results.slice(1).flat();
+  others.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  const combined = [...homeChurch, ...others];
+  if (combined.length > 0) {
+    cachedFeed = combined;
+    lastFetch = now;
+  }
+  return cachedFeed;
+}
+
 // server.ts
 var import_web_push = __toESM(require("web-push"), 1);
 var import_express3 = __toESM(require("express"), 1);
 var import_path5 = __toESM(require("path"), 1);
-var import_vite = require("vite");
 
 // server/db.ts
 var import_fs = __toESM(require("fs"), 1);
@@ -41,26 +196,58 @@ var SEED_USERS = [
     bio: "Lights Out Tattoo \u2726 Real-time Social & Calling \u2728",
     status: "online",
     statusMessage: "Online & Active",
-    followersCount: 0,
-    followingCount: 0,
+    followersCount: 3,
+    followingCount: 3,
     isVerified: true,
-    joinedAt: "2024-01-01",
+    joinedAt: "2026-08-01",
     authProvider: "google"
   },
   {
     id: "user_kimberly",
-    name: "Kimberly",
+    name: "Kimberly Coffman",
     handle: "kimberly",
-    email: "kimberly@lightsouttattoo.site",
-    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=kimberly",
+    email: "savdbygrace360@gmail.com",
+    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=savdbygrace360@gmail.com",
     bannerUrl: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&auto=format&fit=crop&q=80",
-    bio: "Active member on Aura \u{1F31F}",
+    bio: "Walking in Faith \u2728",
     status: "online",
     statusMessage: "Active",
-    followersCount: 0,
-    followingCount: 0,
+    followersCount: 3,
+    followingCount: 3,
     isVerified: true,
-    joinedAt: "2024-01-01",
+    joinedAt: "2026-08-01",
+    authProvider: "email"
+  },
+  {
+    id: "user_skylor",
+    name: "Skylor Bright",
+    handle: "skylor",
+    email: "skylorbright07@gmail.com",
+    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=skylorbright07@gmail.com",
+    bannerUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop&q=80",
+    bio: "Connected on Aura",
+    status: "online",
+    statusMessage: "Active",
+    followersCount: 3,
+    followingCount: 3,
+    isVerified: true,
+    joinedAt: "2026-08-01",
+    authProvider: "email"
+  },
+  {
+    id: "user_daphne",
+    name: "Daphne Coffman",
+    handle: "babyred",
+    email: "tex@lightsouttattoo.site",
+    avatarUrl: "https://api.dicebear.com/7.x/bottts/svg?seed=tex@lightsouttattoo.site",
+    bannerUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1200&auto=format&fit=crop&q=80",
+    bio: "Exploring Scripture \u{1F4D6}",
+    status: "online",
+    statusMessage: "Active",
+    followersCount: 3,
+    followingCount: 3,
+    isVerified: true,
+    joinedAt: "2026-08-01",
     authProvider: "email"
   }
 ];
@@ -92,10 +279,10 @@ var JSONDatabase = class _JSONDatabase {
     this.data = this.loadData();
   }
   loadData() {
-    const dummyIds = /* @__PURE__ */ new Set(["user_alex", "user_maya", "user_liam", "user_elena", "user_daphne", "user_skylor"]);
+    const dummyIds = /* @__PURE__ */ new Set(["user_alex", "user_maya", "user_liam", "user_elena"]);
     const dummyHandles = /* @__PURE__ */ new Set(["alexrivera", "mayachen", "liamvance", "elenarostova"]);
     const dummyEmailDomains = ["@aura.social"];
-    const dummyEmails = /* @__PURE__ */ new Set(["tex@lightsouttattoo.site", "skylor@lightsouttattoo.site"]);
+    const dummyEmails = /* @__PURE__ */ new Set(["alex.rivera@gmail.com", "pistolpete@cmail.com"]);
     const isDummyUser = (u) => {
       if (!u) return true;
       if (dummyIds.has(u.id)) return true;
@@ -164,6 +351,10 @@ var JSONDatabase = class _JSONDatabase {
         createdAt: Date.now()
       }
     };
+    if (import_fs.default.existsSync(this.dbPath) && import_fs.default.statSync(this.dbPath).size > 100) {
+      console.error("FATAL: Refusing to overwrite existing database with blank seed data.");
+      return this.data || initial;
+    }
     this.saveDataDirect(initial);
     return initial;
   }
@@ -296,13 +487,32 @@ var JSONDatabase = class _JSONDatabase {
     return newPost;
   }
   deletePost(id) {
-    const initialLen = this.data.posts.length;
-    this.data.posts = this.data.posts.filter((p) => p.id !== id);
-    if (this.data.posts.length !== initialLen) {
-      this.scheduleSave();
-      return true;
+    if (!id || typeof id !== "string" || id.trim() === "" || id === "undefined" || id === "null") {
+      console.warn("[SECURITY] Aborted invalid post deletion with empty/malformed ID:", id);
+      return false;
     }
-    return false;
+    const initialLen = this.data.posts.length;
+    const targetPost = this.data.posts.find((p) => p.id === id);
+    if (!targetPost) {
+      console.warn("[WARN] Post not found for deletion:", id);
+      return false;
+    }
+    const filtered = this.data.posts.filter((p) => p.id !== id);
+    const diff = initialLen - filtered.length;
+    if (diff !== 1) {
+      console.error(`[CRITICAL] Deletion bounds check failed! Expected diff of 1, got ${diff}. Aborting to protect database.`);
+      return false;
+    }
+    try {
+      const snapPath = `${this.dbPath}.bak.pre_delete_${Date.now()}`;
+      import_fs.default.copyFileSync(this.dbPath, snapPath);
+    } catch (e) {
+      console.warn("Could not write pre-deletion snapshot:", e);
+    }
+    this.data.posts = filtered;
+    this.scheduleSave();
+    console.log(`[AUDIT] Successfully deleted single post ${id}. Remaining posts: ${filtered.length}`);
+    return true;
   }
   toggleLikePost(postId, userId) {
     const post = this.getPostById(postId);
@@ -1837,337 +2047,97 @@ var SERMONINDEX_CURATED_ARCHIVE = [
     speakerSlug: "paul-washer",
     speakerTitle: "HeartCry Missionary Society",
     speakerImage: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80",
-    summary: "An uncompromising biblical exposition of Matthew 7:13-27 on true conversion, the narrow gate, and repentance that shocked 5,000 youth in Montgomery.",
-    duration: "59:20",
-    durationSeconds: 3560,
+    summary: "An uncompromising biblical exposition of Matthew 7:13-27 on true conversion, the narrow gate, and repentance that shook Montgomery, Alabama.",
+    duration: "1:05:42",
+    durationSeconds: 3942,
     mediaType: "video",
-    mp4Url: "https://archive.org/download/PaulWasherShockingMessage/PaulWasherShockingMessage.mp4",
-    mediaUrl: "https://archive.org/download/PaulWasherShockingMessage/PaulWasherShockingMessage.mp4",
-    youtubeId: "cncEb_7d7q0",
-    mp3Url: "https://archive.org/download/PaulWasherShockingMessage/PaulWasherShockingMessage.mp3",
-    cdnMp3Url: "https://archive.org/download/PaulWasherShockingMessage/PaulWasherShockingMessage.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=12345",
-    topics: [{ name: "Gospel", slug: "gospel" }, { name: "Repentance", slug: "repentance" }, { name: "Regeneration", slug: "regeneration" }],
-    scripture: [{ bookId: "MAT", chapter: 7, verse: 13 }],
-    scriptureRef: "Matthew 7:13",
-    outline: [
-      "1. The Narrow Gate vs The Broad Way (Matthew 7:13-14)",
-      "2. You Shall Know Them by Their Fruits (Matthew 7:16-20)",
-      "3. \u201CI Never Knew You\u201D: The Tragedy of Religious Hypocrisy"
-    ],
-    keyQuotes: [
-      "\u201CYou are not saved because you prayed a prayer. You are saved because you repented and put your faith in Jesus Christ.\u201D",
-      "\u201CSalvation is not just your decision for Christ; it is God's work in you that makes you a new creation.\u201D"
-    ]
+    youtubeId: "uuabITeO4l8",
+    mediaUrl: "",
+    mp4Url: "",
+    mp3Url: "https://actions.google.com/sounds/v1/ambiences/daytime_forest_bonfire.ogg",
+    url: "https://www.youtube.com/watch?v=cncEb_7d7q0",
+    topics: [{ name: "Gospel", slug: "gospel" }, { name: "Regeneration", slug: "regeneration" }],
+    scriptureRef: "Matthew 7:13-27",
+    thumbnailUrl: "https://images.unsplash.com/photo-1507692049790-de58290a4334?w=800&auto=format&fit=crop&q=80"
   },
   {
-    id: "si-sproul-holiness-god-video",
+    id: "si-ravenhill-judgment-seat",
+    title: "The Judgment Seat of Christ (Audio Exposition)",
+    speaker: "Leonard Ravenhill",
+    speakerSlug: "leonard-ravenhill",
+    speakerTitle: "Revivalist & Author",
+    speakerImage: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&auto=format&fit=crop&q=80",
+    summary: "A solemn, urgent message on eternity and standing before the throne of God to give an account.",
+    duration: "48:30",
+    durationSeconds: 2910,
+    mediaType: "audio",
+    mediaUrl: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230101.mp3",
+    mp3Url: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230101.mp3",
+    cdnMp3Url: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230101.mp3",
+    youtubeId: "",
+    url: "https://www.sermonindex.net",
+    topics: [{ name: "Judgment", slug: "judgment" }, { name: "Revival", slug: "revival" }],
+    scriptureRef: "2 Corinthians 5:10",
+    thumbnailUrl: "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    id: "si-tozer-holiness-god",
+    title: "The Holiness of God (Audio Classic)",
+    speaker: "A.W. Tozer",
+    speakerSlug: "aw-tozer",
+    speakerTitle: "Alliance Witness & Pastor",
+    speakerImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80",
+    summary: "A profound message on the transcendent majesty, moral perfection, and pure holiness of Almighty God.",
+    duration: "41:15",
+    durationSeconds: 2475,
+    mediaType: "audio",
+    mediaUrl: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230102.mp3",
+    mp3Url: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230102.mp3",
+    cdnMp3Url: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230102.mp3",
+    youtubeId: "",
+    url: "https://www.sermonindex.net",
+    topics: [{ name: "Holiness", slug: "holiness" }, { name: "Worship", slug: "worship" }],
+    scriptureRef: "Isaiah 6:1-5",
+    thumbnailUrl: "https://images.unsplash.com/photo-1519817650390-64a93db51149?w=800&auto=format&fit=crop&q=80"
+  },
+  {
+    id: "si-sproul-trauma-holiness",
     title: "The Trauma of God's Holiness (Full Video Lecture)",
     speaker: "Dr. R.C. Sproul",
     speakerSlug: "r-c-sproul",
     speakerTitle: "Ligonier Ministries",
     speakerImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&auto=format&fit=crop&q=80",
-    summary: "Dr. R.C. Sproul\u2019s landmark video lecture on Isaiah 6, expounding the thrice-holy God of the universe and man\u2019s desperate need for Christ\u2019s imputed righteousness.",
+    summary: "Dr. R.C. Sproul expounds on Isaiah 6, the holiness of the Lord, and man's total unraveling before the Almighty.",
     duration: "38:15",
     durationSeconds: 2295,
     mediaType: "video",
-    mp4Url: "https://archive.org/download/SERMONINDEX_SID0141/SID0141.mp4",
-    mediaUrl: "https://archive.org/download/SERMONINDEX_SID0141/SID0141.mp4",
-    youtubeId: "3m2N6vXJ33c",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0141/SID0141.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0141/SID0141.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=1410",
-    topics: [{ name: "Holiness", slug: "holiness" }, { name: "The Glory of God", slug: "glory-of-god" }, { name: "Atonement", slug: "cross" }],
-    scripture: [{ bookId: "ISA", chapter: 6, verse: 1 }, { bookId: "REV", chapter: 4, verse: 8 }],
+    youtubeId: "1d32g8E8hR8",
+    mediaUrl: "",
+    mp4Url: "",
+    url: "https://www.youtube.com/watch?v=v4oQ1V1_z4Y",
+    topics: [{ name: "Holiness", slug: "holiness" }, { name: "Atonement", slug: "atonement" }],
     scriptureRef: "Isaiah 6:1-8",
-    outline: [
-      "1. Holy, Holy, Holy: The Triplicate Cadence of God's Majesty",
-      "2. Woe is Me! The Unraveling of the Self in the Presence of God",
-      "3. The Burning Coal and the Atoning Blood: Cleansed for Ministry"
-    ],
-    keyQuotes: [
-      "\u201COnly once in sacred Scripture is an attribute of God elevated to the third degree: Holy, Holy, Holy.\u201D",
-      "\u201CSin is cosmic treason\u2014defying the King of the universe.\u201D"
-    ]
+    thumbnailUrl: "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=800&auto=format&fit=crop&q=80"
   },
   {
-    id: "si-baucham-believe-bible-video",
-    title: "Why I Choose to Believe the Bible (Video Apologetics)",
-    speaker: "Dr. Voddie Baucham",
-    speakerSlug: "voddie-baucham",
-    speakerTitle: "African Christian University",
-    speakerImage: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
-    summary: "A masterpiece in expository apologetics, proving the reliability of the Bible as a reliable collection of historical documents written by eyewitnesses.",
-    duration: "42:30",
-    durationSeconds: 2550,
-    mediaType: "video",
-    mp4Url: "https://archive.org/download/SERMONINDEX_SID0654/SID0654.mp4",
-    mediaUrl: "https://archive.org/download/SERMONINDEX_SID0654/SID0654.mp4",
-    youtubeId: "gW9Vd_UjL60",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0654/SID0654.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0654/SID0654.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=2234",
-    topics: [{ name: "Scripture", slug: "scripture" }, { name: "Faith", slug: "faith" }, { name: "Gospel", slug: "gospel" }],
-    scripture: [{ bookId: "2PE", chapter: 1, verse: 16 }, { bookId: "2TI", chapter: 3, verse: 16 }],
-    scriptureRef: "2 Peter 1:16",
-    outline: [
-      "1. Eye-Witness Testimony of Supernatural Events",
-      "2. Historical Corroboration and Fulfilled Prophecies",
-      "3. The Infallible Word of the Living God"
-    ],
-    keyQuotes: [
-      "\u201CI choose to believe the Bible because it is a reliable collection of historical documents written by eyewitnesses during the lifetime of other eyewitnesses.\u201D"
-    ]
-  },
-  {
-    id: "si-begg-middle-cross-video",
-    title: "The Man on the Middle Cross Said I Could Come (Video)",
-    speaker: "Alistair Begg",
-    speakerSlug: "alistair-begg",
-    speakerTitle: "Parkside Church / Truth For Life",
-    speakerImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80",
-    summary: "A viral and soul-stirring video sermon on Luke 23, explaining the thief on the cross and how justification is through the finished work of Jesus Christ alone.",
-    duration: "31:40",
-    durationSeconds: 1900,
-    mediaType: "video",
-    mp4Url: "https://archive.org/download/SERMONINDEX_SID0012/SID0012.mp4",
-    mediaUrl: "https://archive.org/download/SERMONINDEX_SID0012/SID0012.mp4",
-    youtubeId: "F2o_F-jWb0c",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0012/SID0012.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0012/SID0012.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=3345",
-    topics: [{ name: "Grace", slug: "grace" }, { name: "Salvation", slug: "salvation" }, { name: "The Cross of Christ", slug: "cross" }],
-    scripture: [{ bookId: "LUK", chapter: 23, verse: 39 }],
-    scriptureRef: "Luke 23:39-43",
-    outline: [
-      "1. The Thief with No Theological Degrees or Good Works",
-      "2. The Inability to Stand on One's Own Merit at Heaven's Gate",
-      "3. \u201CThe Man on the Middle Cross Said I Could Come\u201D"
-    ],
-    keyQuotes: [
-      "\u201COn what basis are you here? The only answer: The Man on the middle cross said I could come.\u201D"
-    ]
-  },
-  {
-    id: "si-conlon-run-life-video",
-    title: "Run for Your Life! (Historic Times Square Video)",
-    speaker: "Carter Conlon",
-    speakerSlug: "carter-conlon",
-    speakerTitle: "Times Square Church NYC",
-    speakerImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80",
-    summary: "A prophetic video message from Times Square Church urging believers to run from fleshly, compromised theology to the foot of the Cross.",
-    duration: "41:10",
-    durationSeconds: 2470,
-    mediaType: "video",
-    mp4Url: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp4",
-    mediaUrl: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp4",
-    youtubeId: "sF2d40_T8n0",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=4412",
-    topics: [{ name: "Revival", slug: "revival" }, { name: "Repentance", slug: "repentance" }, { name: "Holiness", slug: "holiness" }],
-    scripture: [{ bookId: "HEB", chapter: 12, verse: 1 }, { bookId: "JER", chapter: 23, verse: 1 }],
-    scriptureRef: "Hebrews 12:1",
-    outline: [
-      "1. Fleeing From the Gospel of Self-Exaltation",
-      "2. Returning to Christ Crucified and the Holy Spirit's Power",
-      "3. A Call to Bold, Uncompromising Faith in Perilous Times"
-    ],
-    keyQuotes: [
-      "\u201CRun from any gospel that doesn\u2019t take you to the cross of Jesus Christ!\u201D"
-    ]
-  },
-  {
-    id: "si-ravenhill-judgment",
-    title: "The Judgment Seat of Christ (Audio Exposition)",
-    speaker: "Leonard Ravenhill",
-    speakerSlug: "leonard-ravenhill",
-    speakerTitle: "Revivalist & Author",
-    speakerImage: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=400&auto=format&fit=crop&q=80",
-    summary: "A heart-penetrating examination of 2 Corinthians 5:10, challenging believers to live with eternity stamped upon their eyeballs.",
-    duration: "48:30",
-    durationSeconds: 2910,
-    mediaType: "audio",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0478/SID0478.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0478/SID0478.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=478",
-    topics: [{ name: "Judgment", slug: "judgment" }, { name: "Eternity", slug: "eternity" }, { name: "Holiness", slug: "holiness" }],
-    scripture: [{ bookId: "2CO", chapter: 5, verse: 10 }],
-    scriptureRef: "2 Corinthians 5:10",
-    outline: [
-      "1. The Certainty of the Bema Seat (2 Cor 5:10)",
-      "2. Gold, Silver, Precious Stones vs. Wood, Hay, Stubble",
-      "3. Living for That Day: The Eternal Perspective"
-    ],
-    keyQuotes: [
-      "\u201CA sinning man will stop praying. A praying man will stop sinning.\u201D",
-      "\u201CAre the things you are living for worth Christ dying for?\u201D"
-    ]
-  },
-  {
-    id: "si-reidhead-ten-shekels",
-    title: "Ten Shekels and a Shirt (Audio Discourse)",
-    speaker: "Paris Reidhead",
-    speakerSlug: "paris-reidhead",
-    speakerTitle: "Sudan Interior Mission",
-    speakerImage: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80",
-    summary: "Widely regarded as one of the most influential sermons of the 20th century, contrasting humanism with the supreme glory of God.",
-    duration: "50:45",
-    durationSeconds: 3045,
-    mediaType: "audio",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0141/SID0141.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0141/SID0141.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=141",
-    topics: [{ name: "The Glory of God", slug: "glory-of-god" }, { name: "Humanism", slug: "humanism" }, { name: "Surrender", slug: "surrender" }],
-    scripture: [{ bookId: "JDG", chapter: 17, verse: 10 }],
-    scriptureRef: "Judges 17:10",
-    outline: [
-      "1. Micah and the Levite: Religion for Profit (Judges 17)",
-      "2. The Difference Between Utilitarian Religion and God-Centered Devotion",
-      "3. God is Not a Means to an End; God is the End"
-    ],
-    keyQuotes: [
-      "\u201CWill you go to the mission field so that God can get what He deserves out of the cross?\u201D",
-      "\u201CSin is not just breaking God's law; sin is wanting to be God yourself.\u201D"
-    ]
-  },
-  {
-    id: "si-tozer-pursuit-god",
-    title: "The Blessedness of Possessing Nothing",
-    speaker: "A.W. Tozer",
-    speakerSlug: "a-w-tozer",
-    speakerTitle: "Christian & Missionary Alliance",
-    speakerImage: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&auto=format&fit=crop&q=80",
-    summary: "Based on Abraham offering Isaac on Mount Moriah, Tozer expounds the spiritual freedom of laying everything on the altar before God.",
-    duration: "42:15",
-    durationSeconds: 2535,
-    mediaType: "audio",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0288/SID0288.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0288/SID0288.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=288",
-    topics: [{ name: "Surrender", slug: "surrender" }, { name: "Worship", slug: "worship" }, { name: "Spiritual Life", slug: "spiritual-life" }],
-    scripture: [{ bookId: "GEN", chapter: 22, verse: 1 }, { bookId: "MAT", chapter: 5, verse: 3 }],
-    scriptureRef: "Genesis 22:1-14",
-    outline: [
-      "1. Abraham and the Testing on Moriah (Genesis 22)",
-      "2. The Idols of the Human Heart and the Relinquishment of Possessions",
-      "3. Blessed Are the Poor in Spirit"
-    ],
-    keyQuotes: [
-      "\u201CThe man who has God for his treasure has all things in One.\u201D",
-      "\u201CEverything is safe which is committed to Him, and nothing is really safe which is not so committed.\u201D"
-    ]
-  },
-  {
-    id: "si-spurgeon-gospel-grace",
-    title: "Free Grace & The Sovereignty of God",
+    id: "si-spurgeon-free-grace",
+    title: "Free Grace & Sovereignty (Audio Master)",
     speaker: "Charles H. Spurgeon",
     speakerSlug: "charles-spurgeon",
     speakerTitle: "Metropolitan Tabernacle",
-    speakerImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80",
-    summary: "A monumental exposition on Ephesians 2:8-9 demonstrating that salvation from first to last is the sovereign, unmerited gift of God.",
-    duration: "45:00",
-    durationSeconds: 2700,
+    speakerImage: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80",
+    summary: "Spurgeon's celebrated discourse on the matching glory of sovereign grace in Jesus Christ.",
+    duration: "52:20",
+    durationSeconds: 3140,
     mediaType: "audio",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0012/SID0012.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0012/SID0012.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=12",
-    topics: [{ name: "Grace", slug: "grace" }, { name: "Salvation", slug: "salvation" }, { name: "Faith", slug: "faith" }],
-    scripture: [{ bookId: "EPH", chapter: 2, verse: 8 }],
-    scriptureRef: "Ephesians 2:8-9",
-    outline: [
-      "1. By Grace Are Ye Saved: The Source of Redemption",
-      "2. Through Faith: The Empty Hand of the Beggar",
-      "3. Not of Yourselves: Lest Any Man Should Boast"
-    ],
-    keyQuotes: [
-      "\u201CGrace is the first and last moving cause of salvation; and faith, essential as it is, is only an important part of the machinery.\u201D",
-      "\u201CI am never so at home as when I am preaching the unsearchable riches of Christ.\u201D"
-    ]
-  },
-  {
-    id: "si-mlj-ephesians-armor",
-    title: "The Whole Armour of God",
-    speaker: "Dr. Martyn Lloyd-Jones",
-    speakerSlug: "martyn-lloyd-jones",
-    speakerTitle: "Westminster Chapel London",
-    speakerImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80",
-    summary: "A masterclass in spiritual warfare, explaining the unseen realm and how the believer stands firm in the power of Christ\u2019s might.",
-    duration: "52:10",
-    durationSeconds: 3130,
-    mediaType: "audio",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0654/SID0654.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0654/SID0654.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=654",
-    topics: [{ name: "Spiritual Warfare", slug: "spiritual-warfare" }, { name: "Ephesians", slug: "ephesians" }, { name: "Faith", slug: "faith" }],
-    scripture: [{ bookId: "EPH", chapter: 6, verse: 10 }],
-    scriptureRef: "Ephesians 6:10-18",
-    outline: [
-      "1. Be Strong in the Lord and in the Power of His Might (Eph 6:10)",
-      "2. The Nature of the Conflict: Principalities and Powers",
-      "3. Taking the Shield of Faith to Extinguish Every Fiery Dart"
-    ],
-    keyQuotes: [
-      "\u201CIf you do not realize that you are in a spiritual battle, you have already lost half the fight.\u201D",
-      "\u201COur strength is not in ourselves, but solely in our union with the risen Lord Jesus.\u201D"
-    ]
-  },
-  {
-    id: "si-wilkerson-anguish",
-    title: "A Call to Anguish (Video & Audio Discourse)",
-    speaker: "David Wilkerson",
-    speakerSlug: "david-wilkerson",
-    speakerTitle: "World Challenge & Times Square Church",
-    speakerImage: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&auto=format&fit=crop&q=80",
-    summary: "A powerful, weeping prophetic plea examining Nehemiah's grief over the broken walls of Jerusalem, calling believers to passionate intercession.",
-    duration: "47:20",
-    durationSeconds: 2840,
-    mediaType: "video",
-    mp4Url: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp4",
-    mediaUrl: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp4",
-    youtubeId: "l-_8_PfnO_o",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0992/SID0992.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=992",
-    topics: [{ name: "Prayer", slug: "prayer" }, { name: "Brokenness", slug: "brokenness" }, { name: "Intercession", slug: "intercession" }],
-    scripture: [{ bookId: "NEH", chapter: 1, verse: 4 }],
-    scriptureRef: "Nehemiah 1:4",
-    outline: [
-      "1. Nehemiah Wept and Mourned Certain Days (Nehemiah 1)",
-      "2. The Difference Between Mere Concern and True Spiritual Anguish",
-      "3. Rebuilding the Broken Walls Through Prayer and Fasting"
-    ],
-    keyQuotes: [
-      "\u201CAnguish means extreme pain and grief. God doesn't use people who have casual concern; He uses people in anguish.\u201D",
-      "\u201CWhen was the last time you wept over the lost in your city?\u201D"
-    ]
-  },
-  {
-    id: "si-edwards-sinners",
-    title: "Sinners in the Hands of an Angry God",
-    speaker: "Jonathan Edwards",
-    speakerSlug: "jonathan-edwards",
-    speakerTitle: "Puritan Theologian & Revivalist",
-    speakerImage: "https://images.unsplash.com/photo-1463453091185-61582044d556?w=400&auto=format&fit=crop&q=80",
-    summary: "The historic Enfield sermon of 1741 on Deuteronomy 32:35 that ignited the Great Awakening, emphasizing the sheer mercy of God holding back judgment.",
-    duration: "44:50",
-    durationSeconds: 2690,
-    mediaType: "audio",
-    mp3Url: "https://archive.org/download/SERMONINDEX_SID0003/SID0003.mp3",
-    cdnMp3Url: "https://archive.org/download/SERMONINDEX_SID0003/SID0003.mp3",
-    url: "https://www.sermonindex.net/modules/mydownloads/singlefile.php?lid=3",
-    topics: [{ name: "Judgment", slug: "judgment" }, { name: "Revival", slug: "revival" }, { name: "Grace", slug: "grace" }],
-    scripture: [{ bookId: "DEU", chapter: 32, verse: 35 }],
-    scriptureRef: "Deuteronomy 32:35",
-    outline: [
-      "1. Their Foot Shall Slide in Due Time (Deut 32:35)",
-      "2. It is Nothing But the Mere Good Pleasure of God That Keeps Man Out of Destruction",
-      "3. An Extraordinary Opportunity to Flee from the Wrath to Come unto Christ"
-    ],
-    keyQuotes: [
-      "\u201CThere is nothing between you and hell but the air; it is only the forbearance of God that holds you up.\u201D",
-      "\u201CFly to Christ, the only Ark of refuge, while the door of mercy stands open.\u201D"
-    ]
+    mediaUrl: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230103.mp3",
+    mp3Url: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230103.mp3",
+    cdnMp3Url: "https://traffic.libsyn.com/secure/renewingyourmind/RYM20230103.mp3",
+    youtubeId: "",
+    url: "https://www.sermonindex.net",
+    topics: [{ name: "Grace", slug: "grace" }, { name: "Sovereignty", slug: "sovereignty" }],
+    scriptureRef: "Romans 9:15-16",
+    thumbnailUrl: "https://images.unsplash.com/photo-1507692049790-de58290a4334?w=800&auto=format&fit=crop&q=80"
   }
 ];
 var SermonIndexService = class {
@@ -2644,7 +2614,7 @@ God's holy Word speaks with living power to this inquiry. In 2 Timothy 3:16-17, 
   router.post("/media/upload", upload.single("file"), (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-      const { title, speaker, series, scriptureRef, description, duration } = req.body;
+      const { title, speaker, series, scriptureRef, description, duration, thumbnailUrl } = req.body;
       const mediaUrl = `/uploads/sermons/${req.file.filename}`;
       const ext = import_path3.default.extname(req.file.originalname).toLowerCase();
       const mediaType = [".mp3", ".m4a", ".wav"].includes(ext) ? "audio" : "video";
@@ -2657,7 +2627,8 @@ God's holy Word speaks with living power to this inquiry. In 2 Timothy 3:16-17, 
         mediaType,
         mediaUrl,
         duration ? parseInt(duration, 10) : void 0,
-        (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+        (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        thumbnailUrl || void 0
       );
       res.status(201).json({ sermon, mediaUrl });
     } catch (error) {
@@ -2945,14 +2916,14 @@ var BibleStudyDB = class {
     this.db.close();
   }
   // Sermon operations
-  createSermon(title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded) {
+  createSermon(title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, thumbnailUrl) {
     const id = (0, import_crypto.randomUUID)();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const stmt = this.db.prepare(
-      "INSERT INTO sermons_podcasts (id, title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO sermons_podcasts (id, title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, thumbnailUrl, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
-    stmt.run(id, title, speaker || null, series || null, scriptureRef || null, description || null, mediaType || null, mediaUrl || null, duration || null, dateRecorded || null, now, now);
-    return { id, title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, createdAt: now, updatedAt: now };
+    stmt.run(id, title, speaker || null, series || null, scriptureRef || null, description || null, mediaType || null, mediaUrl || null, duration || null, dateRecorded || null, thumbnailUrl || null, now, now);
+    return { id, title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, thumbnailUrl, createdAt: now, updatedAt: now };
   }
   getAllSermons() {
     const stmt = this.db.prepare("SELECT * FROM sermons_podcasts ORDER BY dateRecorded DESC, createdAt DESC");
@@ -3376,6 +3347,52 @@ async function startServer() {
   const PORT = 3e3;
   app.use(import_express3.default.json({ limit: "25mb" }));
   app.use(import_express3.default.urlencoded({ extended: true, limit: "25mb" }));
+  app.get(["/uploads/sermons/:filename", "/public/uploads/sermons/:filename"], (req, res) => {
+    const filename = import_path5.default.basename(req.params.filename);
+    const mediaPath = import_path5.default.join(process.cwd(), "public", "uploads", "sermons", filename);
+    if (!import_fs5.default.existsSync(mediaPath)) {
+      return res.status(404).json({ error: "Media file not found" });
+    }
+    const stat = import_fs5.default.statSync(mediaPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    const ext = import_path5.default.extname(filename).toLowerCase();
+    const mimeTypes = {
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mp3": "audio/mpeg",
+      ".wav": "audio/wav",
+      ".m4a": "audio/mp4"
+    };
+    const contentType = mimeTypes[ext] || "application/octet-stream";
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      if (start >= fileSize) {
+        res.status(416).send("Requested range not satisfiable\n" + start + " >= " + fileSize);
+        return;
+      }
+      const chunksize = end - start + 1;
+      const file = import_fs5.default.createReadStream(mediaPath, { start, end });
+      const head = {
+        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunksize,
+        "Content-Type": contentType
+      };
+      res.writeHead(206, head);
+      file.pipe(res);
+    } else {
+      const head = {
+        "Content-Length": fileSize,
+        "Content-Type": contentType,
+        "Accept-Ranges": "bytes"
+      };
+      res.writeHead(200, head);
+      import_fs5.default.createReadStream(mediaPath).pipe(res);
+    }
+  });
   app.use("/uploads", import_express3.default.static(import_path5.default.join(process.cwd(), "public", "uploads")));
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
@@ -3804,24 +3821,28 @@ async function startServer() {
         httpOptions: { headers: { "User-Agent": "aistudio-build" } }
       });
       const prompt = `Read the following Bible passage with a wise, majestic, and authoritative voice, like King James himself: ${text}`;
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: "Zephyr" }
-              // Zephyr has a deep authoritative tone
+      let base64Audio = null;
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-tts-preview",
+          contents: [{ parts: [{ text: prompt }] }],
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Zephyr" }
+              }
             }
           }
-        }
-      });
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        });
+        base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      } catch (innerErr) {
+        console.warn("Primary TTS preview model busy, attempting fallback:", innerErr);
+      }
       if (base64Audio) {
         res.json({ audioData: base64Audio });
       } else {
-        res.status(500).json({ error: "No audio generated" });
+        res.status(503).json({ error: "Audio generation service temporarily busy. Please try again in a moment." });
       }
     } catch (err) {
       console.error("TTS error:", err);
@@ -3866,6 +3887,15 @@ async function startServer() {
     const bibleDB = new BibleStudyDB(bibleDbPath);
     const bibleRoutes = createBibleRoutes(bibleDB);
     app.use("/api/bible", bibleRoutes);
+    app.get("/api/bible/community/sermons", async (_req, res) => {
+      try {
+        const feed = await getLiveMinistryFeed();
+        res.json(feed);
+      } catch (err) {
+        console.error("[Community Sermons] Error:", err);
+        res.status(500).json({ error: err.message || "Failed to load sermons" });
+      }
+    });
   } catch (err) {
     console.error("Failed to initialize Bible Study DB:", err);
   }
@@ -3881,14 +3911,36 @@ async function startServer() {
   } catch (err) {
     console.error("Failed to initialize Auth DB:", err);
   }
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await (0, import_vite.createServer)({
+  const isProd = process.env.NODE_ENV === "production" || !process.env.VITE_DEV;
+  if (!isProd) {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa"
     });
     app.use(vite.middlewares);
   } else {
     const distPath = import_path5.default.join(process.cwd(), "dist");
+    app.get("/api/app-update/version", (req, res) => {
+      try {
+        const manifestPath = import_path5.default.join(process.cwd(), "public", "update-manifest.json");
+        if (import_fs5.default.existsSync(manifestPath)) {
+          return res.json(JSON.parse(import_fs5.default.readFileSync(manifestPath, "utf8")));
+        }
+        res.json({ version: "1.0.0", url: "https://webcraftstudio.cloud/dist.zip" });
+      } catch (e) {
+        res.status(500).json({ error: "Failed to read manifest" });
+      }
+    });
+    app.get("/aura.apk", (req, res) => {
+      const apkPath = import_path5.default.join(process.cwd(), "dist", "aura.apk");
+      if (import_fs5.default.existsSync(apkPath)) {
+        res.setHeader("Content-Disposition", "attachment; filename=aura.apk");
+        res.setHeader("Content-Type", "application/vnd.android.package-archive");
+        return res.sendFile(apkPath);
+      }
+      res.status(404).send("APK not found");
+    });
     app.use(import_express3.default.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(import_path5.default.join(distPath, "index.html"));
@@ -3899,4 +3951,3 @@ async function startServer() {
   });
 }
 startServer();
-//# sourceMappingURL=server.cjs.map

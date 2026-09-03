@@ -237,16 +237,7 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           });
         } catch (e) {}
 
-        if (post.authorId !== user.id) {
-          notificationService.notify({
-            type: 'like',
-            title: `${user.name} liked your post`,
-            body: post.content.slice(0, 60) + '...',
-            avatar: user.avatarUrl,
-            actionId: post.id,
-            playSound: true,
-          });
-        }
+        /* Outgoing like notification handled by server for recipient only */
       }
     }
 
@@ -298,16 +289,7 @@ export const SocialProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const post = posts.find((p) => p.id === postId);
-    if (post && post.authorId !== user.id) {
-      notificationService.notify({
-        type: 'comment',
-        title: `${user.name} commented on your post`,
-        body: content.slice(0, 60),
-        avatar: user.avatarUrl,
-        actionId: post.id,
-        playSound: true,
-      });
-    }
+    /* Outgoing comment notification handled by server for recipient only */
 
     setPosts((prev) =>
       prev.map((p) => {

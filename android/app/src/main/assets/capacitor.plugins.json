@@ -1,6 +1,18 @@
 [
 	{
+		"pkg": "@capacitor-community/native-audio",
+		"classpath": "com.getcapacitor.community.audio.NativeAudio"
+	},
+	{
+		"pkg": "@capacitor/filesystem",
+		"classpath": "com.capacitorjs.plugins.filesystem.FilesystemPlugin"
+	},
+	{
 		"pkg": "@capgo/capacitor-incoming-call-kit",
 		"classpath": "app.capgo.incomingcallkit.IncomingCallKitPlugin"
+	},
+	{
+		"pkg": "@capgo/capacitor-updater",
+		"classpath": "ee.forgr.capacitor_updater.CapacitorUpdaterPlugin"
 	}
 ]

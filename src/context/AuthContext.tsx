@@ -33,7 +33,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const KNOWN_GOOGLE_STORAGE_KEY = 'aura_known_google_accounts';
-const DUMMY_USER_IDS = new Set(['user_alex', 'user_maya', 'user_liam', 'user_elena', 'user_daphne', 'user_skylor']);
+const DUMMY_USER_IDS = new Set(['user_alex', 'user_maya', 'user_liam', 'user_elena', 'user_daphne']);
 const DUMMY_EMAILS = new Set(['tex@lightsouttattoo.site', 'skylor@lightsouttattoo.site']);
 
 const isForbiddenUser = (u: any) => {
@@ -215,9 +215,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setUser(activeUser);
+    offlineStorage.save(STORAGE_KEYS.CURRENT_USER, activeUser);
     setAllUsers((prev) => {
       const exists = prev.some((u) => u.id === activeUser.id || u.email.toLowerCase() === activeUser.email.toLowerCase());
-      return exists ? prev.map((u) => (u.email.toLowerCase() === activeUser.email.toLowerCase() ? activeUser : u)) : [activeUser, ...prev];
+      const updatedUsers = exists ? prev.map((u) => (u.email.toLowerCase() === activeUser.email.toLowerCase() ? activeUser : u)) : [activeUser, ...prev];
+      offlineStorage.save('aura_all_users', updatedUsers);
+      return updatedUsers;
     });
 
     notificationService.notify({

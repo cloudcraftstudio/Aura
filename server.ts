@@ -1,7 +1,7 @@
+import { getLiveMinistryFeed } from "./services/youtubeFeedService";
 import webpush from "web-push";
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { db } from './server/db';
 import { createBibleRoutes } from './routes/bible';
 import { BibleStudyDB } from './data/bible/models';
@@ -20,6 +20,62 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
   // Serve uploaded sermon files
+  
+  // Stream uploaded videos & audio with HTTP 206 Partial Content (Byte Range Support)
+  app.get(["/uploads/sermons/:filename", "/public/uploads/sermons/:filename"], (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const mediaPath = path.join(process.cwd(), "public", "uploads", "sermons", filename);
+
+    if (!fs.existsSync(mediaPath)) {
+      return res.status(404).json({ error: "Media file not found" });
+    }
+
+    const stat = fs.statSync(mediaPath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes = {
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mp3": "audio/mpeg",
+      ".wav": "audio/wav",
+      ".m4a": "audio/mp4",
+    };
+    const contentType = mimeTypes[ext] || "application/octet-stream";
+
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize) {
+        res.status(416).send("Requested range not satisfiable\n" + start + " >= " + fileSize);
+        return;
+      }
+
+      const chunksize = end - start + 1;
+      const file = fs.createReadStream(mediaPath, { start, end });
+      const head = {
+        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunksize,
+        "Content-Type": contentType,
+      };
+
+      res.writeHead(206, head);
+      file.pipe(res);
+    } else {
+      const head = {
+        "Content-Length": fileSize,
+        "Content-Type": contentType,
+        "Accept-Ranges": "bytes",
+      };
+      res.writeHead(200, head);
+      fs.createReadStream(mediaPath).pipe(res);
+    }
+  });
+
   app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
   // CORS headers
@@ -533,27 +589,31 @@ async function startServer() {
         httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
       });
 
-      // Prompt the model to speak with authority/wisdom
       const prompt = `Read the following Bible passage with a wise, majestic, and authoritative voice, like King James himself: ${text}`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Zephyr' }, // Zephyr has a deep authoritative tone
+      let base64Audio = null;
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.1-flash-tts-preview",
+          contents: [{ parts: [{ text: prompt }] }],
+          config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: 'Zephyr' },
+              },
             },
           },
-        },
-      });
+        });
+        base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      } catch (innerErr) {
+        console.warn("Primary TTS preview model busy, attempting fallback:", innerErr);
+      }
 
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (base64Audio) {
         res.json({ audioData: base64Audio });
       } else {
-        res.status(500).json({ error: 'No audio generated' });
+        res.status(503).json({ error: 'Audio generation service temporarily busy. Please try again in a moment.' });
       }
     } catch (err: any) {
       console.error('TTS error:', err);
@@ -604,6 +664,17 @@ async function startServer() {
     const bibleDB = new BibleStudyDB(bibleDbPath);
     const bibleRoutes = createBibleRoutes(bibleDB);
     app.use('/api/bible', bibleRoutes);
+
+    // Live Sync for Contemporary & Community Ministries (Lighthouse Baptist Church, etc.)
+    app.get('/api/bible/community/sermons', async (_req, res) => {
+      try {
+        const feed = await getLiveMinistryFeed();
+        res.json(feed);
+      } catch (err: any) {
+        console.error('[Community Sermons] Error:', err);
+        res.status(500).json({ error: err.message || 'Failed to load sermons' });
+      }
+    });
   } catch (err) {
     console.error('Failed to initialize Bible Study DB:', err);
   }
@@ -626,15 +697,41 @@ async function startServer() {
   }
 
   // --- VITE MIDDLEWARE SETUP ---
-  if (process.env.NODE_ENV !== 'production') {
+  const isProd = process.env.NODE_ENV === "production" || !process.env.VITE_DEV;
+  if (!isProd) {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: 'spa',
+      appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // App OTA Update Endpoint
+  app.get("/api/app-update/version", (req, res) => {
+    try {
+      const manifestPath = path.join(process.cwd(), "public", "update-manifest.json");
+      if (fs.existsSync(manifestPath)) {
+        return res.json(JSON.parse(fs.readFileSync(manifestPath, "utf8")));
+      }
+      res.json({ version: "1.0.0", url: "https://webcraftstudio.cloud/dist.zip" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to read manifest" });
+    }
+  });
+
+  // APK Download Route
+  app.get("/aura.apk", (req, res) => {
+    const apkPath = path.join(process.cwd(), "dist", "aura.apk");
+    if (fs.existsSync(apkPath)) {
+      res.setHeader("Content-Disposition", "attachment; filename=aura.apk");
+      res.setHeader("Content-Type", "application/vnd.android.package-archive");
+      return res.sendFile(apkPath);
+    }
+    res.status(404).send("APK not found");
+  });
+
+  app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, Loader, Link2, Youtube, CheckCircle2 } from 'lucide-react';
+import { Upload, X, Loader, Link2, Youtube, CheckCircle2, Image, Sparkles, Search, RefreshCw } from 'lucide-react';
 
 interface SermonFile {
   id: string;
@@ -10,6 +10,7 @@ interface SermonFile {
   scriptureRef: string;
   description: string;
   progress: number;
+  thumbnailUrl?: string;
   uploading: boolean;
 }
 
@@ -19,8 +20,29 @@ interface Course {
 }
 
 export function PodcastLibraryStudio({ courses }: { courses: Course[] }) {
+  const searchUnsplash = async (queryToSearch?: string) => {
+    const q = (queryToSearch || unsplashQuery).trim();
+    if (!q) return;
+    setIsSearchingUnsplash(true);
+    try {
+      const apiKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "6Zm1K6Y5nxJekPjGCydKDtCqh7m5PteXt9yHSeWS6q0";
+      const res = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=12&client_id=${apiKey}`);
+      if (res.ok) {
+        const data = await res.json();
+        setUnsplashResults(data.results || []);
+      }
+    } catch (err) {
+      console.error("Unsplash search failed:", err);
+    } finally {
+      setIsSearchingUnsplash(false);
+    }
+  };
   const [sermons, setSermons] = useState<SermonFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [unsplashQuery, setUnsplashQuery] = useState("worship bible cross");
+  const [unsplashResults, setUnsplashResults] = useState<any[]>([]);
+  const [isSearchingUnsplash, setIsSearchingUnsplash] = useState(false);
+  const [pickerTargetId, setPickerTargetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [entryMode, setEntryMode] = useState<'file' | 'youtube'>('youtube');
   const [ytUrl, setYtUrl] = useState("");
@@ -159,6 +181,11 @@ export function PodcastLibraryStudio({ courses }: { courses: Course[] }) {
         prev.map(s => s.id === sermon.id ? { ...s, uploading: false } : s)
       );
     }
+  };
+
+    const handleSelectCover = (sermonId: string, url: string) => {
+    updateSermon(sermonId, "thumbnailUrl", url);
+    setPickerTargetId(null); // Close picker
   };
 
   const removeSermon = (id: string) => {
@@ -329,7 +356,30 @@ export function PodcastLibraryStudio({ courses }: { courses: Course[] }) {
             <div key={sermon.id} className="bg-blue-950/30 border border-blue-500/30 rounded-lg p-4 space-y-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <input
+              <div className="mb-2">
+                {sermon.thumbnailUrl ? (
+                  <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-blue-400/40 group">
+                    <img src={sermon.thumbnailUrl} alt="Cover Preview" className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => setPickerTargetId(sermon.id)}
+                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-bold"
+                    >
+                      <Image className="w-4 h-4" /> Change Cover
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setPickerTargetId(sermon.id)}
+                    className="w-full h-24 rounded-xl border-2 border-dashed border-blue-500/40 bg-blue-950/20 hover:border-amber-400/50 hover:bg-amber-950/20 transition-colors flex flex-col items-center justify-center gap-1.5 text-blue-300 hover:text-amber-300"
+                  >
+                    <Sparkles className="w-6 h-6 text-amber-400" />
+                    <span className="text-xs font-bold">Add Worship Cover</span>
+                  </button>
+                )}
+              </div>
+
+                
+                <input
                     type="text"
                     value={sermon.title}
                     onChange={e => updateSermon(sermon.id, 'title', e.target.value)}
@@ -395,6 +445,76 @@ export function PodcastLibraryStudio({ courses }: { courses: Course[] }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+  {/* Unsplash Picker Modal */}
+      {pickerTargetId && (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setPickerTargetId(null)}>
+          <div className="bg-slate-950 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-black text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-400" />
+                Select Worship Cover
+              </h3>
+              <button onClick={() => setPickerTargetId(null)} className="p-1.5 rounded-lg text-slate-500 hover:bg-white/10 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={unsplashQuery}
+                  onChange={e => setUnsplashQuery(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && (e.preventDefault(), searchUnsplash())}
+                  placeholder="Search Unsplash (e.g. cross, open bible, prayer)..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-white/10 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => searchUnsplash()}
+                disabled={isSearchingUnsplash}
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-xl flex items-center gap-2 transition-all disabled:opacity-50"
+              >
+                {isSearchingUnsplash ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                Search
+              </button>
+            </div>
+
+            {/* Results Grid */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              {unsplashResults.length === 0 && !isSearchingUnsplash && (
+                <div className="text-center py-10 text-slate-500 text-sm">
+                  Search for a sermon cover image using the input above.
+                </div>
+              )}
+              
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {unsplashResults.map((img: any) => (
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => handleSelectCover(pickerTargetId, img.urls.regular)}
+                    className="aspect-[16/10] rounded-lg overflow-hidden border border-white/5 hover:border-amber-400/50 transition-colors group relative"
+                  >
+                    <img
+                      src={img.urls.small}
+                      alt={img.alt_description || "Worship image"}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent">
+                      <p className="text-[9px] text-white/70 truncate">by {img.user?.name || "Unsplash"}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  Play,
+import { Play,
   Square,
   Mic,
   Video,
@@ -19,8 +18,7 @@ import {
   FileVideo,
   Upload,
   Volume2,
-  Share2
-} from 'lucide-react';
+  Share2, Image as ImageIcon, Search } from "lucide-react";
 
 interface Sermon {
   id: string;
@@ -65,6 +63,30 @@ export function LiveSermonStudio() {
   const [seriesName, setSeriesName] = useState('');
   const [scriptureRef, setScriptureRef] = useState('');
   const [sermonNotes, setSermonNotes] = useState('');
+  const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [showUnsplashPicker, setShowUnsplashPicker] = useState(false);
+  const [unsplashQuery, setUnsplashQuery] = useState("worship bible");
+  const [unsplashResults, setUnsplashResults] = useState<Array<{ id: string; urls: { regular: string; thumb: string; small: string }; alt_description?: string; user?: { name: string } }>>([]);
+  const [isSearchingUnsplash, setIsSearchingUnsplash] = useState(false);
+
+  const searchUnsplash = async (queryToSearch?: string) => {
+    const q = (queryToSearch || unsplashQuery).trim();
+    if (!q) return;
+    setIsSearchingUnsplash(true);
+    try {
+      const apiKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY || "6Zm1K6Y5nxJekPjGCydKDtCqh7m5PteXt9yHSeWS6q0";
+      const res = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=12&client_id=${apiKey}`);
+      if (res.ok) {
+        const data = await res.json();
+        setUnsplashResults(data.results || []);
+      }
+    } catch (err) {
+      console.error("Unsplash search failed:", err);
+    } finally {
+      setIsSearchingUnsplash(false);
+    }
+  };
+
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedSermon, setSelectedSermon] = useState<Sermon | null>(null);
@@ -279,6 +301,7 @@ export function LiveSermonStudio() {
       formData.append('description', draftForVerification.description || '');
       formData.append('duration', draftForVerification.duration.toString());
       formData.append('mediaType', 'video');
+      if (thumbnailUrl) formData.append('thumbnailUrl', thumbnailUrl);
 
       const res = await fetch('/api/bible/media/upload', { method: 'POST', body: formData });
       if (res.ok) {
@@ -428,6 +451,7 @@ export function LiveSermonStudio() {
       formData.append('series', uploadSeries);
       formData.append('scriptureRef', uploadScripture);
       formData.append('description', uploadDescription);
+      if (thumbnailUrl) formData.append('thumbnailUrl', thumbnailUrl);
 
       const res = await fetch('/api/bible/media/upload', { method: 'POST', body: formData });
       if (res.ok) {
@@ -614,6 +638,117 @@ export function LiveSermonStudio() {
                 className="w-full bg-blue-950/50 border border-blue-500/30 rounded-xl px-3.5 py-2.5 text-white text-xs sm:text-sm placeholder-slate-500 focus:outline-none focus:border-blue-400"
               />
             </div>
+
+            {/* Cover Image / Unsplash Picker */}
+            <div className="space-y-2 pt-2 border-t border-blue-500/20">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                  Cover Image (Thumbnail)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowUnsplashPicker(!showUnsplashPicker)}
+                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                >
+                  {showUnsplashPicker ? "Close Picker" : "✨ Choose from Unsplash"}
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={thumbnailUrl}
+                  onChange={e => setThumbnailUrl(e.target.value)}
+                  placeholder="Paste custom cover image URL or pick below..."
+                  className="flex-1 bg-blue-950/50 border border-blue-500/30 rounded-xl px-3.5 py-2 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-400"
+                />
+                {thumbnailUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setThumbnailUrl("")}
+                    className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-xl text-xs"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Unsplash Dynamic Search Panel */}
+              {showUnsplashPicker && (
+                <div className="p-3 bg-blue-950/80 border border-blue-500/30 rounded-2xl space-y-3">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        value={unsplashQuery}
+                        onChange={e => setUnsplashQuery(e.target.value)}
+                        onKeyDown={e => e.key === "Enter" && (e.preventDefault(), searchUnsplash())}
+                        placeholder="Search Unsplash (e.g. prayer, cross, pulpit, choir)..."
+                        className="w-full pl-8 pr-3 py-1.5 bg-blue-900/40 border border-blue-400/30 rounded-xl text-white text-xs placeholder-slate-400 focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => searchUnsplash()}
+                      disabled={isSearchingUnsplash}
+                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-50"
+                    >
+                      {isSearchingUnsplash ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                      Search
+                    </button>
+                  </div>
+
+                  {/* Results Grid */}
+                  <div className="max-h-56 overflow-y-auto pr-1">
+                    {unsplashResults.length === 0 && !isSearchingUnsplash && (
+                      <div className="text-center py-4">
+                        <button
+                          type="button"
+                          onClick={() => searchUnsplash("worship bible")}
+                          className="text-xs text-blue-300 hover:text-white underline"
+                        >
+                          Load popular worship & church images
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {unsplashResults.map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => {
+                            setThumbnailUrl(img.urls.regular);
+                            setShowUnsplashPicker(false);
+                          }}
+                          className={`group relative aspect-video rounded-xl overflow-hidden border-2 transition-all ${
+                            thumbnailUrl === img.urls.regular ? "border-amber-400 ring-2 ring-amber-400/50" : "border-white/10 hover:border-amber-400"
+                          }`}
+                        >
+                          <img src={img.urls.small} alt={img.alt_description || "Sermon cover"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                          <span className="absolute inset-x-0 bottom-0 bg-black/75 text-[9px] text-white truncate px-1 py-0.5 text-left">
+                            by {img.user?.name || "Unsplash"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Thumbnail Preview Badge */}
+              {thumbnailUrl && (
+                <div className="flex items-center gap-3 p-2 bg-blue-950/40 border border-blue-500/20 rounded-xl">
+                  <img src={thumbnailUrl} alt="Thumbnail preview" className="w-16 h-10 object-cover rounded-lg border border-white/10" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-white truncate">Active Cover Preview</p>
+                    <p className="text-[10px] text-amber-300">Will render as card cover in Podcast feed</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Live Video Camera Viewfinder */}
@@ -627,7 +762,7 @@ export function LiveSermonStudio() {
             />
 
             {!isLive && (
-              <div className="text-center p-6 space-y-3">
+              <div className="text-center p-6 space-y-3 pb-8">
                 <div className="w-16 h-16 rounded-full bg-blue-600/20 border border-blue-400/30 flex items-center justify-center text-blue-400 mx-auto">
                   <Video className="w-8 h-8" />
                 </div>
@@ -1104,7 +1239,7 @@ export function LiveSermonStudio() {
       {/* Recording Verification & Approval Modal */}
       {draftForVerification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-2xl bg-[#090d24] border-2 border-blue-500/50 rounded-3xl p-6 sm:p-7 space-y-5 text-white shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-2xl bg-[#090d24] border-2 border-blue-500/50 rounded-3xl p-6 sm:p-7 space-y-5 text-white shadow-2xl max-h-[82vh] overflow-y-auto pb-28 sm:pb-8">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
               <div>

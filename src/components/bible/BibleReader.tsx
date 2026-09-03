@@ -53,9 +53,9 @@ interface BibleReaderProps {
 }
 
 export function BibleReader({
-  initialBook = 'John',
-  initialChapter = '3',
-  initialVerse = '16',
+  initialBook = 'Genesis',
+  initialChapter = '1',
+  initialVerse = '1',
   onOpenStudyBreakdown,
   onShareToFeed
 }: BibleReaderProps) {
@@ -65,6 +65,7 @@ export function BibleReader({
   const [selectedBook, setSelectedBook] = useState<string>(initialBook);
   const [selectedChapter, setSelectedChapter] = useState<string>(initialChapter);
   const [selectedVerse, setSelectedVerse] = useState<string>(initialVerse);
+  const [readerMode, setReaderMode] = useState<'read' | 'listen'>('read');
 
   // Chapter Content & Loading
   const [chapterData, setChapterData] = useState<BibleChapterData | null>(null);
@@ -133,11 +134,165 @@ export function BibleReader({
   const [activeVerseAction, setActiveVerseAction] = useState<number | null>(null);
 
   const [isLibraryCollapsed, setIsLibraryCollapsed] = useState<boolean>(true);
-
-  // Audio Playback
-  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [audioLoadingVerse, setAudioLoadingVerse] = useState<number | null>(null);
-  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Web Audio API refs for robust mobile WebView / Capacitor playback
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+
+  const getAudioContext = () => {
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+        sampleRate: 24000
+      });
+    }
+    return audioContextRef.current;
+  };
+
+  const stopPlayback = () => {
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.stop();
+      } catch (e) {}
+      sourceNodeRef.current.disconnect();
+      sourceNodeRef.current = null;
+    }
+    setIsSpeaking(false);
+    setAudioLoadingVerse(null);
+  };
+
+  const toggleSpeechPlayback = async () => {
+    if (isSpeaking) {
+      stopPlayback();
+      return;
+    }
+
+    if (!chapterData || !chapterData.verses.length) return;
+
+    try {
+      setIsSpeaking(true);
+      const fullText = chapterData.verses.map(v => `Verse ${v.verse}. ${v.text}`).join(" ");
+      
+      const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.();
+      const apiBase = isCapacitor ? "https://ais-dev-vn3pny53thrqzfihydxly3-473048529424.us-east1.run.app" : "";
+      
+      const res = await fetch(`${apiBase}/api/bible-study/audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: `Chapter ${selectedChapter}: ${fullText}` })
+      });
+
+      if (!res.ok) throw new Error("TTS synthesis failed");
+
+      const data = await res.json();
+      const base64Audio = data.audio;
+      if (!base64Audio) throw new Error("No audio data received");
+
+      // Convert base64 to ArrayBuffer bytes
+      const binaryString = atob(base64Audio);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+
+      // Convert Int16 PCM bytes to Float32 for Web Audio API
+      const int16Array = new Int16Array(bytes.buffer);
+      const float32Array = new Float32Array(int16Array.length);
+      for (let i = 0; i < int16Array.length; i++) {
+        float32Array[i] = int16Array[i] / 32768.0;
+      }
+
+      const audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
+      audioBuffer.getChannelData(0).set(float32Array);
+
+      const sourceNode = ctx.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(ctx.destination);
+      
+      sourceNode.onended = () => {
+        setIsSpeaking(false);
+        sourceNodeRef.current = null;
+      };
+
+      sourceNodeRef.current = sourceNode;
+      sourceNode.start(0);
+    } catch (e) {
+      console.error("Audio playback error:", e);
+      setIsSpeaking(false);
+    }
+  };
+
+  const playSingleVerse = async (verseNum: number, verseText: string) => {
+    try {
+      if (isSpeaking) stopPlayback();
+      setAudioLoadingVerse(verseNum);
+      setIsSpeaking(true);
+
+      const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.();
+      const apiBase = isCapacitor ? "https://ais-dev-vn3pny53thrqzfihydxly3-473048529424.us-east1.run.app" : "";
+
+      const res = await fetch(`${apiBase}/api/bible-study/audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: `${selectedBook} chapter ${selectedChapter} verse ${verseNum}: ${verseText}` })
+      });
+
+      if (!res.ok) throw new Error("TTS failed");
+      const data = await res.json();
+      const base64Audio = data.audio;
+      if (!base64Audio) throw new Error("No audio data");
+
+      const binaryString = atob(base64Audio);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const int16Array = new Int16Array(bytes.buffer);
+      const float32Array = new Float32Array(int16Array.length);
+      for (let i = 0; i < int16Array.length; i++) {
+        float32Array[i] = int16Array[i] / 32768.0;
+      }
+
+      const audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
+      audioBuffer.getChannelData(0).set(float32Array);
+
+      const sourceNode = ctx.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(ctx.destination);
+      
+      sourceNode.onended = () => {
+        setIsSpeaking(false);
+        setAudioLoadingVerse(null);
+        sourceNodeRef.current = null;
+      };
+
+      sourceNodeRef.current = sourceNode;
+      setAudioLoadingVerse(null);
+      sourceNode.start(0);
+    } catch (e) {
+      console.error("Verse audio error:", e);
+      setIsSpeaking(false);
+      setAudioLoadingVerse(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopPlayback();
+    };
+  }, [selectedBook, selectedChapter]);
 
   // Bible book lists
   const oldTestamentBooks = getBooksByTestament('Old Testament');
@@ -193,7 +348,6 @@ export function BibleReader({
           return;
         }
       }
-      // Fallback if network or error
       fallbackChapter(book, chapter);
     } catch (err) {
       console.warn('Error loading chapter:', err);
@@ -204,7 +358,6 @@ export function BibleReader({
   };
 
   const fallbackChapter = (book: string, chapter: string) => {
-    const meta = getBookMetadata(book);
     const verses: BibleVerse[] = [
       { verse: 1, text: `The sacred book of ${book}, chapter ${chapter}.` },
       { verse: 2, text: `Thy word is a lamp unto my feet, and a light unto my path.` },
@@ -276,13 +429,11 @@ export function BibleReader({
     }
   };
 
-  // Smart scripture parser for sermon follow-along (e.g. "John 3:16", "Rom 8", "Psalm 23")
+  // Smart scripture parser for sermon follow-along
   const handleQuickJump = (input?: string) => {
     const text = (input || quickJumpInput).trim();
     if (!text) return;
 
-    // Match book, chapter, and optional verse
-    // Examples: "1 John 3:16", "John 3:16", "Genesis 1", "Rom 8", "1 Cor 13:4"
     const regex = /^([1-3]?\s?[A-Za-z]+)\s*(\d+)?(?::(\d+))?$/i;
     const match = text.match(regex);
 
@@ -291,7 +442,6 @@ export function BibleReader({
       const chapterQuery = match[2] || '1';
       const verseQuery = match[3] || '1';
 
-      // Find matching book in our 66 books
       const allBooks = Object.keys(BIBLE_BOOKS);
       const foundBook = allBooks.find(b => {
         const bLower = b.toLowerCase();
@@ -312,7 +462,6 @@ export function BibleReader({
       }
     }
 
-    // If not a strict reference, trigger keyword search
     handleSearch(text);
   };
 
@@ -342,46 +491,6 @@ export function BibleReader({
     setTimeout(() => setCopiedVerseNum(null), 2000);
   };
 
-  // King James TTS Audio Player
-  const handlePlayVerseAudio = async (verseNum: number, verseText: string) => {
-    if (isPlayingAudio && activeAudioRef.current) {
-      activeAudioRef.current.pause();
-      activeAudioRef.current = null;
-      setIsPlayingAudio(false);
-      setAudioLoadingVerse(null);
-      return;
-    }
-
-    setAudioLoadingVerse(verseNum);
-    try {
-      const res = await fetch('/api/bible/audio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: `${selectedBook}, chapter ${selectedChapter}, verse ${verseNum}. ${verseText}`
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.audioData) {
-          const audio = new Audio(`data:audio/mp3;base64,${data.audioData}`);
-          activeAudioRef.current = audio;
-          audio.onended = () => {
-            setIsPlayingAudio(false);
-            setAudioLoadingVerse(null);
-          };
-          await audio.play();
-          setIsPlayingAudio(true);
-        }
-      }
-    } catch (e) {
-      console.warn('Audio playback error:', e);
-    } finally {
-      setAudioLoadingVerse(null);
-    }
-  };
-
   // Theme styling configurations
   const themeClasses = {
     dark: 'bg-[#0b1022] text-slate-100 border-blue-500/20',
@@ -394,6 +503,31 @@ export function BibleReader({
 
   return (
     <div className="w-full space-y-4">
+      {/* Immersive Dwell-Style [ Listen | Read ] Switcher Pill */}
+      <div className="flex justify-center mb-2">
+        <div className="inline-flex items-center bg-slate-900/90 backdrop-blur-xl p-1 rounded-full border border-white/10 shadow-2xl">
+          <button
+            onClick={() => setReaderMode('listen')}
+            className={`px-6 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-300 ${
+              readerMode === 'listen'
+                ? 'bg-white text-slate-950 shadow-lg scale-105'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Listen
+          </button>
+          <button
+            onClick={() => setReaderMode('read')}
+            className={`px-6 py-2 rounded-full text-xs font-semibold tracking-wide transition-all duration-300 ${
+              readerMode === 'read'
+                ? 'bg-white text-slate-950 shadow-lg scale-105'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Read
+          </button>
+        </div>
+      </div>
       {/* Top Header & Church Quick-Jump Bar */}
       <div className="bg-gradient-to-r from-blue-950/80 via-indigo-950/70 to-slate-900/80 border border-blue-500/30 rounded-2xl p-4 shadow-xl backdrop-blur-md">
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
@@ -669,7 +803,6 @@ export function BibleReader({
                       setSelectedBook(book.name);
                       setSelectedChapter('1');
                       setSelectedVerse('1');
-                      // Auto-collapse after selection on mobile
                       if (window.innerWidth < 768) {
                         setIsLibraryCollapsed(true);
                       }
@@ -756,7 +889,6 @@ export function BibleReader({
       <div className={`rounded-2xl border p-5 sm:p-7 shadow-2xl transition-colors ${themeClasses}`}>
         {/* Reader Navigation Top Bar */}
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-          {/* Previous Chapter Button */}
           <button
             onClick={handlePrevChapter}
             disabled={parseInt(selectedChapter, 10) <= 1}
@@ -766,7 +898,6 @@ export function BibleReader({
             <span className="hidden sm:inline">Prev Ch</span>
           </button>
 
-          {/* Active Book & Chapter Heading */}
           <div className="text-center">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
               <span>{selectedBook}</span>
@@ -777,7 +908,6 @@ export function BibleReader({
             </p>
           </div>
 
-          {/* Next Chapter Button */}
           <button
             onClick={handleNextChapter}
             disabled={parseInt(selectedChapter, 10) >= totalChaptersInCurrentBook}
@@ -820,7 +950,40 @@ export function BibleReader({
             </p>
           </div>
         ) : chapterData?.verses && chapterData.verses.length > 0 ? (
-          <div className={`space-y-4 leading-relaxed ${readerFontClass}`} style={{ fontSize: `${fontSize}px` }}>
+          readerMode === 'listen' ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-b from-slate-900/90 to-slate-950 rounded-3xl border border-white/10 shadow-2xl space-y-8 my-6">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
+                <div className="relative w-64 h-64 sm:w-72 sm:h-72 bg-slate-900 rounded-3xl border border-white/20 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
+                  <span className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-2">Aura Audio</span>
+                  <h3 className="text-3xl sm:text-4xl font-serif font-bold text-white mb-1">{selectedBook}</h3>
+                  <p className="text-slate-400 text-sm">Chapter {selectedChapter} • KJV Stream</p>
+                  <div className="mt-6 flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${isSpeaking ? "bg-emerald-400 animate-ping" : "bg-blue-500"}`}></span>
+                    <span className="text-xs text-slate-300 font-medium">{isSpeaking ? "Streaming PCM..." : "Ready to Play"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={toggleSpeechPlayback}
+                  className="w-20 h-20 rounded-full bg-white text-slate-950 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                >
+                  {isSpeaking ? (
+                    <div className="w-6 h-6 bg-slate-950 rounded-sm" />
+                  ) : (
+                    <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-slate-950 border-b-[12px] border-b-transparent ml-1" />
+                  )}
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-400 text-center max-w-xs">
+                Tap play to stream {selectedBook} Chapter {selectedChapter} via Gemini Web Audio API.
+              </p>
+            </div>
+          ) : (
+            <div className={`space-y-4 leading-relaxed ${readerFontClass}`} style={{ fontSize: `${fontSize}px` }}>
             {chapterData.verses.map(item => {
               const isSelected = selectedVerse === item.verse.toString();
               const isActionOpen = activeVerseAction === item.verse;
@@ -839,7 +1002,6 @@ export function BibleReader({
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    {/* Verse Number Indicator */}
                     <button
                       onClick={() => {
                         setSelectedVerse(item.verse.toString());
@@ -854,7 +1016,6 @@ export function BibleReader({
                       {item.verse}
                     </button>
 
-                    {/* Verse Text */}
                     <div
                       onClick={() => {
                         setSelectedVerse(item.verse.toString());
@@ -868,7 +1029,6 @@ export function BibleReader({
                     </div>
                   </div>
 
-                  {/* Interactive Action Toolbar on Tap or Selected */}
                   {(isSelected || isActionOpen) && (
                     <div className="mt-3 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 font-sans text-xs animate-in fade-in duration-150">
                       <span className="font-bold text-blue-300">
@@ -876,17 +1036,15 @@ export function BibleReader({
                       </span>
 
                       <div className="flex items-center gap-1.5">
-                        {/* Audio TTS */}
                         <button
-                          onClick={() => handlePlayVerseAudio(item.verse, item.text)}
-                          title="Listen with King James Voice"
+                          onClick={() => playSingleVerse(item.verse, item.text)}
+                          title="Listen with Gemini Audio Stream"
                           className="px-2.5 py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white border border-blue-500/30 transition-all flex items-center gap-1"
                         >
                           <Volume2 className={`w-3.5 h-3.5 ${isLoadingAudio ? 'animate-bounce' : ''}`} />
                           <span className="hidden sm:inline">Listen</span>
                         </button>
 
-                        {/* Copy */}
                         <button
                           onClick={() => handleCopyVerse(item.verse, item.text)}
                           title="Copy verse to clipboard"
@@ -896,7 +1054,6 @@ export function BibleReader({
                           <span className="hidden sm:inline">{isCopied ? 'Copied' : 'Copy'}</span>
                         </button>
 
-                        {/* Bookmark */}
                         <button
                           onClick={() => toggleBookmark(`${selectedBook} ${selectedChapter}:${item.verse}`)}
                           title="Save Bookmark"
@@ -910,7 +1067,6 @@ export function BibleReader({
                           <span className="hidden sm:inline">Save</span>
                         </button>
 
-                        {/* Deep Study Breakdown */}
                         {onOpenStudyBreakdown && (
                           <button
                             onClick={() => onOpenStudyBreakdown(selectedBook, selectedChapter, item.verse.toString())}
@@ -921,7 +1077,6 @@ export function BibleReader({
                           </button>
                         )}
 
-                        {/* Share to Aura Social Feed */}
                         {onShareToFeed && (
                           <button
                             onClick={() => onShareToFeed(`${selectedBook} ${selectedChapter}:${item.verse}`, item.text)}
@@ -937,7 +1092,8 @@ export function BibleReader({
                 </div>
               );
             })}
-          </div>
+            </div>
+          )
         ) : (
           <div className="py-12 text-center text-gray-400 font-sans">
             No verses found for this chapter.
@@ -979,7 +1135,6 @@ export function BibleReader({
       {isBookPickerOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-[#0b1022] border border-blue-500/40 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Modal Header */}
             <div className="p-4 border-b border-blue-500/30 flex items-center justify-between bg-blue-950/40">
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-blue-400" />
@@ -997,11 +1152,9 @@ export function BibleReader({
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-4 flex-1 overflow-y-auto space-y-4">
               {pickerStep === 'book' ? (
                 <>
-                  {/* Testament Switch */}
                   <div className="flex bg-black/60 p-1 rounded-xl border border-blue-500/30">
                     <button
                       onClick={() => setSelectedTestament('Old Testament')}
@@ -1025,7 +1178,6 @@ export function BibleReader({
                     </button>
                   </div>
 
-                  {/* Book Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {currentBooks.map(b => (
                       <button
@@ -1048,7 +1200,6 @@ export function BibleReader({
                 </>
               ) : (
                 <>
-                  {/* Back to Books & Chapter Numbers Grid */}
                   <div className="flex items-center justify-between">
                     <button
                       onClick={() => setPickerStep('book')}

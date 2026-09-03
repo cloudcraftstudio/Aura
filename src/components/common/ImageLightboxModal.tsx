@@ -11,6 +11,9 @@ interface ImageLightboxModalProps {
   initialIndex?: number;
   caption?: string;
   authorName?: string;
+  authorAvatar?: string;
+  authorHandle?: string;
+  createdAt?: string | number;
   onClose: () => void;
 }
 
@@ -25,6 +28,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   initialIndex = 0,
   caption,
   authorName,
+  authorAvatar,
+  authorHandle,
+  createdAt,
   onClose,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -35,7 +41,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
       setCurrentIndex(Math.max(0, Math.min(initialIndex, (images?.length || 1) - 1)));
       setIsZoomed(false);
     }
-  }, [isOpen, initialIndex]);
+  }, [isOpen, initialIndex, images]);
 
   const handleNext = useCallback(
     (e?: React.MouseEvent) => {
@@ -64,7 +70,6 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     onClose();
   }, [onClose]);
 
-  // Keyboard shortcut listener
   useEffect(() => {
     if (!isOpen) return;
 
@@ -115,35 +120,50 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
     }
   };
 
+  const formattedDate = createdAt
+    ? new Date(createdAt).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
   const modalContent = (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={handleClose}
         id="image-lightbox-overlay"
-        className="fixed inset-0 z-[9999] flex flex-col items-center justify-between bg-black/95 backdrop-blur-2xl p-3 sm:p-5 select-none"
+        className="fixed inset-0 z-[9999] flex flex-col md:flex-row bg-black/95 backdrop-blur-xl select-none"
       >
-        {/* Top Control Bar */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-5xl flex items-center justify-between z-10 px-2 py-2"
+        {/* Floating Close Button (Top Left on Stage) */}
+        <button
+          onClick={handleClose}
+          className="absolute top-3 left-3 z-50 p-2.5 rounded-full bg-black/70 hover:bg-black/90 text-white/80 hover:text-white border border-white/20 transition-all backdrop-blur-md shadow-lg"
+          title="Close (Esc)"
         >
-          <div className="flex items-center gap-3">
-            {authorName && (
-              <span className="text-xs sm:text-sm font-semibold text-slate-200">
-                {authorName}
-              </span>
-            )}
-            {images.length > 1 && (
-              <span className="px-2.5 py-1 rounded-full bg-white/10 text-[11px] font-medium text-slate-300 border border-white/10">
-                {currentIndex + 1} / {images.length}
-              </span>
-            )}
-          </div>
+          <X className="w-5 h-5" />
+        </button>
 
-          <div className="flex items-center gap-2">
+        {/* LEFT / CENTER STAGE: Uncropped Media Viewing Area */}
+        <div 
+          onClick={handleClose}
+          className="relative flex-1 flex flex-col items-center justify-between min-h-[55vh] md:min-h-screen p-3 md:p-6 overflow-hidden"
+        >
+          {/* Top Controls Bar inside Stage */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full flex items-center justify-end gap-2 z-20"
+          >
+            {images.length > 1 && (
+              <span className="px-3 py-1 rounded-full bg-white/10 text-xs font-medium text-slate-200 border border-white/10 mr-auto ml-12">
+                {currentIndex + 1} of {images.length}
+              </span>
+            )}
+
             <button
               onClick={() => setIsZoomed(!isZoomed)}
               className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white transition-all border border-white/10"
@@ -167,82 +187,61 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             >
               <Download className="w-4 h-4" />
             </button>
-
-            {/* Prominent Close Button */}
-            <button
-              id="close-lightbox-btn"
-              onClick={handleClose}
-              className="p-2.5 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-white border border-rose-500/40 transition-all flex items-center gap-1.5 px-3.5 shadow-lg shadow-rose-950/40"
-              title="Close image (or press Esc)"
-            >
-              <X className="w-4 h-4" />
-              <span className="text-xs font-bold hidden sm:inline">Close</span>
-            </button>
           </div>
-        </div>
 
-        {/* Center Image Container */}
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsZoomed(!isZoomed);
-          }}
-          className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-auto my-2 cursor-zoom-in"
-        >
-          {/* Previous Button */}
-          {images.length > 1 && (
-            <button
-              onClick={handlePrev}
-              className="absolute left-2 sm:left-4 z-20 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
-              title="Previous photo"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-          )}
-
-          {/* Current Photo with full display preservation */}
-          <motion.img
-            key={currentImage}
-            src={currentResolvedSrc || currentImage}
-            alt="Full Preview"
-            referrerPolicy="no-referrer"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{
-              opacity: 1,
-              scale: isZoomed ? 1.5 : 1,
+          {/* Center Image Stage */}
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsZoomed(!isZoomed);
             }}
-            transition={{ duration: 0.2 }}
-            className={`max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-2xl shadow-2xl border border-white/10 transition-transform ${
-              isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
-            }`}
-          />
+            className="relative flex-1 w-full flex items-center justify-center overflow-auto my-2 cursor-zoom-in"
+          >
+            {/* Previous Button */}
+            {images.length > 1 && (
+              <button
+                onClick={handlePrev}
+                className="absolute left-2 sm:left-4 z-20 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
+                title="Previous photo"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+            )}
 
-          {/* Next Button */}
+            <motion.img
+              key={currentImage}
+              src={currentResolvedSrc || currentImage}
+              alt="Full Preview"
+              referrerPolicy="no-referrer"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{
+                opacity: 1,
+                scale: isZoomed ? 1.5 : 1,
+              }}
+              transition={{ duration: 0.2 }}
+              className={`max-w-full max-h-[75vh] md:max-h-[85vh] w-auto h-auto object-contain rounded-lg shadow-2xl transition-transform ${
+                isZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'
+              }`}
+            />
+
+            {/* Next Button */}
+            {images.length > 1 && (
+              <button
+                onClick={handleNext}
+                className="absolute right-2 sm:right-4 z-20 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
+                title="Next photo"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            )}
+          </div>
+
+          {/* Bottom Thumbnails Strip (if multi-photo) */}
           {images.length > 1 && (
-            <button
-              onClick={handleNext}
-              className="absolute right-2 sm:right-4 z-20 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white border border-white/20 transition-all backdrop-blur-md hover:scale-110 shadow-2xl"
-              title="Next photo"
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 overflow-x-auto p-1.5 rounded-2xl bg-black/60 border border-white/10 backdrop-blur-md max-w-full z-20"
             >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          )}
-        </div>
-
-        {/* Bottom Bar: Thumbnail Strip & Caption */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-xl flex flex-col items-center gap-2 z-10 px-4 pb-2 text-center"
-        >
-          {caption && (
-            <p className="text-xs sm:text-sm text-slate-200 line-clamp-2 max-w-lg">
-              {caption}
-            </p>
-          )}
-
-          {/* Thumbnail preview list if multiple photos */}
-          {images.length > 1 && (
-            <div className="flex items-center gap-2 overflow-x-auto p-1.5 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-md max-w-full">
               {images.map((img, idx) => (
                 <button
                   key={idx}
@@ -265,23 +264,62 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
               ))}
             </div>
           )}
+        </div>
 
-          {/* Bottom Close helper prompt */}
-          <button
-            onClick={handleClose}
-            className="text-[11px] text-slate-400 hover:text-slate-200 transition-colors underline pt-1"
-          >
-            Click anywhere or press Esc to close
-          </button>
+        {/* RIGHT: Facebook-Style Detail Sidebar (Full Caption & Details) */}
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          className="w-full md:w-[400px] lg:w-[440px] bg-neutral-900/95 border-t md:border-t-0 md:border-l border-neutral-800 flex flex-col h-[45vh] md:h-screen shrink-0 shadow-2xl select-text"
+        >
+          {/* Author Header */}
+          <div className="p-4 border-b border-neutral-800/80 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {authorAvatar ? (
+                <img
+                  src={authorAvatar}
+                  alt={authorName || 'Author'}
+                  className="w-10 h-10 rounded-full object-cover border border-neutral-700"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+                  {(authorName || 'U')[0].toUpperCase()}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className="text-white font-semibold text-sm">
+                  {authorName || 'Aura Member'}
+                </span>
+                {authorHandle && (
+                  <span className="text-neutral-400 text-xs">@{authorHandle}</span>
+                )}
+                {formattedDate && (
+                  <span className="text-neutral-500 text-[11px] mt-0.5">{formattedDate}</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Full Caption Content Area - No Truncation, Full Scroll */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-neutral-200 text-sm leading-relaxed scrollbar-thin scrollbar-thumb-neutral-700">
+            {caption ? (
+              <p className="whitespace-pre-wrap break-words leading-relaxed text-slate-200">
+                {caption}
+              </p>
+            ) : (
+              <p className="text-neutral-500 italic text-xs">No caption provided.</p>
+            )}
+          </div>
+
+          {/* Bottom Footer Notice */}
+          <div className="p-3 border-t border-neutral-800 text-center">
+            <span className="text-xs text-neutral-500">
+              Press <kbd className="px-1.5 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-300 font-mono text-[10px]">Esc</kbd> to exit full view
+            </span>
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>
   );
 
   return createPortal(modalContent, document.body);
-};
-
-const ThumbnailImage: React.FC<{ src: string; alt: string; className: string }> = ({ src, alt, className }) => {
-  const { resolvedSrc } = useAsyncMedia(src);
-  return <img src={resolvedSrc} alt={alt} className={className} referrerPolicy="no-referrer" />;
 };

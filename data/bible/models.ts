@@ -62,6 +62,7 @@ export interface Sermon {
   courseLessonId?: string;
   createdAt: string;
   updatedAt: string;
+  thumbnailUrl?: string;
 }
 
 export class BibleStudyDB {
@@ -205,16 +206,16 @@ export class BibleStudyDB {
   }
 
   // Sermon operations
-  createSermon(title: string, speaker?: string, series?: string, scriptureRef?: string, description?: string, mediaType?: string, mediaUrl?: string, duration?: number, dateRecorded?: string): Sermon {
+  createSermon(title: string, speaker?: string, series?: string, scriptureRef?: string, description?: string, mediaType?: string, mediaUrl?: string, duration?: number, dateRecorded?: string, thumbnailUrl?: string): Sermon {
     const id = randomUUID();
     const now = new Date().toISOString();
     
     const stmt = this.db.prepare(
-      'INSERT INTO sermons_podcasts (id, title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO sermons_podcasts (id, title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, thumbnailUrl, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
-    stmt.run(id, title, speaker || null, series || null, scriptureRef || null, description || null, mediaType || null, mediaUrl || null, duration || null, dateRecorded || null, now, now);
+    stmt.run(id, title, speaker || null, series || null, scriptureRef || null, description || null, mediaType || null, mediaUrl || null, duration || null, dateRecorded || null, thumbnailUrl || null, now, now);
     
-    return { id, title, speaker, series, scriptureRef, description, mediaType: mediaType as any, mediaUrl, duration, dateRecorded, createdAt: now, updatedAt: now };
+    return { id, title, speaker, series, scriptureRef, description, mediaType: mediaType as any, mediaUrl, duration, dateRecorded, thumbnailUrl, createdAt: now, updatedAt: now };
   }
 
   getAllSermons(): Sermon[] {
