@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Mic,
@@ -512,8 +513,8 @@ export const RecoveryMeetingRoom: React.FC<RecoveryMeetingRoomProps> = ({
   // Other participants (excluding local user)
   const otherParticipants = participants.filter(p => p.userId !== currentUserId);
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#030612] text-white flex flex-col overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] bg-[#030612] text-white flex flex-col overflow-hidden">
       {/* Top Meeting Header Bar */}
       <header className="h-16 px-4 sm:px-6 bg-[#070b1e]/90 backdrop-blur-xl border-b border-white/10 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -1166,5 +1167,5 @@ export const RecoveryMeetingRoom: React.FC<RecoveryMeetingRoomProps> = ({
         </div>
       )}
     </div>
-  );
+  , document.body);
 };
