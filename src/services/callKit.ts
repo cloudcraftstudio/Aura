@@ -18,6 +18,7 @@ export interface IncomingCallPlugin {
 const IncomingCall = registerPlugin<IncomingCallPlugin>('IncomingCall');
 
 class CallKitService {
+  private activeIncomingCallId: string | null = null;
   private initialized = false;
 
   public init() {
@@ -35,7 +36,7 @@ class CallKitService {
       window.addEventListener('capacitorIncomingCallDeclined', (e: any) => {
         console.log('Call declined via native CallKit:', e);
         audioService.stopRingtone();
-        audioService.playMarioGameOver();
+        
       });
     } catch (err) {
       console.warn('CallKit event listener setup error:', err);
@@ -48,6 +49,7 @@ class CallKitService {
       audioService.startRingtone();
 
       // Trigger native incoming call screen if running on Android/iOS Capacitor
+      this.activeIncomingCallId = roomId;
       await IncomingCall.displayIncomingCall({
         id: roomId,
         name: callerName,
@@ -63,8 +65,11 @@ class CallKitService {
   public async endCall(roomId: string) {
     try {
       audioService.stopRingtone();
-      audioService.playMarioGameOver();
-      await IncomingCall.endCall({ id: roomId });
+      
+      if (this.activeIncomingCallId === roomId) {
+        await IncomingCall.endCall({ id: roomId });
+        this.activeIncomingCallId = null;
+      }
     } catch (err) {
       console.log('Native CallKit end call fallback:', err);
     }

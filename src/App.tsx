@@ -1,4 +1,4 @@
-// Aura Community & Bible Experience - Build v1.0.2
+// Aura Community & Bible Experience - Build v1.0.3
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocialProvider } from './context/SocialContext';
