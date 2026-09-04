@@ -203,7 +203,7 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
             >
               <div className="flex items-center gap-2.5">
                 <BookOpen className="w-4 h-4 text-emerald-400" />
-                <span>The Word (Reader)</span>
+                <span>Bible Reader (KJV)</span>
               </div>
               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 KJV
@@ -324,6 +324,20 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
             >
               <Sliders className="w-4 h-4 text-cyan-400" />
               <span>Audio/Video & Notifications Setup</span>
+            </button>
+
+            <button
+              id="super-menu-refresh-app"
+              onClick={() =>
+                handleAction(() => {
+                  soundEffects.playTap();
+                  window.location.reload();
+                })
+              }
+              className="w-full flex items-center gap-2.5 p-2.5 rounded-xl text-emerald-300 hover:text-white hover:bg-emerald-600/20 border border-emerald-500/20 transition-all text-xs font-semibold"
+            >
+              <RefreshCw className="w-4 h-4 text-emerald-400" />
+              <span>Refresh App & Sync</span>
             </button>
           </div>
         </div>

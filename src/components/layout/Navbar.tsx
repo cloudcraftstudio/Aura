@@ -108,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span>The Word</span>
+            <span>Bible</span>
           </button>
 
           <button
