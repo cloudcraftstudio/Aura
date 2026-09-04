@@ -27,6 +27,9 @@ import { PermissionBanner } from './components/permissions/PermissionBanner';
 import { PermissionsModal } from './components/permissions/PermissionsModal';
 import { SaveToHomeModal } from './components/permissions/SaveToHomeModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { AuraEnergyProvider } from './context/AuraEnergyContext';
+import { AuraLiveWallpaper } from './components/aura/AuraLiveWallpaper';
+import { AuraEnergyHubModal } from './components/aura/AuraEnergyHubModal';
 
 import { RecoveryDashboard } from './components/recovery/RecoveryDashboard';
 
@@ -128,12 +131,8 @@ function MainApp() {
         <MatrixSplashScreen onEnter={handleEnterMatrix} />
       )}
 
-      {/* Frosted Glass ambient background glow orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[-100px] left-[-100px] w-[350px] sm:w-[450px] h-[350px] sm:h-[450px] bg-blue-600/25 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-[-100px] right-[-100px] w-[350px] sm:w-[450px] h-[350px] sm:h-[450px] bg-pink-600/25 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute top-[30%] right-[15%] w-[250px] sm:w-[350px] h-[250px] sm:h-[350px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none" />
-      </div>
+      {/* Live Animated Aura Energy Wallpaper */}
+      <AuraLiveWallpaper />
 
       {/* Top Navbar */}
       <Navbar
@@ -223,6 +222,9 @@ function MainApp() {
 
       {/* Authentication / Onboarding Modal */}
       {isAuthModalOpen && <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />}
+
+      {/* Aura Energy & Live Wallpaper Hub Modal */}
+      <AuraEnergyHubModal />
     </div>
   );
 }
@@ -233,13 +235,15 @@ export default function App() {
       <AuthProvider>
         <NotificationProvider>
           <PermissionsProvider>
-            <SocialProvider>
-              <ChatProvider>
-                <CallProvider>
-                  <MainApp />
-                </CallProvider>
-              </ChatProvider>
-            </SocialProvider>
+            <AuraEnergyProvider>
+              <SocialProvider>
+                <ChatProvider>
+                  <CallProvider>
+                    <MainApp />
+                  </CallProvider>
+                </ChatProvider>
+              </SocialProvider>
+            </AuraEnergyProvider>
           </PermissionsProvider>
         </NotificationProvider>
       </AuthProvider>

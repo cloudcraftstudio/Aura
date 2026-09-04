@@ -21,6 +21,7 @@ import {
   Sliders,
   ChevronRight,
   Heart,
+  ShieldAlert,
   BookOpen,
   PhoneCall,
 } from 'lucide-react';
@@ -71,7 +72,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     sendTestCallNotification,
   } = usePermissions();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'gospel' | 'permissions'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'gospel' | 'permissions' | 'journey'>('profile');
   const [name, setName] = useState(user?.name || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [handle, setHandle] = useState(user?.handle || '');

@@ -16,12 +16,15 @@ import {
   Smartphone,
   Mic,
   Cpu,
-  GraduationCap
+  GraduationCap,
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 import { soundEffects } from '../../services/audio';
 import { usePermissions } from '../../context/PermissionsContext';
+import { useAuraEnergy } from '../../context/AuraEnergyContext';
 
 interface SuperAdminDrawerProps {
   isOpen: boolean;
@@ -40,6 +43,7 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const { openPermissionsModal, openSaveToHomeModal, isStandalone, pwaStatus } = usePermissions();
+  const { openHub: openAuraHub, auraLevel } = useAuraEnergy();
 
   if (!isOpen) return null;
 
@@ -141,6 +145,34 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
               <SunMedium className="w-4 h-4 text-amber-400" />
               <span>Daily Motivation Word</span>
             </button>
+
+            {/* Refresh App */}
+            <button
+              onClick={() => {
+                soundEffects.tap();
+                window.location.reload();
+              }}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-500/10 border border-slate-500/20 text-slate-300 hover:bg-slate-500/20 hover:text-white transition-all text-xs font-bold shadow-[0_0_15px_rgba(100,116,139,0.2)]"
+            >
+              <div className="flex items-center gap-2.5">
+                <RefreshCw className="w-5 h-5 text-slate-400" />
+                <span>Refresh App</span>
+              </div>
+            </button>
+            
+            {/* My Journey */}
+            <button
+              onClick={() => handleAction(() => {
+                if (onOpenProfile) onOpenProfile();
+              })}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-100 hover:bg-blue-500/20 transition-all text-xs font-bold"
+            >
+              <div className="flex items-center gap-2.5">
+                <Heart className="w-4 h-4 text-blue-400" />
+                <span>My Journey (Profile)</span>
+              </div>
+            </button>
+
           </div>
 
           {/* Community & Feeds */}
@@ -244,6 +276,20 @@ export const SuperAdminDrawer: React.FC<SuperAdminDrawerProps> = ({
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1.5">
               Tools & Settings
             </p>
+
+            {/* Aura Live Wallpaper & Energy Hub */}
+            <button
+              onClick={() => handleAction(() => openAuraHub())}
+              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-blue-500/10 border border-amber-500/25 text-amber-200 hover:border-amber-400/50 hover:bg-amber-500/20 transition-all text-xs font-bold shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+            >
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Aura Energy & Live Wallpaper</span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                {auraLevel}%
+              </span>
+            </button>
 
             {!isAppInstalled && (
               <button

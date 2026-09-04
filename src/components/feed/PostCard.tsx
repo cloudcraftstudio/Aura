@@ -59,8 +59,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     return () => window.removeEventListener('open_post', handleOpenPost);
   }, [post.id]);
 
-  const handleLike = () => {
+  const handleLike = (e?: React.MouseEvent) => {
     likePost(post.id);
+    window.dispatchEvent(
+      new CustomEvent('trigger_aura_burst', {
+        detail: {
+          type: 'community',
+          text: '✦ Community Connection & Love',
+          x: e?.clientX,
+          y: e?.clientY,
+        },
+      })
+    );
   };
 
   const handleAddComment = (e: React.FormEvent) => {
@@ -68,6 +78,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     if (!commentText.trim()) return;
     addComment(post.id, commentText);
     setCommentText('');
+    window.dispatchEvent(
+      new CustomEvent('trigger_aura_burst', {
+        detail: {
+          type: 'community',
+          text: '✦ Fellowship Energy Shared',
+        },
+      })
+    );
   };
 
   const handleShare = () => {

@@ -727,6 +727,14 @@ export function BibleReader({
     const fullCitation = `"${verseText}" — ${selectedBook} ${selectedChapter}:${verseNum} (KJV)`;
     navigator.clipboard.writeText(fullCitation);
     setCopiedVerseNum(verseNum);
+    window.dispatchEvent(
+      new CustomEvent('trigger_aura_burst', {
+        detail: {
+          type: 'word',
+          text: `✦ Word of Life: ${selectedBook} ${selectedChapter}:${verseNum}`,
+        },
+      })
+    );
     setTimeout(() => setCopiedVerseNum(null), 2000);
   };
 

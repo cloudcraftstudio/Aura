@@ -15,6 +15,7 @@ import { notificationService } from '../../services/notifications';
 import { Avatar } from '../common/Avatar';
 import { DailyMotivationModal } from '../feed/DailyMotivationModal';
 import { SuperAdminDrawer } from './SuperAdminDrawer';
+import { AuraEnergyQuickPill } from '../aura/AuraEnergyQuickPill';
 
 interface NavbarProps {
   activeTab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional' | 'recovery';
@@ -155,7 +156,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Right Action Suite: Cleaned Up */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Aura Energy & Live Wallpaper Pill */}
+          <AuraEnergyQuickPill />
+
           {/* Notifications Center Bell */}
           <button
             onClick={handleBellClick}

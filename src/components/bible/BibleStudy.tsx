@@ -179,6 +179,16 @@ export function BibleStudy() {
               ],
           prayer: data.prayer || "Lord, open my eyes that I may behold wondrous things out of Thy law. Lead my steps today in Jesus' name. Amen."
         });
+
+        // Trigger Word energy burst into live wallpaper
+        window.dispatchEvent(
+          new CustomEvent('trigger_aura_burst', {
+            detail: {
+              type: 'word',
+              text: `✦ Word Illumination: ${targetBook} ${targetChapter}:${targetVerse}`,
+            },
+          })
+        );
       }
 
       try {

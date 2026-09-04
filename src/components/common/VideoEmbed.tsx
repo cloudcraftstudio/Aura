@@ -12,8 +12,9 @@ interface VideoEmbedProps {
 export const VideoEmbed: React.FC<VideoEmbedProps> = ({
   video,
   className = '',
+  autoPlayOnClick = false,
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(autoPlayOnClick);
   const [hasError, setHasError] = useState(false);
 
   const getYoutubeEmbedUrl = () => {

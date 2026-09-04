@@ -421,6 +421,105 @@ class SoundEffectsService {
     }
   }
 
+  // Aura Energy Burst sound effect (celestial, positive vibe harmonic chords)
+  public playAuraBurst(type: 'word' | 'community' | 'tap' | 'streak' = 'word') {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      if (type === 'word') {
+        // Celestial illumination chord: C5 (523Hz), E5 (659Hz), G5 (784Hz), B5 (987Hz)
+        const notes = [523.25, 659.25, 783.99, 987.77];
+        notes.forEach((freq, idx) => {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+
+          gain.gain.setValueAtTime(0.09 / (idx + 1), now + idx * 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6 + idx * 0.05);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now + idx * 0.04);
+          osc.stop(now + 0.65 + idx * 0.05);
+        });
+      } else if (type === 'community') {
+        // Warm heart connection chime: A4 (440Hz), C#5 (554Hz), E5 (659Hz), A5 (880Hz)
+        const notes = [440.0, 554.37, 659.25, 880.0];
+        notes.forEach((freq, idx) => {
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+
+          gain.gain.setValueAtTime(0.08, now + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5 + idx * 0.04);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now + idx * 0.05);
+          osc.stop(now + 0.55 + idx * 0.04);
+        });
+      } else {
+        // Crystal positive spark tap
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.15);
+      }
+    } catch (e) {
+      console.warn("Aura burst tone error:", e);
+    }
+  }
+
+  // Common aliases for seamless component integration
+  public tap() {
+    this.playTap();
+  }
+
+  public playSuccess() {
+    this.playMarioCoin();
+  }
+
+  public success() {
+    this.playMarioCoin();
+  }
+
+  public error() {
+    try {
+      this.initCtx();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.18);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.18);
+    } catch {}
+  }
+
 }
 
 export const soundEffects = new SoundEffectsService();

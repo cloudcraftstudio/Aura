@@ -17,6 +17,8 @@ import {
 import { RECOVERY_TEACHINGS_DATA } from '../../data/recoveryTeachings';
 import { RecoveryTeaching } from '../../types/recovery';
 import { soundEffects } from '../../services/audio';
+import { extractYouTubeInfo } from '../../utils/mediaUtils';
+import { VideoEmbed } from '../common/VideoEmbed';
 
 export const RecoveryAudioFeed: React.FC = () => {
   const [teachings, setTeachings] = useState<RecoveryTeaching[]>(RECOVERY_TEACHINGS_DATA);
@@ -55,18 +57,32 @@ export const RecoveryAudioFeed: React.FC = () => {
 
   const handlePlayTrack = (track: RecoveryTeaching) => {
     soundEffects.playTap();
+    const isYouTube = !!extractYouTubeInfo(track.audioUrl);
+
     if (currentTrack?.id === track.id) {
-      if (isPlaying) {
+      if (isYouTube) {
+        setIsPlaying(!isPlaying);
         audioRef.current?.pause();
-        setIsPlaying(false);
       } else {
-        audioRef.current?.play();
-        setIsPlaying(true);
+        if (isPlaying) {
+          audioRef.current?.pause();
+          setIsPlaying(false);
+        } else {
+          audioRef.current?.play().catch(console.error);
+          setIsPlaying(true);
+        }
       }
     } else {
       setCurrentTrack(track);
       setIsPlaying(true);
-      if (audioRef.current) {
+      
+      if (isYouTube) {
+        // Prevent audio player from trying to load a YouTube page which redirects the app
+        audioRef.current?.pause();
+        if (audioRef.current) {
+          audioRef.current.src = '';
+        }
+      } else if (audioRef.current) {
         audioRef.current.src = track.audioUrl;
         audioRef.current.play().catch(console.error);
       }
@@ -140,99 +156,136 @@ export const RecoveryAudioFeed: React.FC = () => {
       {/* Persistent Audio Player Bar / Hero Widget */}
       {currentTrack && (
         <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#0d1430] via-[#101b44] to-[#0d1430] border border-blue-500/30 shadow-2xl space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Track Info */}
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shrink-0 border border-white/10 shadow-lg">
-                <img
-                  src={currentTrack.thumbnailUrl}
-                  alt={currentTrack.title}
-                  className="w-full h-full object-cover"
-                />
-                {isPlaying && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <Headphones className="w-6 h-6 text-blue-400 animate-pulse" />
+          {(() => {
+            const ytInfo = extractYouTubeInfo(currentTrack.audioUrl);
+            
+            if (ytInfo) {
+              const videoObj = {
+                type: 'youtube' as const,
+                url: currentTrack.audioUrl,
+                videoId: ytInfo.videoId,
+                embedUrl: `https://www.youtube.com/embed/${ytInfo.videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1`,
+                thumbnailUrl: `https://img.youtube.com/vi/${ytInfo.videoId}/hqdefault.jpg`,
+              };
+              
+              return (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-[10px] font-black uppercase">
+                      Video Teaching
+                    </span>
+                    <span className="text-xs text-amber-300 font-semibold">
+                      📖 {currentTrack.scriptureRef}
+                    </span>
                   </div>
-                )}
-              </div>
-
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-black uppercase">
-                    Now Playing
-                  </span>
-                  <span className="text-xs text-amber-300 font-semibold">
-                    📖 {currentTrack.scriptureRef}
-                  </span>
+                  <h3 className="text-sm sm:text-base font-bold text-white truncate mb-2">
+                    {currentTrack.title}
+                  </h3>
+                  <div className="w-full max-w-lg mx-auto overflow-hidden rounded-2xl shadow-xl shadow-black/50 border border-white/10">
+                    <VideoEmbed key={currentTrack.id} video={videoObj} autoPlayOnClick={true} />
+                  </div>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-white truncate">
-                  {currentTrack.title}
-                </h3>
-                <p className="text-xs text-slate-400 truncate">
-                  {currentTrack.speaker}
-                </p>
-              </div>
-            </div>
+              );
+            }
 
-            {/* Playback Controls */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                onClick={() => skipSeconds(-15)}
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
-                title="Rewind 15 seconds"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
+            return (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  {/* Track Info */}
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shrink-0 border border-white/10 shadow-lg">
+                      <img
+                        src={currentTrack.thumbnailUrl}
+                        alt={currentTrack.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {isPlaying && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <Headphones className="w-6 h-6 text-blue-400 animate-pulse" />
+                        </div>
+                      )}
+                    </div>
 
-              <button
-                onClick={() => handlePlayTrack(currentTrack)}
-                className="w-12 h-12 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all"
-              >
-                {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-              </button>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-black uppercase">
+                          Now Playing
+                        </span>
+                        <span className="text-xs text-amber-300 font-semibold">
+                          📖 {currentTrack.scriptureRef}
+                        </span>
+                      </div>
+                      <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                        {currentTrack.title}
+                      </h3>
+                      <p className="text-xs text-slate-400 truncate">
+                        {currentTrack.speaker}
+                      </p>
+                    </div>
+                  </div>
 
-              <button
-                onClick={() => skipSeconds(30)}
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
-                title="Forward 30 seconds"
-              >
-                <FastForward className="w-4 h-4" />
-              </button>
+                  {/* Playback Controls */}
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <button
+                      onClick={() => skipSeconds(-15)}
+                      className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
+                      title="Rewind 15 seconds"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
 
-              {/* Speed Button */}
-              <button
-                onClick={toggleRate}
-                className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-bold transition-all"
-                title="Playback Speed"
-              >
-                {playbackRate}x
-              </button>
+                    <button
+                      onClick={() => handlePlayTrack(currentTrack)}
+                      className="w-12 h-12 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 hover:scale-105 active:scale-95 transition-all"
+                    >
+                      {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+                    </button>
 
-              {/* Mute Button */}
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
-              >
-                {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
+                    <button
+                      onClick={() => skipSeconds(30)}
+                      className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
+                      title="Forward 30 seconds"
+                    >
+                      <FastForward className="w-4 h-4" />
+                    </button>
 
-          {/* Scrub Bar */}
-          <div className="space-y-1">
-            <input
-              type="range"
-              min="0"
-              max={duration || 100}
-              value={currentTime}
-              onChange={handleSeek}
-              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-            <div className="flex justify-between text-[11px] text-slate-400 font-mono">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration || 1720)}</span>
-            </div>
-          </div>
+                    {/* Speed Button */}
+                    <button
+                      onClick={toggleRate}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-bold transition-all"
+                      title="Playback Speed"
+                    >
+                      {playbackRate}x
+                    </button>
+
+                    {/* Mute Button */}
+                    <button
+                      onClick={() => setIsMuted(!isMuted)}
+                      className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition-all"
+                    >
+                      {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scrub Bar */}
+                <div className="space-y-1">
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 100}
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                  <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration || 1720)}</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

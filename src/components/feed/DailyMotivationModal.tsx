@@ -55,6 +55,11 @@ export const DailyMotivationModal: React.FC<DailyMotivationModalProps> = ({
   };
 
   const handleShare = () => {
+    window.dispatchEvent(
+      new CustomEvent('trigger_aura_burst', {
+        detail: { type: 'word', text: '✦ Word Energy Supplied to Community' },
+      })
+    );
     onClose();
     soundEffects.playTap();
     if (onShareToFeed) {
@@ -185,6 +190,23 @@ export const DailyMotivationModal: React.FC<DailyMotivationModalProps> = ({
                     <span>Copy</span>
                   </>
                 )}
+              </button>
+
+              <button
+                id="receive-word-btn"
+                onClick={() => {
+                  soundEffects.playAuraBurst('word');
+                  window.dispatchEvent(
+                    new CustomEvent('trigger_aura_burst', {
+                      detail: { type: 'word', text: '✦ Word Energy Supplied' },
+                    })
+                  );
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black transition-all shadow-lg shadow-amber-500/30 active:scale-95 cursor-pointer"
+                title="Receive this Word and radiate positive energy"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Receive Word</span>
               </button>
 
               <button

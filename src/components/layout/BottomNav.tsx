@@ -81,7 +81,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           }`}
         >
           <BookOpen className={`w-5 h-5 ${activeTab === 'bible' ? 'stroke-[2.5px]' : ''}`} />
-          <span className="text-[10px] tracking-tight">The Word</span>
+          <span className="text-[10px] tracking-tight">Bible</span>
           {activeTab === 'bible' && (
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
           )}

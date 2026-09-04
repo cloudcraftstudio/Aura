@@ -75,20 +75,43 @@ export const RecoveryDashboard: React.FC = () => {
 
   return (
     <div className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-in fade-in duration-500">
+
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
-            <Shield className="w-6 h-6" />
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Path to Freedom
-          </h1>
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
+              <Shield className="w-6 h-6" />
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              Path to Freedom
+            </h1>
+          </div>
+          <p className="text-sm sm:text-base text-slate-400 max-w-2xl leading-relaxed">
+            Christ-centered deliverance and recovery. Journey through biblical principles, fellowship in live rooms, listen to teachings, and track your victorious walk in the Spirit.
+          </p>
         </div>
-        <p className="text-sm sm:text-base text-slate-400 max-w-2xl leading-relaxed">
-          Christ-centered deliverance and recovery. Journey through biblical principles, fellowship in live rooms, listen to teachings, and track your victorious walk in the Spirit.
-        </p>
+
+        {/* Dynamic Streak Widget */}
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/10 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+            <span className="text-xl font-black text-white">
+              {(() => {
+                try {
+                  const journal = JSON.parse(localStorage.getItem('aura_recovery_journal') || '[]');
+                  if (journal.length > 0) return journal[0].streakDay;
+                  return 0;
+                } catch { return 0; }
+              })()}
+            </span>
+          </div>
+          <div>
+            <span className="block text-sm font-bold text-white uppercase tracking-wider">Days Clean</span>
+            <span className="block text-xs text-slate-400">Keep walking in victory!</span>
+          </div>
+        </div>
       </div>
+
 
       {/* Main Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
