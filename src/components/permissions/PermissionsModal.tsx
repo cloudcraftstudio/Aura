@@ -16,6 +16,7 @@ import {
   Sliders,
   ExternalLink,
   ChevronRight,
+  PhoneCall,
 } from 'lucide-react';
 import { usePermissions } from '../../context/PermissionsContext';
 import { soundEffects } from '../../services/audio';
@@ -37,6 +38,7 @@ export const PermissionsModal: React.FC = () => {
     promptSaveToHome,
     checkAllPermissions,
     sendTestNotification,
+    sendTestCallNotification,
     openSaveToHomeModal,
   } = usePermissions();
 
@@ -378,8 +380,8 @@ export const PermissionsModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Test Notification Trigger */}
-            <div className="pt-1">
+            {/* Test Notification Triggers */}
+            <div className="pt-1 space-y-2">
               <button
                 type="button"
                 onClick={sendTestNotification}
@@ -388,6 +390,18 @@ export const PermissionsModal: React.FC = () => {
                 <Bell className="w-3.5 h-3.5 text-amber-400" />
                 <span>Send Test Push & Chime Alert</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => sendTestCallNotification(true)}
+                className="w-full py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <PhoneCall className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <span>Test WhatsApp-Style Incoming Call Ring</span>
+              </button>
+              <p className="text-[10px] text-center text-slate-400 px-1">
+                Tap above, then switch apps or lock your phone within 3.5s to test incoming call ringing in background!
+              </p>
             </div>
           </div>
 

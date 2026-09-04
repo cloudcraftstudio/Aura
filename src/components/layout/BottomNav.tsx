@@ -1,12 +1,12 @@
 import React from 'react';
-import { Home, Sun, MessageSquare, Bookmark, User, PlusCircle, Share2, BookOpen, Sparkles } from 'lucide-react';
+import { Home, Sun, MessageSquare, Bookmark, User, PlusCircle, Share2, BookOpen, Sparkles, Users } from 'lucide-react';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar } from '../common/Avatar';
 
 interface BottomNavProps {
-  activeTab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional';
-  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional' | 'recovery';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional' | 'recovery') => void;
   onOpenProfile: () => void;
   onOpenCreatePost?: () => void;
   onOpenShare?: () => void;
@@ -83,6 +83,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <BookOpen className={`w-5 h-5 ${activeTab === 'bible' ? 'stroke-[2.5px]' : ''}`} />
           <span className="text-[10px] tracking-tight">The Word</span>
           {activeTab === 'bible' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
+          )}
+        </button>
+
+        {/* Recovery Tab */}
+        <button
+          id="mobile-tab-recovery"
+          onClick={() => setActiveTab('recovery')}
+          className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-2xl transition-all relative ${
+            activeTab === 'recovery'
+              ? 'text-blue-400 font-bold scale-105'
+              : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Users className={`w-5 h-5 ${activeTab === 'recovery' ? 'stroke-[2.5px]' : ''}`} />
+          <span className="text-[10px] tracking-tight">Freedom</span>
+          {activeTab === 'recovery' && (
             <span className="w-1.5 h-1.5 rounded-full bg-blue-400 absolute -bottom-0.5" />
           )}
         </button>

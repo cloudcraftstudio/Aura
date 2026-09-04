@@ -28,9 +28,25 @@ import { PermissionsModal } from './components/permissions/PermissionsModal';
 import { SaveToHomeModal } from './components/permissions/SaveToHomeModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
+import { RecoveryDashboard } from './components/recovery/RecoveryDashboard';
+
 function MainApp() {
   useDevotionalNotifications();
-  const [activeTab, setActiveTab] = useState<'feed' | 'bible' | 'chat' | 'studio' | 'devotional'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'bible' | 'chat' | 'studio' | 'devotional' | 'recovery'>(() => {
+    try {
+      const savedTab = localStorage.getItem('aura_active_tab');
+      return (savedTab as any) || 'feed';
+    } catch {
+      return 'feed';
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('aura_active_tab', activeTab);
+    } catch {}
+  }, [activeTab]);
+
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -141,6 +157,7 @@ function MainApp() {
         {activeTab === 'devotional' && <DailyDevotionalTab />}
         {activeTab === 'chat' && <ChatView />}
         {activeTab === 'studio' && <CourseStudio />}
+        {activeTab === 'recovery' && <RecoveryDashboard />}
       </main>
 
       {/* Mobile Bottom Navigation Bar */}

@@ -1,5 +1,5 @@
 // Aura PWA Service Worker for Offline Caching and Push Notifications
-const CACHE_NAME = 'aura-pwa-v2';
+const CACHE_NAME = 'aura-pwa-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -96,8 +96,10 @@ self.addEventListener('push', (event) => {
         { action: 'decline', title: '❌ Decline' }
       ],
       data: {
-        url: data.url || `/?action=answer_call&roomId=${encodeURIComponent(data.roomId || '')}&callerId=${encodeURIComponent(data.callerId || '')}&isVideo=${isVideo}`,
-        roomId: data.roomId
+        url: data.url || `/?action=incoming_call&roomId=${encodeURIComponent(data.roomId || '')}&callerId=${encodeURIComponent(data.callerId || '')}&isVideo=${isVideo}`,
+        roomId: data.roomId,
+        callerName: data.callerName,
+        isVideo: isVideo
       }
     };
 
@@ -106,6 +108,30 @@ self.addEventListener('push', (event) => {
         data.title || `📞 Incoming ${isVideo ? 'Video' : 'Audio'} Call`,
         callOptions
       )
+    );
+    return;
+  }
+
+  // Cancelled Call or Ended Call (closes active ringing push)
+  if (data.type === 'CALL_CANCELLED' || data.action === 'call_cancelled') {
+    event.waitUntil(
+      self.registration.getNotifications().then((notifications) => {
+        const tagToClose = data.roomId ? `call_${data.roomId}` : 'incoming_call';
+        notifications.forEach((n) => {
+          if (n.tag === tagToClose) {
+            n.close();
+          }
+        });
+        if (data.isMissed) {
+          return self.registration.showNotification(`Missed Call from ${data.callerName || 'Someone'}`, {
+            body: 'Tap to view in Aura and call back',
+            icon: data.callerAvatar || '/icons/icon-192.svg',
+            badge: '/icons/icon-192.svg',
+            tag: `missed_${data.roomId || Date.now()}`,
+            data: { url: '/?tab=chat' }
+          });
+        }
+      })
     );
     return;
   }
@@ -133,10 +159,22 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   if (event.action === 'decline') {
+    const roomId = event.notification.data?.roomId;
+    if (roomId) {
+      fetch(`/api/calls/${encodeURIComponent(roomId)}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'declined' })
+      }).catch(() => {});
+    }
     return;
   }
 
-  const targetUrl = event.notification.data?.url || '/';
+  let targetUrl = event.notification.data?.url || '/';
+  if (event.action === 'answer' && event.notification.data?.roomId) {
+    const d = event.notification.data;
+    targetUrl = `/?action=answer_call&roomId=${encodeURIComponent(d.roomId)}&isVideo=${d.isVideo !== false}`;
+  }
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

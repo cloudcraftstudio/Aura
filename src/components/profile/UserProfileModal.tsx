@@ -21,7 +21,8 @@ import {
   Sliders,
   ChevronRight,
   Heart,
-  BookOpen
+  BookOpen,
+  PhoneCall,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../context/PermissionsContext';
@@ -32,6 +33,7 @@ import { compressImage } from '../../utils/imageCompressor';
 import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 import { GospelTract } from './GospelTract';
 import { UnsplashSearch } from '../common/UnsplashSearch';
+import { UniversalUnsplashModal } from '../common/UniversalUnsplashModal';
 
 interface UserProfileModalProps {
   onClose: () => void;
@@ -66,6 +68,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     isStandalone,
     openPermissionsModal,
     openSaveToHomeModal,
+    sendTestCallNotification,
   } = usePermissions();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'gospel' | 'permissions'>('profile');
@@ -81,6 +84,18 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isDraggingBanner, setIsDraggingBanner] = useState(false);
   const [isCapturingCamera, setIsCapturingCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [isUnsplashOpen, setIsUnsplashOpen] = useState(false);
+  const [unsplashTarget, setUnsplashTarget] = useState<'banner' | 'avatar' | null>(null);
+
+  const handleSelectUnsplash = (url: string) => {
+    soundEffects.playTap();
+    if (unsplashTarget === 'banner') {
+      setBannerUrl(url);
+    } else if (unsplashTarget === 'avatar') {
+      setAvatarUrl(url);
+    }
+    setUnsplashTarget(null);
+  };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bannerFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -315,7 +330,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>Device & Permissions</span>
+            <span>Audio, Video & Call Settings</span>
           </button>
         </div>
 
@@ -332,6 +347,51 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         ) : activeTab === 'permissions' ? (
           /* Tab 3: Device Permissions View */
           <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 scrollbar-thin">
+            {/* WhatsApp-Style Calling Status Card */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900/60 to-blue-950/40 border border-emerald-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                    <PhoneCall className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <span>WhatsApp-Style Background Ringing</span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        VAPID & CallKit Active
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-slate-300">Rings with audio and alerts even if app is closed or phone is locked</p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                When another user starts a voice or video call with you, a high-priority system push notification awakens your device with a persistent ringtone and native Answer/Decline buttons.
+              </p>
+
+              <div className="pt-1 flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => sendTestCallNotification(true)}
+                  className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-600/30 active:scale-95"
+                >
+                  <PhoneCall className="w-3.5 h-3.5 animate-bounce" />
+                  <span>Simulate Incoming Call (3.5s delay)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopCamera();
+                    openPermissionsModal();
+                  }}
+                  className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1 transition-all"
+                >
+                  <span>Open Audio/Video Manager</span>
+                </button>
+              </div>
+            </div>
+
             {/* Device Permissions & PWA App Card */}
             <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-4">
               <div className="flex items-center justify-between">
@@ -483,14 +543,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     <p className="text-xs font-semibold text-white">Upload Custom Cover Image</p>
                     <p className="text-[10px] text-slate-400">Drag and drop or select file (JPEG/PNG/WebP)</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => bannerFileInputRef.current?.click()}
-                    className="px-3.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Browse Image</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEffects.playTap();
+                        setUnsplashTarget('banner');
+                        setIsUnsplashOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/20"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>Unsplash Cover</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => bannerFileInputRef.current?.click()}
+                      className="px-3.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Browse Image</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Unsplash Search */}
@@ -572,14 +646,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                         className="hidden"
                       />
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundEffects.playTap();
+                            setUnsplashTarget('avatar');
+                            setIsUnsplashOpen(true);
+                          }}
+                          className="px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-500/20"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>Unsplash Portrait</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           className="flex-1 py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                         >
                           <Upload className="w-3.5 h-3.5" />
-                          <span>Upload Avatar Photo</span>
+                          <span>Upload File</span>
                         </button>
 
                         <button
@@ -890,6 +977,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Universal Unsplash Picker for Profile Banner or Portrait */}
+      <UniversalUnsplashModal
+        isOpen={isUnsplashOpen}
+        onClose={() => setIsUnsplashOpen(false)}
+        onSelect={handleSelectUnsplash}
+        title={unsplashTarget === 'banner' ? 'Select Profile Banner Image' : 'Select Avatar Portrait'}
+        initialQuery={unsplashTarget === 'banner' ? 'christian faith bible landscape worship' : 'portrait person smiling'}
+      />
     </div>
   );
 };

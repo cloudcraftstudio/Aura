@@ -6,6 +6,7 @@ import {
   Home,
   Bell,
   LogIn,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
@@ -16,8 +17,8 @@ import { DailyMotivationModal } from '../feed/DailyMotivationModal';
 import { SuperAdminDrawer } from './SuperAdminDrawer';
 
 interface NavbarProps {
-  activeTab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional';
-  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional') => void;
+  activeTab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional' | 'recovery';
+  setActiveTab: (tab: 'feed' | 'bible' | 'chat' | 'studio' | 'devotional' | 'recovery') => void;
   onOpenProfile: () => void;
   onOpenShare?: () => void;
   onOpenNotifications?: () => void;
@@ -124,6 +125,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {totalUnreadChats}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('recovery')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'recovery'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
+                : 'text-slate-300 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Path to Freedom</span>
           </button>
 
           {isTexAdmin && (

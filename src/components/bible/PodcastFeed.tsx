@@ -26,15 +26,20 @@ export interface SermonItem {
   speakerImage?: string;
   series?: string;
   scriptureRef?: string;
-  description: string;
+  description?: string;
+  summary?: string;
   duration?: string;
   format: "audio" | "video";
   source: "community" | "sermonindex";
   mediaUrl?: string;
+  mp3Url?: string;
+  mp4Url?: string;
   youtubeId?: string;
   thumbnailUrl?: string;
   views?: number;
   publishedAt?: string;
+  date?: string;
+  topics?: { slug: string; name: string }[];
 }
 
 const FALLBACK_COVERS = [
@@ -52,7 +57,7 @@ export function PodcastFeed({
   const [sermons, setSermons] = useState<SermonItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [formatFilter, setFormatFilter] = useState<"audio" | "video">("audio");
-  const [sourceFilter, setSourceFilter] = useState<"all" | "community" | "sermonindex">("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "community" | "sermonindex" | "stories">("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -108,6 +113,37 @@ export function PodcastFeed({
       console.warn("Could not fetch community sermons:", e);
     }
 
+    // 3. Fetch Manually Uploaded Studio Sermons & Podcasts (SQLite database)
+    try {
+      const resStudio = await fetch("/api/bible/sermons");
+      const cType = resStudio.headers.get("content-type") || "";
+      if (resStudio.ok && cType.includes("application/json")) {
+        const studioData = await resStudio.json();
+        const normalizedStudio = (Array.isArray(studioData) ? studioData : []).map((item: any) => {
+          const isVideo = item.mediaType === "video" || (!!item.mediaUrl && !item.mediaUrl.match(/\.(mp3|m4a|wav)$/i));
+          return {
+            id: item.id,
+            title: item.title,
+            speaker: item.speaker || "Community Speaker",
+            series: item.series,
+            scriptureRef: item.scriptureRef,
+            summary: item.description,
+            format: (isVideo ? "video" : "audio") as "video" | "audio",
+            mediaUrl: item.mediaUrl,
+            mp3Url: isVideo ? undefined : item.mediaUrl,
+            mp4Url: isVideo ? item.mediaUrl : undefined,
+            thumbnailUrl: item.thumbnailUrl,
+            duration: item.duration ? `${Math.floor(item.duration / 60)}:${String(item.duration % 60).padStart(2, '0')}` : undefined,
+            date: item.dateRecorded || item.createdAt,
+            source: "community" as const,
+          };
+        });
+        combined = [...normalizedStudio, ...combined];
+      }
+    } catch (e) {
+      console.warn("Could not fetch studio manual sermons:", e);
+    }
+
     setSermons(combined);
     setLoading(false);
   };
@@ -142,7 +178,15 @@ export function PodcastFeed({
 
   const filtered = sermons.filter((item) => {
     if (item.format !== formatFilter) return false;
-    if (sourceFilter !== "all" && item.source !== sourceFilter) return false;
+    if (sourceFilter === "stories") {
+      const isStory = 
+        item.title?.toLowerCase().includes("audio story") || 
+        item.title?.toLowerCase().includes("story:") ||
+        item.topics?.some((t) => t.slug === "audio-stories" || t.name.toLowerCase().includes("story"));
+      if (!isStory) return false;
+    } else if (sourceFilter !== "all" && item.source !== sourceFilter) {
+      return false;
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchTitle = item.title?.toLowerCase().includes(q);
@@ -237,6 +281,17 @@ export function PodcastFeed({
           >
             <Flame className="w-3.5 h-3.5 text-amber-300" />
             <span>SermonIndex</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSourceFilter("stories");
+              setFormatFilter("audio");
+            }}
+            className={"px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 " + (sourceFilter === "stories" ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white")}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-200" />
+            <span>Audio Stories</span>
           </button>
         </div>
 

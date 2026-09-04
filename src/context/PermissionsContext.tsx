@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { soundEffects } from '../services/audio';
 import { notificationService } from '../services/notifications';
+import { offlineStorage } from '../services/offlineStorage';
 
 export type PermissionState = 'prompt' | 'granted' | 'denied' | 'unsupported';
 export type PwaInstallState = 'available' | 'installed' | 'ios_manual' | 'unsupported';
@@ -35,6 +36,7 @@ interface PermissionsContextType {
   // Verification helpers
   checkAllPermissions: () => Promise<void>;
   sendTestNotification: () => void;
+  sendTestCallNotification: (isVideo?: boolean) => Promise<void>;
 }
 
 const PermissionsContext = createContext<PermissionsContextType | undefined>(undefined);
@@ -228,10 +230,17 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (granted) {
       setNotificationStatus('granted');
       soundEffects.playSuccessTone();
+
+      // Automatically register Web Push subscription on the server
+      const savedUser = offlineStorage.load<any>('aura_active_user', null);
+      if (savedUser?.id) {
+        notificationService.registerPushSubscription(savedUser.id).catch(() => {});
+      }
+
       notificationService.notify({
         type: 'system',
         title: 'Notifications Enabled 🎉',
-        body: 'You will receive instant alerts for incoming WebRTC calls, messages, and social updates!',
+        body: 'You will receive instant rings for incoming audio & video calls even when Aura is in the background!',
         playSound: true,
       });
       return true;
@@ -283,6 +292,36 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     });
   };
 
+  // Test background incoming call push
+  const sendTestCallNotification = async (isVideo: boolean = true) => {
+    soundEffects.playTap();
+    const savedUser = offlineStorage.load<any>('aura_active_user', null);
+    const userId = savedUser?.id || 'demo-user-1';
+
+    try {
+      // Ensure push subscription exists on server
+      await notificationService.registerPushSubscription(userId);
+
+      const res = await fetch('/api/push/test-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, isVideo }),
+      });
+
+      if (res.ok) {
+        soundEffects.playSuccessTone();
+        notificationService.notify({
+          type: 'call',
+          title: '📞 Incoming Call Test Queued!',
+          body: 'Your device will ring in 3.5 seconds. Switch apps or lock your screen now to test!',
+          playSound: true,
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to trigger test call push:', err);
+    }
+  };
+
   const dismissBanner = () => {
     setIsBannerDismissed(true);
     try {
@@ -323,6 +362,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         restoreBanner,
         checkAllPermissions,
         sendTestNotification,
+        sendTestCallNotification,
       }}
     >
       {children}

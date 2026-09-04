@@ -4,6 +4,7 @@ import { WebRTCManager } from '../services/webrtc';
 import { soundEffects } from '../services/audio';
 import { offlineStorage } from '../services/offlineStorage';
 import { notificationService } from '../services/notifications';
+import { callKitService } from '../services/callKit';
 import { useAuth } from './AuthContext';
 
 interface CallContextType {
@@ -87,9 +88,98 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Refs for stale closure prevention
   const activeCallRef = useRef<CallSession | null>(null);
+  const incomingCallRef = useRef<CallSession | null>(null);
+
   useEffect(() => {
     activeCallRef.current = activeCall;
   }, [activeCall]);
+
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+  }, [incomingCall]);
+
+  // Handle native Android CallKit answer/decline events
+  useEffect(() => {
+    callKitService.init();
+
+    const handleNativeAnswer = () => {
+      if (incomingCallRef.current) {
+        answerCall(incomingCallRef.current.isVideo);
+      }
+    };
+
+    const handleNativeDecline = () => {
+      if (incomingCallRef.current) {
+        declineCall();
+      }
+    };
+
+    window.addEventListener('capacitorIncomingCallAnswered', handleNativeAnswer);
+    window.addEventListener('capacitorIncomingCallDeclined', handleNativeDecline);
+
+    return () => {
+      window.removeEventListener('capacitorIncomingCallAnswered', handleNativeAnswer);
+      window.removeEventListener('capacitorIncomingCallDeclined', handleNativeDecline);
+    };
+  }, []);
+
+  // Handle URL deep-linking from background push notifications
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkDeepLinkCall = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action');
+      const roomId = params.get('roomId');
+
+      if ((action === 'answer_call' || action === 'incoming_call') && roomId) {
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, cleanUrl);
+
+        try {
+          const res = await fetch(`/api/calls/${encodeURIComponent(roomId)}`);
+          if (res.ok) {
+            const session: CallSession = await res.json();
+            if (session && (session.status === 'calling' || session.status === 'connected')) {
+              if (action === 'answer_call') {
+                // Immediate answer
+                setIncomingCall(null);
+                setActiveCall(session);
+                soundEffects.stopRingtone();
+                soundEffects.playCallConnected();
+                startDurationTimer();
+                callKitService.endCall(session.roomId);
+
+                fetch(`/api/calls/${session.roomId}/status`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'connected' }),
+                }).catch(() => {});
+
+                offlineStorage.broadcastEvent('call_accepted', session);
+
+                const targetId = user?.id || session.receiverId;
+                if (webrtcRef.current && targetId) {
+                  webrtcRef.current.setUserId(targetId);
+                  await webrtcRef.current.getLocalMedia(session.isVideo, true);
+                  await webrtcRef.current.createPeerConnection(session.roomId, targetId, false);
+                }
+              } else {
+                // Ring incoming call banner
+                setIncomingCall(session);
+                soundEffects.startRingtone();
+                callKitService.showIncomingCall(session.roomId, session.callerName, session.callerAvatar, session.isVideo);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Deep link call error:', err);
+        }
+      }
+    };
+
+    checkDeepLinkCall();
+  }, [user?.id]);
 
   // Periodic polling for incoming calls on server (every 1.5 seconds)
   useEffect(() => {
@@ -112,6 +202,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
               
               setIncomingCall(first);
               soundEffects.startRingtone();
+              callKitService.showIncomingCall(first.roomId, first.callerName, first.callerAvatar, first.isVideo);
+
               // Only trigger a single notification per incoming call session, not every poll
               if (lastNotifiedCallRoomIdRef.current !== first.roomId) {
                 lastNotifiedCallRoomIdRef.current = first.roomId;
@@ -126,6 +218,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } else if (incomingCall) {
             // Pending call was cancelled or answered elsewhere
+            callKitService.endCall(incomingCall.roomId);
             setIncomingCall(null);
             soundEffects.stopRingtone();
             lastNotifiedCallRoomIdRef.current = null;
@@ -244,6 +337,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     stopDurationTimer();
     soundEffects.stopRingtone();
+    if (activeCallRef.current?.roomId) {
+      callKitService.endCall(activeCallRef.current.roomId);
+    }
+    if (incomingCallRef.current?.roomId) {
+      callKitService.endCall(incomingCallRef.current.roomId);
+    }
     setActiveCall(null);
     setIncomingCall(null);
     setLocalStream(null);
@@ -373,6 +472,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setActiveCall(session);
     setIncomingCall(null);
+    callKitService.endCall(session.roomId);
     startDurationTimer();
 
     // Update status on server
@@ -404,6 +504,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     soundEffects.playCallEnded();
 
     const roomId = incomingCall.roomId;
+    callKitService.endCall(roomId);
     setIncomingCall(null);
 
     // Update status on server

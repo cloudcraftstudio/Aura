@@ -44,6 +44,9 @@ export const PermissionBanner: React.FC = () => {
     if (!isPwaInstalled) {
       await promptSaveToHome();
     }
+    // Dismiss banner immediately so it doesn't keep annoying the user
+    // if PWA installation detection fails or if they decline one of the prompts.
+    dismissBanner();
   };
 
   return (

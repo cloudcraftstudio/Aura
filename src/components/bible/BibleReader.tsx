@@ -14,15 +14,26 @@ import {
   SlidersHorizontal,
   History,
   Play,
+  Pause,
+  SkipBack,
+  SkipForward,
   RotateCcw,
   Zap,
   BookMarked,
   ArrowRight,
   Filter,
   Layers,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import { BIBLE_BOOKS, getBooksByTestament, getBookMetadata } from '../../data/bibleBooks';
+import {
+  createPlayableAudioBlob,
+  base64ToUint8Array,
+  unlockAudioForMobile,
+  fetchBibleTtsAudio,
+  playSpeechSynthesisFallback
+} from '../../utils/audioUtils';
 
 interface BibleVerse {
   verse: number;
@@ -136,33 +147,336 @@ export function BibleReader({
   const [isLibraryCollapsed, setIsLibraryCollapsed] = useState<boolean>(true);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [audioLoadingVerse, setAudioLoadingVerse] = useState<number | null>(null);
+  const [currentPlayingVerseIndex, setCurrentPlayingVerseIndex] = useState<number>(0);
+  const [autoAdvanceAudio, setAutoAdvanceAudio] = useState<boolean>(true);
+  const [audioStatusMessage, setAudioStatusMessage] = useState<string>('Ready to Play');
 
-  // Web Audio API refs for robust mobile WebView / Capacitor playback
+  // Audio refs for HTML5 Audio element and Web Audio API fallback
+  const htmlAudioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const currentObjectUrlRef = useRef<string | null>(null);
+  const isPlayingRef = useRef<boolean>(false);
+  const preloadedAudioRef = useRef<Map<number, { url: string; bytes: Uint8Array; mimeType?: string }>>(new Map());
+  const activeFetchPromiseRef = useRef<Map<number, Promise<{ url: string; bytes: Uint8Array; mimeType?: string } | null>>>(new Map());
 
   const getAudioContext = () => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
-        sampleRate: 24000
-      });
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          audioContextRef.current = new AudioCtx();
+        }
+      } catch (e) {
+        console.warn('AudioContext creation error:', e);
+      }
     }
     return audioContextRef.current;
   };
 
   const stopPlayback = () => {
+    isPlayingRef.current = false;
+
+    if (htmlAudioRef.current) {
+      try {
+        htmlAudioRef.current.onended = null;
+        htmlAudioRef.current.onerror = null;
+        htmlAudioRef.current.pause();
+        htmlAudioRef.current.currentTime = 0;
+        htmlAudioRef.current.removeAttribute('src');
+      } catch (e) {}
+    }
+
+    if (currentObjectUrlRef.current) {
+      try {
+        URL.revokeObjectURL(currentObjectUrlRef.current);
+      } catch (e) {}
+      currentObjectUrlRef.current = null;
+    }
+
     if (sourceNodeRef.current) {
       try {
+        sourceNodeRef.current.onended = null;
         sourceNodeRef.current.stop();
       } catch (e) {}
-      sourceNodeRef.current.disconnect();
+      try {
+        sourceNodeRef.current.disconnect();
+      } catch (e) {}
       sourceNodeRef.current = null;
     }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+
     setIsSpeaking(false);
     setAudioLoadingVerse(null);
+    setAudioStatusMessage('Ready to Play');
+  };
+
+  const playAudioWithWebAudio = async (bytes: Uint8Array, onEnded?: () => void): Promise<boolean> => {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return false;
+      if (ctx.state === 'suspended') {
+        try {
+          await ctx.resume();
+        } catch {}
+      }
+
+      const rawBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      let audioBuffer: AudioBuffer | null = null;
+      try {
+        // Slice copy so rawBuffer is never neutered/detached if decodeAudioData fails
+        audioBuffer = await ctx.decodeAudioData(rawBuffer.slice(0));
+      } catch (decodeErr) {
+        // Fallback for raw PCM data
+        try {
+          const int16Array = new Int16Array(rawBuffer);
+          const float32Array = new Float32Array(int16Array.length);
+          for (let i = 0; i < int16Array.length; i++) {
+            float32Array[i] = int16Array[i] / 32768.0;
+          }
+          audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
+          audioBuffer.getChannelData(0).set(float32Array);
+        } catch {}
+      }
+
+      if (!audioBuffer) return false;
+
+      if (sourceNodeRef.current) {
+        try {
+          sourceNodeRef.current.onended = null;
+          sourceNodeRef.current.stop();
+        } catch (e) {}
+        try {
+          sourceNodeRef.current.disconnect();
+        } catch (e) {}
+        sourceNodeRef.current = null;
+      }
+
+      const sourceNode = ctx.createBufferSource();
+      sourceNode.buffer = audioBuffer;
+      sourceNode.connect(ctx.destination);
+
+      sourceNode.onended = () => {
+        sourceNodeRef.current = null;
+        if (onEnded && isPlayingRef.current) onEnded();
+      };
+
+      sourceNodeRef.current = sourceNode;
+      sourceNode.start(0);
+      return true;
+    } catch (e) {
+      console.warn('WebAudio playback error:', e);
+      return false;
+    }
+  };
+
+  // Pre-load upcoming verses in background so transitions are gapless and immune to autoplay restrictions
+  const preloadVerseAudio = (verseIndex: number) => {
+    if (!chapterData?.verses || verseIndex < 0 || verseIndex >= chapterData.verses.length) return;
+    if (preloadedAudioRef.current.has(verseIndex)) return;
+    if (activeFetchPromiseRef.current.has(verseIndex)) return;
+
+    const targetVerse = chapterData.verses[verseIndex];
+    if (!targetVerse) return;
+
+    const passageText = `${selectedBook} chapter ${selectedChapter}, verse ${targetVerse.verse}: ${targetVerse.text}`;
+
+    const fetchPromise = (async () => {
+      try {
+        const ttsResult = await fetchBibleTtsAudio(passageText);
+        if (ttsResult && ttsResult.audio) {
+          const bytes = base64ToUint8Array(ttsResult.audio);
+          const playableBlob = createPlayableAudioBlob(bytes, ttsResult.mimeType);
+          const url = URL.createObjectURL(playableBlob);
+          const record = { url, bytes, mimeType: ttsResult.mimeType };
+          preloadedAudioRef.current.set(verseIndex, record);
+          return record;
+        }
+      } catch (e) {
+        console.warn(`Failed to preload audio for verse ${targetVerse.verse}:`, e);
+      } finally {
+        activeFetchPromiseRef.current.delete(verseIndex);
+      }
+      return null;
+    })();
+
+    activeFetchPromiseRef.current.set(verseIndex, fetchPromise);
+  };
+
+  const playVerseAtIndex = async (verseIndex: number, shouldAutoAdvance: boolean = true) => {
+    if (!chapterData || !chapterData.verses || chapterData.verses.length === 0) return;
+
+    const safeIndex = Math.max(0, Math.min(verseIndex, chapterData.verses.length - 1));
+    const targetVerse = chapterData.verses[safeIndex];
+    if (!targetVerse) return;
+
+    isPlayingRef.current = true;
+    setCurrentPlayingVerseIndex(safeIndex);
+    setIsSpeaking(true);
+
+    const isAlreadyPreloaded = preloadedAudioRef.current.has(safeIndex);
+    if (!isAlreadyPreloaded) {
+      setAudioLoadingVerse(targetVerse.verse);
+      setAudioStatusMessage(`Loading Verse ${targetVerse.verse} of ${chapterData.verses.length}...`);
+    } else {
+      setAudioLoadingVerse(null);
+      setAudioStatusMessage(`Reading Verse ${targetVerse.verse} of ${chapterData.verses.length}`);
+    }
+
+    const passageText = `${selectedBook} chapter ${selectedChapter}, verse ${targetVerse.verse}: ${targetVerse.text}`;
+
+    // Auto-scroll in "Read" mode to keep current verse visible without violent jumps
+    if (readerMode === 'read') {
+      setTimeout(() => {
+        const el = document.getElementById(`verse-${targetVerse.verse}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 50);
+    }
+
+    // Immediately trigger pre-loading for the NEXT verse so it's already in memory when this verse ends!
+    if (shouldAutoAdvance && autoAdvanceAudio && safeIndex + 1 < chapterData.verses.length) {
+      preloadVerseAudio(safeIndex + 1);
+    }
+
+    const handleNextVerse = () => {
+      if (!isPlayingRef.current) return;
+      if (shouldAutoAdvance && autoAdvanceAudio && safeIndex + 1 < chapterData.verses.length) {
+        playVerseAtIndex(safeIndex + 1, true);
+      } else {
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+        setAudioLoadingVerse(null);
+        setAudioStatusMessage(`Finished ${selectedBook} Chapter ${selectedChapter}`);
+      }
+    };
+
+    try {
+      // 1. Check preloaded cache first
+      let preloaded = preloadedAudioRef.current.get(safeIndex);
+
+      // 2. If in-flight, await the ongoing preload promise
+      if (!preloaded && activeFetchPromiseRef.current.has(safeIndex)) {
+        preloaded = (await activeFetchPromiseRef.current.get(safeIndex)) || undefined;
+      }
+
+      // 3. Fallback: fetch directly
+      if (!preloaded) {
+        const ttsResult = await fetchBibleTtsAudio(passageText);
+        if (ttsResult && ttsResult.audio) {
+          const bytes = base64ToUint8Array(ttsResult.audio);
+          const playableBlob = createPlayableAudioBlob(bytes, ttsResult.mimeType);
+          const url = URL.createObjectURL(playableBlob);
+          preloaded = { url, bytes, mimeType: ttsResult.mimeType };
+          preloadedAudioRef.current.set(safeIndex, preloaded);
+        }
+      }
+
+      if (!isPlayingRef.current) return;
+
+      if (preloaded && preloaded.url) {
+        setAudioLoadingVerse(null);
+        setAudioStatusMessage(`Reading Verse ${targetVerse.verse} of ${chapterData.verses.length}`);
+
+        const { url: audioUrl, bytes } = preloaded;
+
+        // Primary: HTML5 Audio
+        try {
+          const audioEl = htmlAudioRef.current;
+          if (audioEl) {
+            // Detach listeners before changing src to prevent spurious error callbacks
+            audioEl.onended = null;
+            audioEl.onerror = null;
+
+            const previousUrl = currentObjectUrlRef.current;
+            currentObjectUrlRef.current = audioUrl;
+            audioEl.src = audioUrl;
+            audioEl.volume = 1.0;
+
+            audioEl.onended = () => {
+              if (!isPlayingRef.current) return;
+              handleNextVerse();
+            };
+
+            audioEl.onerror = async (err) => {
+              console.warn('HTML5 audio error on verse', targetVerse.verse, err);
+              if (!isPlayingRef.current) return;
+              const played = await playAudioWithWebAudio(bytes, handleNextVerse);
+              if (!played && isPlayingRef.current) {
+                const spoke = playSpeechSynthesisFallback(passageText, handleNextVerse);
+                if (!spoke && isPlayingRef.current) {
+                  handleNextVerse();
+                }
+              }
+            };
+
+            const playPromise = audioEl.play();
+            if (playPromise !== undefined) {
+              await playPromise;
+            }
+
+            // Cleanup previous URL if it was different and not currently cached for preloading
+            if (previousUrl && previousUrl !== audioUrl) {
+              let isCached = false;
+              preloadedAudioRef.current.forEach(item => {
+                if (item.url === previousUrl) isCached = true;
+              });
+              if (!isCached) {
+                try {
+                  URL.revokeObjectURL(previousUrl);
+                } catch {}
+              }
+            }
+
+            return;
+          }
+        } catch (htmlAudioErr) {
+          console.warn('HTML5 audio play exception, falling back to WebAudio:', htmlAudioErr);
+        }
+
+        // Secondary fallback: Web Audio API
+        if (isPlayingRef.current) {
+          const webAudioSuccess = await playAudioWithWebAudio(bytes, handleNextVerse);
+          if (webAudioSuccess) return;
+        }
+      }
+    } catch (e) {
+      console.warn('TTS fetch/play error:', e);
+    }
+
+    if (!isPlayingRef.current) return;
+
+    // Tertiary Fallback: Native Device Speech Synthesis (ensures voice continues)
+    setAudioLoadingVerse(null);
+    setAudioStatusMessage(`Voice stream: Verse ${targetVerse.verse} of ${chapterData.verses.length}`);
+    const spoke = playSpeechSynthesisFallback(passageText, handleNextVerse, () => {
+      if (isPlayingRef.current) {
+        handleNextVerse();
+      }
+    });
+
+    if (!spoke && isPlayingRef.current) {
+      if (shouldAutoAdvance && autoAdvanceAudio && safeIndex + 1 < chapterData.verses.length) {
+        handleNextVerse();
+      } else {
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+        setAudioLoadingVerse(null);
+        setAudioStatusMessage('Audio playback complete');
+      }
+    }
   };
 
   const toggleSpeechPlayback = async () => {
+    // Synchronously unlock audio session in touch handler for mobile Chrome, Safari, and WebView
+    unlockAudioForMobile(htmlAudioRef.current, audioContextRef.current);
+
     if (isSpeaking) {
       stopPlayback();
       return;
@@ -170,127 +484,52 @@ export function BibleReader({
 
     if (!chapterData || !chapterData.verses.length) return;
 
-    try {
-      setIsSpeaking(true);
-      const fullText = chapterData.verses.map(v => `Verse ${v.verse}. ${v.text}`).join(" ");
-      
-      const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.();
-      const apiBase = isCapacitor ? "https://ais-dev-vn3pny53thrqzfihydxly3-473048529424.us-east1.run.app" : "";
-      
-      const res = await fetch(`${apiBase}/api/bible-study/audio`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: `Chapter ${selectedChapter}: ${fullText}` })
-      });
+    // Start playback from current index (or selected verse if clicked)
+    let startIndex = currentPlayingVerseIndex;
+    if (selectedVerse) {
+      const idx = chapterData.verses.findIndex(v => v.verse.toString() === selectedVerse);
+      if (idx !== -1) startIndex = idx;
+    }
 
-      if (!res.ok) throw new Error("TTS synthesis failed");
+    playVerseAtIndex(startIndex, true);
+  };
 
-      const data = await res.json();
-      const base64Audio = data.audio;
-      if (!base64Audio) throw new Error("No audio data received");
-
-      // Convert base64 to ArrayBuffer bytes
-      const binaryString = atob(base64Audio);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const ctx = getAudioContext();
-      if (ctx.state === 'suspended') {
-        await ctx.resume();
-      }
-
-      // Convert Int16 PCM bytes to Float32 for Web Audio API
-      const int16Array = new Int16Array(bytes.buffer);
-      const float32Array = new Float32Array(int16Array.length);
-      for (let i = 0; i < int16Array.length; i++) {
-        float32Array[i] = int16Array[i] / 32768.0;
-      }
-
-      const audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
-      audioBuffer.getChannelData(0).set(float32Array);
-
-      const sourceNode = ctx.createBufferSource();
-      sourceNode.buffer = audioBuffer;
-      sourceNode.connect(ctx.destination);
-      
-      sourceNode.onended = () => {
-        setIsSpeaking(false);
-        sourceNodeRef.current = null;
-      };
-
-      sourceNodeRef.current = sourceNode;
-      sourceNode.start(0);
-    } catch (e) {
-      console.error("Audio playback error:", e);
-      setIsSpeaking(false);
+  const playSingleVerse = async (verseNum: number, _verseText: string) => {
+    unlockAudioForMobile(htmlAudioRef.current, audioContextRef.current);
+    if (!chapterData || !chapterData.verses.length) return;
+    const verseIdx = chapterData.verses.findIndex(v => v.verse === verseNum);
+    if (verseIdx !== -1) {
+      playVerseAtIndex(verseIdx, autoAdvanceAudio);
     }
   };
 
-  const playSingleVerse = async (verseNum: number, verseText: string) => {
-    try {
-      if (isSpeaking) stopPlayback();
-      setAudioLoadingVerse(verseNum);
-      setIsSpeaking(true);
+  const skipNextVerse = () => {
+    unlockAudioForMobile(htmlAudioRef.current, audioContextRef.current);
+    if (!chapterData || !chapterData.verses.length) return;
+    if (currentPlayingVerseIndex + 1 < chapterData.verses.length) {
+      playVerseAtIndex(currentPlayingVerseIndex + 1, true);
+    }
+  };
 
-      const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.();
-      const apiBase = isCapacitor ? "https://ais-dev-vn3pny53thrqzfihydxly3-473048529424.us-east1.run.app" : "";
-
-      const res = await fetch(`${apiBase}/api/bible-study/audio`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: `${selectedBook} chapter ${selectedChapter} verse ${verseNum}: ${verseText}` })
-      });
-
-      if (!res.ok) throw new Error("TTS failed");
-      const data = await res.json();
-      const base64Audio = data.audio;
-      if (!base64Audio) throw new Error("No audio data");
-
-      const binaryString = atob(base64Audio);
-      const len = binaryString.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      const ctx = getAudioContext();
-      if (ctx.state === 'suspended') await ctx.resume();
-
-      const int16Array = new Int16Array(bytes.buffer);
-      const float32Array = new Float32Array(int16Array.length);
-      for (let i = 0; i < int16Array.length; i++) {
-        float32Array[i] = int16Array[i] / 32768.0;
-      }
-
-      const audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
-      audioBuffer.getChannelData(0).set(float32Array);
-
-      const sourceNode = ctx.createBufferSource();
-      sourceNode.buffer = audioBuffer;
-      sourceNode.connect(ctx.destination);
-      
-      sourceNode.onended = () => {
-        setIsSpeaking(false);
-        setAudioLoadingVerse(null);
-        sourceNodeRef.current = null;
-      };
-
-      sourceNodeRef.current = sourceNode;
-      setAudioLoadingVerse(null);
-      sourceNode.start(0);
-    } catch (e) {
-      console.error("Verse audio error:", e);
-      setIsSpeaking(false);
-      setAudioLoadingVerse(null);
+  const skipPrevVerse = () => {
+    unlockAudioForMobile(htmlAudioRef.current, audioContextRef.current);
+    if (!chapterData || !chapterData.verses.length) return;
+    if (currentPlayingVerseIndex > 0) {
+      playVerseAtIndex(currentPlayingVerseIndex - 1, true);
     }
   };
 
   useEffect(() => {
     return () => {
       stopPlayback();
+      // Revoke any preloaded blob URLs
+      preloadedAudioRef.current.forEach((item) => {
+        try {
+          URL.revokeObjectURL(item.url);
+        } catch {}
+      });
+      preloadedAudioRef.current.clear();
+      activeFetchPromiseRef.current.clear();
     };
   }, [selectedBook, selectedChapter]);
 
@@ -503,6 +742,9 @@ export function BibleReader({
 
   return (
     <div className="w-full space-y-4">
+      {/* Hidden audio element for mobile WebView / Safari audio unlock */}
+      <audio ref={htmlAudioRef} playsInline preload="auto" className="hidden" />
+
       {/* Immersive Dwell-Style [ Listen | Read ] Switcher Pill */}
       <div className="flex justify-center mb-2">
         <div className="inline-flex items-center bg-slate-900/90 backdrop-blur-xl p-1 rounded-full border border-white/10 shadow-2xl">
@@ -951,35 +1193,147 @@ export function BibleReader({
           </div>
         ) : chapterData?.verses && chapterData.verses.length > 0 ? (
           readerMode === 'listen' ? (
-            <div className="flex flex-col items-center justify-center py-12 px-4 bg-gradient-to-b from-slate-900/90 to-slate-950 rounded-3xl border border-white/10 shadow-2xl space-y-8 my-6">
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl blur opacity-30 group-hover:opacity-60 transition duration-1000"></div>
-                <div className="relative w-64 h-64 sm:w-72 sm:h-72 bg-slate-900 rounded-3xl border border-white/20 flex flex-col items-center justify-center p-6 text-center shadow-2xl">
-                  <span className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-2">Aura Audio</span>
-                  <h3 className="text-3xl sm:text-4xl font-serif font-bold text-white mb-1">{selectedBook}</h3>
-                  <p className="text-slate-400 text-sm">Chapter {selectedChapter} • KJV Stream</p>
-                  <div className="mt-6 flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${isSpeaking ? "bg-emerald-400 animate-ping" : "bg-blue-500"}`}></span>
-                    <span className="text-xs text-slate-300 font-medium">{isSpeaking ? "Streaming PCM..." : "Ready to Play"}</span>
+            <div className="flex flex-col items-center justify-center py-8 px-4 sm:px-8 bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-slate-950 rounded-3xl border border-white/10 shadow-2xl space-y-6 my-4 max-w-2xl mx-auto w-full">
+              {/* Album Art / Ambient Visualizer */}
+              <div className="relative group w-full max-w-sm">
+                <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 rounded-3xl blur-md opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+                <div className="relative w-full aspect-square bg-slate-900/95 rounded-3xl border border-white/15 flex flex-col items-center justify-center p-6 text-center shadow-2xl overflow-hidden backdrop-blur-xl">
+                  {/* Subtle animated background circles when playing */}
+                  {isSpeaking && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                      <div className="w-48 h-48 rounded-full border border-blue-400 animate-ping" />
+                    </div>
+                  )}
+
+                  <span className="text-[11px] uppercase tracking-widest text-blue-400 font-bold mb-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20">
+                    Aura Audio • Majestic Voice
+                  </span>
+                  <h3 className="text-3xl sm:text-4xl font-serif font-bold text-white mb-1 tracking-tight">
+                    {selectedBook}
+                  </h3>
+                  <p className="text-slate-400 text-sm font-medium">
+                    Chapter {selectedChapter} • King James Stream
+                  </p>
+
+                  {/* Equalizer / Status indicator */}
+                  <div className="mt-4 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/40 border border-white/10">
+                    {isSpeaking ? (
+                      <div className="flex items-end gap-1 h-3.5 px-0.5">
+                        <span className="w-1 bg-emerald-400 rounded-full animate-pulse h-3" />
+                        <span className="w-1 bg-emerald-400 rounded-full animate-pulse h-2" />
+                        <span className="w-1 bg-emerald-400 rounded-full animate-pulse h-3.5" />
+                        <span className="w-1 bg-emerald-400 rounded-full animate-pulse h-2.5" />
+                      </div>
+                    ) : (
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    )}
+                    <span className="text-xs text-slate-300 font-medium">
+                      {audioStatusMessage}
+                    </span>
                   </div>
+
+                  {/* Currently Reading Verse Display */}
+                  {chapterData.verses[currentPlayingVerseIndex] && (
+                    <div className="mt-4 px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-white/10 max-h-24 overflow-y-auto w-full text-center scrollbar-none">
+                      <span className="text-[11px] font-bold text-blue-300 block mb-0.5">
+                        Verse {chapterData.verses[currentPlayingVerseIndex].verse}
+                      </span>
+                      <p className="text-xs text-slate-300 line-clamp-3 italic font-serif leading-relaxed">
+                        "{chapterData.verses[currentPlayingVerseIndex].text}"
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-6">
+              {/* Media Controls */}
+              <div className="flex items-center justify-center gap-6 w-full pt-1">
+                <button
+                  onClick={skipPrevVerse}
+                  disabled={currentPlayingVerseIndex <= 0}
+                  title="Previous Verse"
+                  className="w-12 h-12 rounded-full bg-slate-800/90 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all border border-white/10 shadow-lg active:scale-95"
+                >
+                  <SkipBack className="w-5 h-5 text-slate-200" />
+                </button>
+
                 <button
                   onClick={toggleSpeechPlayback}
-                  className="w-20 h-20 rounded-full bg-white text-slate-950 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                  title={isSpeaking ? "Pause Playback" : "Start Listening"}
+                  className="w-20 h-20 rounded-full bg-white hover:bg-slate-100 text-slate-950 flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/50"
                 >
-                  {isSpeaking ? (
-                    <div className="w-6 h-6 bg-slate-950 rounded-sm" />
+                  {audioLoadingVerse !== null ? (
+                    <Loader2 className="w-8 h-8 animate-spin text-slate-950" />
+                  ) : isSpeaking ? (
+                    <Pause className="w-8 h-8 fill-current text-slate-950" />
                   ) : (
-                    <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-slate-950 border-b-[12px] border-b-transparent ml-1" />
+                    <Play className="w-8 h-8 fill-current text-slate-950 ml-1" />
                   )}
+                </button>
+
+                <button
+                  onClick={skipNextVerse}
+                  disabled={currentPlayingVerseIndex >= chapterData.verses.length - 1}
+                  title="Next Verse"
+                  className="w-12 h-12 rounded-full bg-slate-800/90 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition-all border border-white/10 shadow-lg active:scale-95"
+                >
+                  <SkipForward className="w-5 h-5 text-slate-200" />
                 </button>
               </div>
 
-              <p className="text-xs text-slate-400 text-center max-w-xs">
-                Tap play to stream {selectedBook} Chapter {selectedChapter} via Gemini Web Audio API.
+              {/* Progress & Chapter Verse Navigation */}
+              <div className="w-full max-w-sm flex items-center justify-between text-xs text-slate-400 px-2">
+                <span>Verse {currentPlayingVerseIndex + 1} of {chapterData.verses.length}</span>
+                <label className="flex items-center gap-2 cursor-pointer select-none text-slate-300 hover:text-white">
+                  <input
+                    type="checkbox"
+                    checked={autoAdvanceAudio}
+                    onChange={(e) => setAutoAdvanceAudio(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-800 cursor-pointer"
+                  />
+                  <span>Auto-advance verses</span>
+                </label>
+              </div>
+
+              {/* Quick Verse Jump Pills in Listen Mode */}
+              <div className="w-full max-w-md pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    Jump to Verse
+                  </span>
+                  <span className="text-[11px] text-blue-400 font-mono">
+                    {selectedBook} {selectedChapter}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 scrollbar-thin">
+                  {chapterData.verses.map((v, idx) => {
+                    const isCurrent = currentPlayingVerseIndex === idx;
+                    const isPlaying = isCurrent && isSpeaking;
+                    return (
+                      <button
+                        key={v.verse}
+                        onClick={() => {
+                          unlockAudioForMobile(htmlAudioRef.current, audioContextRef.current);
+                          stopPlayback();
+                          playVerseAtIndex(idx, true);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
+                          isPlaying
+                            ? 'bg-emerald-500 text-slate-950 font-bold shadow-md scale-105 ring-2 ring-emerald-400'
+                            : isCurrent
+                            ? 'bg-blue-600 text-white font-bold'
+                            : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white border border-white/5'
+                        }`}
+                      >
+                        {v.verse}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-400 text-center max-w-xs leading-relaxed">
+                Optimized for mobile web & Android app background streaming with zero lag.
               </p>
             </div>
           ) : (
@@ -990,15 +1344,18 @@ export function BibleReader({
               const isBookmarked = bookmarks.includes(`${selectedBook} ${selectedChapter}:${item.verse}`);
               const isCopied = copiedVerseNum === item.verse;
               const isLoadingAudio = audioLoadingVerse === item.verse;
+              const isCurrentPlayingAudio = isSpeaking && currentPlayingVerseIndex === item.verse - 1;
 
               return (
                 <div
                   key={item.verse}
                   id={`verse-${item.verse}`}
-                  className={`group relative rounded-xl p-3 sm:p-4 transition-all duration-200 ${
-                    isSelected
-                      ? 'bg-blue-600/20 border border-blue-400/60 shadow-lg ring-1 ring-blue-500/30'
-                      : 'hover:bg-white/[0.04] border border-transparent'
+                  className={`group relative rounded-xl p-3 sm:p-4 transition-all duration-300 ${
+                    isCurrentPlayingAudio
+                      ? 'bg-blue-600/25 border border-blue-400/80 shadow-xl ring-2 ring-blue-500/40'
+                      : isSelected
+                        ? 'bg-blue-600/20 border border-blue-400/60 shadow-lg ring-1 ring-blue-500/30'
+                        : 'hover:bg-white/[0.04] border border-transparent'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -1008,9 +1365,11 @@ export function BibleReader({
                         setActiveVerseAction(isActionOpen ? null : item.verse);
                       }}
                       className={`text-xs font-sans font-extrabold px-2 py-1 rounded-lg transition-all flex-shrink-0 mt-0.5 ${
-                        isSelected
-                          ? 'bg-blue-500 text-white shadow-md'
-                          : 'bg-black/40 text-blue-400/80 group-hover:bg-blue-500/20 group-hover:text-blue-300'
+                        isCurrentPlayingAudio
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg animate-pulse ring-2 ring-blue-300/40'
+                          : isSelected
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'bg-black/40 text-blue-400/80 group-hover:bg-blue-500/20 group-hover:text-blue-300'
                       }`}
                     >
                       {item.verse}
@@ -1037,12 +1396,26 @@ export function BibleReader({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => playSingleVerse(item.verse, item.text)}
-                          title="Listen with Gemini Audio Stream"
-                          className="px-2.5 py-1.5 rounded-lg bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white border border-blue-500/30 transition-all flex items-center gap-1"
+                          onClick={() => {
+                            if (isCurrentPlayingAudio) {
+                              stopPlayback();
+                            } else {
+                              playSingleVerse(item.verse, item.text);
+                            }
+                          }}
+                          title={isCurrentPlayingAudio ? "Pause Audio" : "Listen with Audio Stream"}
+                          className={`px-2.5 py-1.5 rounded-lg border transition-all flex items-center gap-1 ${
+                            isCurrentPlayingAudio
+                              ? 'bg-blue-600 text-white border-blue-400 shadow-md animate-pulse'
+                              : 'bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white border-blue-500/30'
+                          }`}
                         >
-                          <Volume2 className={`w-3.5 h-3.5 ${isLoadingAudio ? 'animate-bounce' : ''}`} />
-                          <span className="hidden sm:inline">Listen</span>
+                          {isCurrentPlayingAudio ? (
+                            <Pause className="w-3.5 h-3.5" />
+                          ) : (
+                            <Volume2 className={`w-3.5 h-3.5 ${isLoadingAudio ? 'animate-bounce' : ''}`} />
+                          )}
+                          <span className="hidden sm:inline">{isCurrentPlayingAudio ? 'Playing' : 'Listen'}</span>
                         </button>
 
                         <button

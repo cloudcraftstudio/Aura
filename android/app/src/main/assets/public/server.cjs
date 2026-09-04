@@ -2356,6 +2356,139 @@ var SermonIndexService = class {
 };
 var sermonIndexService = new SermonIndexService();
 
+// server/audioService.ts
+var import_node_buffer = require("node:buffer");
+var audioCache = /* @__PURE__ */ new Map();
+var MAX_CACHE_SIZE = 500;
+function pcmToWavBuffer(pcmBuffer, sampleRate = 24e3, numChannels = 1, bitsPerSample = 16) {
+  const header = import_node_buffer.Buffer.alloc(44);
+  const dataSize = pcmBuffer.length;
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(dataSize, 40);
+  return import_node_buffer.Buffer.concat([header, pcmBuffer]);
+}
+function chunkTextForTts(text, maxChunkLen = 180) {
+  const words = text.split(/\s+/);
+  const chunks = [];
+  let current = "";
+  for (const word of words) {
+    if (!word) continue;
+    if ((current + " " + word).trim().length > maxChunkLen) {
+      if (current.trim()) chunks.push(current.trim());
+      current = word;
+    } else {
+      current = (current + " " + word).trim();
+    }
+  }
+  if (current.trim()) {
+    chunks.push(current.trim());
+  }
+  return chunks;
+}
+async function fetchGoogleVoiceStream(text) {
+  const chunks = chunkTextForTts(text, 180);
+  const buffers = [];
+  for (const chunk of chunks) {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=en-US&client=tw-ob`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+      }
+    });
+    if (!res.ok) {
+      throw new Error(`Google Voice Stream responded with status ${res.status}`);
+    }
+    const arrayBuf = await res.arrayBuffer();
+    buffers.push(import_node_buffer.Buffer.from(arrayBuf));
+  }
+  return import_node_buffer.Buffer.concat(buffers);
+}
+async function synthesizeBibleAudio(rawText) {
+  const cleanText = rawText.replace(/###|##|\*|_|\[Suggested Questions\][\s\S]*$/g, "").replace(/Verse \d+\.\s*/gi, "").replace(/\s+/g, " ").trim();
+  if (!cleanText) {
+    throw new Error("Text is required for audio synthesis");
+  }
+  const cacheKey = cleanText.slice(0, 300);
+  const cached = audioCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const { GoogleGenAI: GoogleGenAI2 } = await import("@google/genai");
+      const ai = new GoogleGenAI2({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      });
+      const prompt = `Read the following biblical text with a noble, reverent, and crystal-clear voice: ${cleanText.slice(0, 1200)}`;
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: "Zephyr" }
+            }
+          }
+        }
+      });
+      const pcmBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (pcmBase64) {
+        const pcmBuffer = import_node_buffer.Buffer.from(pcmBase64, "base64");
+        const wavBuffer = pcmToWavBuffer(pcmBuffer, 24e3);
+        const result = {
+          audio: wavBuffer.toString("base64"),
+          format: "audio/wav",
+          mimeType: "audio/wav",
+          sampleRate: 24e3,
+          source: "gemini-tts"
+        };
+        if (audioCache.size >= MAX_CACHE_SIZE) {
+          const firstKey = audioCache.keys().next().value;
+          if (firstKey) audioCache.delete(firstKey);
+        }
+        audioCache.set(cacheKey, result);
+        return result;
+      }
+    } catch (geminiErr) {
+      console.warn("Gemini TTS preview quota/busy, activating high-fidelity voice stream fallback:", geminiErr?.message || geminiErr);
+    }
+  }
+  try {
+    const mp3Buffer = await fetchGoogleVoiceStream(cleanText);
+    const result = {
+      audio: mp3Buffer.toString("base64"),
+      format: "audio/mpeg",
+      mimeType: "audio/mpeg",
+      sampleRate: 24e3,
+      source: "high-def-voice-stream"
+    };
+    if (audioCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = audioCache.keys().next().value;
+      if (firstKey) audioCache.delete(firstKey);
+    }
+    audioCache.set(cacheKey, result);
+    return result;
+  } catch (streamErr) {
+    console.error("All TTS streams failed:", streamErr);
+    throw new Error("Unable to synthesize audio. Please check network connection.");
+  }
+}
+
 // routes/bible.ts
 var router = (0, import_express.Router)();
 var kjvLoader2 = new kjv_loader_default();
@@ -2581,31 +2714,15 @@ God's holy Word speaks with living power to this inquiry. In 2 Timothy 3:16-17, 
       if (!text || !text.trim()) {
         return res.status(400).json({ error: "Text is required for audio synthesis" });
       }
-      const { GoogleGenAI: GoogleGenAI2 } = await import("@google/genai");
-      const ai = new GoogleGenAI2({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      const result = await synthesizeBibleAudio(text);
+      res.json({
+        audio: result.audio,
+        audioData: result.audio,
+        format: result.format,
+        mimeType: result.mimeType,
+        sampleRate: result.sampleRate,
+        source: result.source
       });
-      const cleanText = text.replace(/###|##|\*|_|\[Suggested Questions\][\s\S]*$/g, "").slice(0, 1200);
-      const prompt = `Read the following biblical insight with a warm, dignified, and majestic scholarly voice, as King James: ${cleanText}`;
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: "Zephyr" }
-            }
-          }
-        }
-      });
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        res.json({ audioData: base64Audio });
-      } else {
-        res.status(500).json({ error: "No audio generated" });
-      }
     } catch (err) {
       console.error("Bible audio synthesis error:", err);
       res.status(500).json({ error: err.message || "Error generating audio" });
@@ -3815,35 +3932,18 @@ async function startServer() {
   app.post("/api/bible-study/audio", async (req, res) => {
     try {
       const { text } = req.body;
-      const { GoogleGenAI: GoogleGenAI2 } = await import("@google/genai");
-      const ai = new GoogleGenAI2({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: "Text is required for audio synthesis" });
+      }
+      const result = await synthesizeBibleAudio(text);
+      res.json({
+        audio: result.audio,
+        audioData: result.audio,
+        format: result.format,
+        mimeType: result.mimeType,
+        sampleRate: result.sampleRate,
+        source: result.source
       });
-      const prompt = `Read the following Bible passage with a wise, majestic, and authoritative voice, like King James himself: ${text}`;
-      let base64Audio = null;
-      try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-tts-preview",
-          contents: [{ parts: [{ text: prompt }] }],
-          config: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: "Zephyr" }
-              }
-            }
-          }
-        });
-        base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      } catch (innerErr) {
-        console.warn("Primary TTS preview model busy, attempting fallback:", innerErr);
-      }
-      if (base64Audio) {
-        res.json({ audioData: base64Audio });
-      } else {
-        res.status(503).json({ error: "Audio generation service temporarily busy. Please try again in a moment." });
-      }
     } catch (err) {
       console.error("TTS error:", err);
       res.status(500).json({ error: err.message || "Error generating audio" });

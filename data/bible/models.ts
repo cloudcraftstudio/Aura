@@ -256,13 +256,14 @@ export class BibleStudyDB {
     const mediaUrl = updates.mediaUrl !== undefined ? updates.mediaUrl : existing.mediaUrl;
     const duration = updates.duration !== undefined ? updates.duration : existing.duration;
     const dateRecorded = updates.dateRecorded !== undefined ? updates.dateRecorded : existing.dateRecorded;
+    const thumbnailUrl = updates.thumbnailUrl !== undefined ? updates.thumbnailUrl : existing.thumbnailUrl;
     const courseLessonId = updates.courseLessonId !== undefined ? updates.courseLessonId : existing.courseLessonId;
     const now = new Date().toISOString();
 
     const stmt = this.db.prepare(
-      'UPDATE sermons_podcasts SET title = ?, speaker = ?, series = ?, scriptureRef = ?, description = ?, mediaType = ?, mediaUrl = ?, duration = ?, dateRecorded = ?, courseLessonId = ?, updatedAt = ? WHERE id = ?'
+      'UPDATE sermons_podcasts SET title = ?, speaker = ?, series = ?, scriptureRef = ?, description = ?, mediaType = ?, mediaUrl = ?, duration = ?, dateRecorded = ?, thumbnailUrl = ?, courseLessonId = ?, updatedAt = ? WHERE id = ?'
     );
-    stmt.run(title, speaker || null, series || null, scriptureRef || null, description || null, mediaType || null, mediaUrl || null, duration || null, dateRecorded || null, courseLessonId || null, now, id);
+    stmt.run(title, speaker || null, series || null, scriptureRef || null, description || null, mediaType || null, mediaUrl || null, duration || null, dateRecorded || null, thumbnailUrl || null, courseLessonId || null, now, id);
 
     return this.getSermonById(id);
   }

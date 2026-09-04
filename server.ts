@@ -8,8 +8,10 @@ import { BibleStudyDB } from './data/bible/models';
 import { initializeBibleDB } from './data/bible/init';
 import { createAuthRoutes } from './routes/auth';
 import { AuthService } from './services/authService';
+import { createRecoveryRoutes } from './routes/recovery';
 import Database from 'better-sqlite3';
 import fs from 'fs';
+import { synthesizeBibleAudio } from './server/audioService';
 
 async function startServer() {
   const app = express();
@@ -292,6 +294,29 @@ async function startServer() {
       storyReply,
       callLog,
     });
+
+    // Notify recipients via push so they receive messages even outside the app
+    try {
+      const convs = db.getConversations();
+      const currentConv = convs.find((c) => c.id === conversationId);
+      if (currentConv && Array.isArray(currentConv.participantIds)) {
+        for (const pId of currentConv.participantIds) {
+          if (pId !== senderId) {
+            sendPushToUser(pId, {
+              type: 'chat',
+              title: senderName || 'Aura Message',
+              body: content ? (content.length > 80 ? content.slice(0, 77) + '...' : content) : (mediaType === 'audio' ? '🎤 Voice message' : '📷 Image'),
+              icon: senderAvatar || '/icons/icon-192.svg',
+              actionId: conversationId,
+              url: `/?tab=chat&conversationId=${encodeURIComponent(conversationId)}`
+            });
+          }
+        }
+      }
+    } catch (pushErr) {
+      console.warn('Message push delivery note:', pushErr);
+    }
+
     res.status(201).json(message);
   });
 
@@ -359,6 +384,9 @@ async function startServer() {
   const sendPushToUser = async (userId: string, payload: any) => {
     try {
       const subs = authDb.prepare("SELECT * FROM push_subscriptions WHERE user_id = ?").all(userId) as any[];
+      if (!subs || subs.length === 0) {
+        return;
+      }
       for (const sub of subs) {
         const pushSubscription = {
           endpoint: sub.endpoint,
@@ -381,6 +409,31 @@ async function startServer() {
     }
   };
 
+  // Test push call endpoint for user verification
+  app.post('/api/push/test-call', (req, res) => {
+    const { userId, isVideo } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    // Send push notification after 3.5 seconds so user has time to switch apps or lock screen
+    setTimeout(() => {
+      const testRoomId = 'room_test_' + Date.now();
+      sendPushToUser(userId, {
+        type: 'CALL_INCOMING',
+        action: 'incoming_call',
+        title: `📞 Incoming ${isVideo ? 'Video' : 'Audio'} Call (Test Ring)`,
+        body: 'Aura Call Test is ringing your device. Tap to answer!',
+        callerId: 'system_tester',
+        callerName: 'Aura Calling Test',
+        callerAvatar: '/icons/icon-192.svg',
+        roomId: testRoomId,
+        isVideo: isVideo !== false,
+        url: `/?action=incoming_call&roomId=${encodeURIComponent(testRoomId)}&callerId=system_tester&isVideo=${isVideo !== false}`
+      });
+    }, 3500);
+
+    res.json({ success: true, message: 'Test call will ring device in 3.5 seconds' });
+  });
+
   // --- Calls & WebRTC Signaling API ---
   app.post('/api/calls', (req, res) => {
     const { callerId, callerName, callerAvatar, receiverId, receiverName, receiverAvatar, isVideo, roomId } = req.body;
@@ -398,6 +451,21 @@ async function startServer() {
       roomId,
       status: 'calling',
     });
+
+    // IMMEDIATELY SEND REAL HIGH-PRIORITY PUSH TO RECEIVER'S DEVICE
+    sendPushToUser(receiverId, {
+      type: 'CALL_INCOMING',
+      action: 'incoming_call',
+      title: `📞 Incoming ${isVideo !== false ? 'Video' : 'Audio'} Call`,
+      body: `${callerName || 'Someone'} is calling you on Aura...`,
+      callerId,
+      callerName,
+      callerAvatar,
+      roomId,
+      isVideo: isVideo !== false,
+      url: `/?action=incoming_call&roomId=${encodeURIComponent(roomId)}&callerId=${encodeURIComponent(callerId)}&isVideo=${isVideo !== false}`
+    });
+
     res.status(201).json(session);
   });
 
@@ -422,6 +490,26 @@ async function startServer() {
 
     // If call completed, declined or missed, optionally log in direct conversation
     if (status === 'ended' || status === 'declined') {
+      const isMissed = !session.startedAt || session.status === 'calling';
+      // Notify receiver to close incoming ringing push notification
+      sendPushToUser(session.receiverId, {
+        type: 'CALL_CANCELLED',
+        action: 'call_cancelled',
+        roomId: req.params.roomId,
+        callerName: session.callerName,
+        callerAvatar: session.callerAvatar,
+        isMissed: isMissed && status !== 'declined',
+      });
+
+      // If receiver declined, notify caller
+      if (status === 'declined') {
+        sendPushToUser(session.callerId, {
+          type: 'CALL_DECLINED',
+          action: 'call_declined',
+          roomId: req.params.roomId,
+          receiverName: session.receiverName,
+        });
+      }
       try {
         const convs = db.getConversations();
         const directConv = convs.find(
@@ -583,38 +671,19 @@ async function startServer() {
   app.post('/api/bible-study/audio', async (req, res) => {
     try {
       const { text } = req.body;
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      if (!text || !text.trim()) {
+        return res.status(400).json({ error: 'Text is required for audio synthesis' });
+      }
+
+      const result = await synthesizeBibleAudio(text);
+      res.json({
+        audio: result.audio,
+        audioData: result.audio,
+        format: result.format,
+        mimeType: result.mimeType,
+        sampleRate: result.sampleRate,
+        source: result.source
       });
-
-      const prompt = `Read the following Bible passage with a wise, majestic, and authoritative voice, like King James himself: ${text}`;
-
-      let base64Audio = null;
-      try {
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-tts-preview",
-          contents: [{ parts: [{ text: prompt }] }],
-          config: {
-            responseModalities: ["AUDIO"],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: 'Zephyr' },
-              },
-            },
-          },
-        });
-        base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      } catch (innerErr) {
-        console.warn("Primary TTS preview model busy, attempting fallback:", innerErr);
-      }
-
-      if (base64Audio) {
-        res.json({ audioData: base64Audio });
-      } else {
-        res.status(503).json({ error: 'Audio generation service temporarily busy. Please try again in a moment.' });
-      }
     } catch (err: any) {
       console.error('TTS error:', err);
       res.status(500).json({ error: err.message || 'Error generating audio' });
@@ -694,6 +763,14 @@ async function startServer() {
     app.use('/api/auth', authRoutes);
   } catch (err) {
     console.error('Failed to initialize Auth DB:', err);
+  }
+
+  // --- PATH TO FREEDOM (CHRIST-CENTERED RECOVERY) ROUTES ---
+  try {
+    const recoveryRoutes = createRecoveryRoutes();
+    app.use('/api/recovery', recoveryRoutes);
+  } catch (err) {
+    console.error('Failed to initialize Recovery routes:', err);
   }
 
   // --- VITE MIDDLEWARE SETUP ---

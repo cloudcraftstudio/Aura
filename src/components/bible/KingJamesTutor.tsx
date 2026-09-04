@@ -17,6 +17,7 @@ import {
   GraduationCap,
   ChevronRight
 } from 'lucide-react';
+import { createPlayableAudioBlob, base64ToUint8Array, fetchBibleTtsAudio, unlockAudioForMobile } from '../../utils/audioUtils';
 
 export interface ChatMessage {
   id: string;
@@ -261,22 +262,12 @@ export function KingJamesTutor({
 
     setAudioLoadingId(msg.id);
     try {
-      const res = await fetch('/api/bible/audio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: msg.content }),
-      });
+      unlockAudioForMobile(audioPlayer, null);
+      const ttsResult = await fetchBibleTtsAudio(msg.content);
 
-      if (!res.ok) {
-        throw new Error('TTS synthesis failed');
-      }
-
-      const data = await res.json();
-      if (data.audioData) {
-        const audioBlob = new Blob(
-          [Uint8Array.from(atob(data.audioData), c => c.charCodeAt(0))],
-          { type: 'audio/wav' }
-        );
+      if (ttsResult && ttsResult.audio) {
+        const bytes = base64ToUint8Array(ttsResult.audio);
+        const audioBlob = createPlayableAudioBlob(bytes, ttsResult.mimeType);
         const audioUrl = URL.createObjectURL(audioBlob);
         const player = new Audio(audioUrl);
         setAudioPlayer(player);
@@ -284,9 +275,11 @@ export function KingJamesTutor({
 
         player.onended = () => {
           setPlayingAudioId(null);
+          URL.revokeObjectURL(audioUrl);
         };
         player.onerror = () => {
           setPlayingAudioId(null);
+          URL.revokeObjectURL(audioUrl);
         };
         await player.play();
       }

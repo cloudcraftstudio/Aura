@@ -39,6 +39,7 @@ import { RichTextRenderer } from '../common/RichTextRenderer';
 import { notificationService } from '../../services/notifications';
 import { ALL_CHRISTIAN_PRESET_IMAGES } from '../../data/presetImages';
 import { UnsplashSearch } from '../common/UnsplashSearch';
+import { UniversalUnsplashModal } from '../common/UniversalUnsplashModal';
 
 interface CreatePostModalProps {
   onClose: () => void;
@@ -220,6 +221,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const [isCapturingCamera, setIsCapturingCamera] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUnsplashOpen, setIsUnsplashOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
@@ -786,6 +788,20 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
                 <button
                   type="button"
+                  id="browse-unsplash-btn"
+                  onClick={() => {
+                    soundEffects.playTap();
+                    setIsUnsplashOpen(true);
+                  }}
+                  className="px-2.5 sm:px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/40 hover:to-indigo-600/40 border border-blue-400/40 text-xs text-blue-200 hover:text-white flex items-center gap-1.5 transition-all shadow-sm"
+                  title="Choose from Unsplash"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span className="hidden xs:inline sm:inline text-xs">Unsplash</span>
+                </button>
+
+                <button
+                  type="button"
                   id="browse-videos-btn"
                   onClick={() => videoInputRef.current?.click()}
                   className="px-2.5 sm:px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-slate-200 hover:text-white flex items-center gap-1.5 transition-all"
@@ -1048,6 +1064,18 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Universal Unsplash Picker Modal */}
+        <UniversalUnsplashModal
+          isOpen={isUnsplashOpen}
+          onClose={() => setIsUnsplashOpen(false)}
+          onSelect={(url) => {
+            soundEffects.playTap();
+            setMediaUrls((prev) => [...prev, url]);
+          }}
+          title="Select Post Media from Unsplash"
+          initialQuery="bible christian worship nature church"
+        />
       </div>
     </div>,
     document.body

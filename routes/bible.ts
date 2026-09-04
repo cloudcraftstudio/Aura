@@ -11,6 +11,7 @@ import path from 'path';
 import fs from 'fs';
 import { SERMONAUDIO_FEED, SERMONAUDIO_SPEAKERS } from '../src/data/sermonaudioData';
 import { sermonIndexService, SERMONINDEX_SPEAKERS_CATALOG, SERMONINDEX_TOPICS_CATALOG } from '../services/sermonIndexService';
+import { synthesizeBibleAudio } from '../server/audioService';
 
 const router = Router();
 const kjvLoader = new KJVLoader();
@@ -271,37 +272,30 @@ export function createBibleRoutes(db: BibleStudyDB): Router {
         return res.status(400).json({ error: 'Text is required for audio synthesis' });
       }
 
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+      const result = await synthesizeBibleAudio(text);
+      res.json({
+        audio: result.audio,
+        audioData: result.audio,
+        format: result.format,
+        mimeType: result.mimeType,
+        sampleRate: result.sampleRate,
+        source: result.source
       });
-
-      const cleanText = text.replace(/###|##|\*|_|\[Suggested Questions\][\s\S]*$/g, '').slice(0, 1200);
-      const prompt = `Read the following biblical insight with a warm, dignified, and majestic scholarly voice, as King James: ${cleanText}`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-tts-preview',
-        contents: [{ parts: [{ text: prompt }] }],
-        config: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Zephyr' },
-            },
-          },
-        },
-      });
-
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-      if (base64Audio) {
-        res.json({ audioData: base64Audio });
-      } else {
-        res.status(500).json({ error: 'No audio generated' });
-      }
     } catch (err: any) {
       console.error('Bible audio synthesis error:', err);
       res.status(500).json({ error: err.message || 'Error generating audio' });
+    }
+  });
+
+  // POST /api/bible/upload - Generic file/image upload for course covers, sermon thumbnails, etc.
+  router.post('/upload', upload.single('file'), (req: Request, res: Response) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      const url = `/uploads/sermons/${req.file.filename}`;
+      res.json({ url, filename: req.file.filename, size: req.file.size });
+    } catch (err) {
+      console.error('File upload error:', err);
+      res.status(500).json({ error: 'Failed to upload file' });
     }
   });
 
@@ -328,7 +322,7 @@ export function createBibleRoutes(db: BibleStudyDB): Router {
         thumbnailUrl || undefined
       );
 
-      res.status(201).json({ sermon, mediaUrl });
+      res.status(201).json({ sermon, mediaUrl, url: mediaUrl });
     } catch (error) {
       console.error('Failed to upload media:', error);
       res.status(500).json({ error: 'Failed to upload media' });
@@ -357,7 +351,7 @@ export function createBibleRoutes(db: BibleStudyDB): Router {
 
   // POST /api/bible/sermons - Create sermon metadata record
   router.post('/sermons', (req: Request, res: Response) => {
-    const { title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded } = req.body;
+    const { title, speaker, series, scriptureRef, description, mediaType, mediaUrl, duration, dateRecorded, thumbnailUrl } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
 
     try {
@@ -370,7 +364,8 @@ export function createBibleRoutes(db: BibleStudyDB): Router {
         mediaType || 'video',
         mediaUrl || '',
         duration,
-        dateRecorded || new Date().toISOString().split('T')[0]
+        dateRecorded || new Date().toISOString().split('T')[0],
+        thumbnailUrl || undefined
       );
       res.status(201).json(sermon);
     } catch (error) {

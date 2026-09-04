@@ -1,6 +1,6 @@
 {
   "name": "Aura Social & WebRTC Chat",
-  "description": "Real-time chat, WebRTC video calling, social photo feed, matrix splash entry, daily motivational inspiration, and PWA support with frosted glass UI.",
+  "description": "Real-time Christian community, WebRTC calling, King James Bible study, and 'Path to Freedom' Christ-centered habit recovery with live scheduled meeting rooms, multi-peer video fellowship, audio teachings, and 10 biblical recovery principles.",
   "requestFramePermissions": [
     "camera",
     "microphone"

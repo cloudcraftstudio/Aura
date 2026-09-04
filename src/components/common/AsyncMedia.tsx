@@ -56,6 +56,7 @@ export const AsyncMedia: React.FC<AsyncMediaProps> = ({ src, mediaType, classNam
         controls={controls}
         playsInline={playsInline}
         autoPlay={autoPlay}
+        preload="metadata"
       />
     );
   }
